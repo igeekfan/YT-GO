@@ -47,6 +47,9 @@
     'action.cancel': 'Cancel',
     'action.open': 'Open File',
     'action.openFolder': 'Open Folder',
+    'action.logs': 'Logs',
+    'action.showLogs': 'Show Logs',
+    'action.hideLogs': 'Hide Logs',
 
     'toast.getInfoFail': 'Failed to get video info',
     'toast.downloadStartFail': 'Failed to start download',

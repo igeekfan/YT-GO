@@ -1,6 +1,8 @@
-﻿import {DownloadTask} from '../types'
+﻿import {useState, useEffect, useRef} from 'react'
+import {DownloadTask} from '../types'
 import {useI18n} from '../i18n/context'
 import {OpenFile, OpenFolder, CancelDownload} from '../../wailsjs/go/main/App'
+import {EventsOn} from '../../wailsjs/runtime/runtime'
 
 interface Props {
     task: DownloadTask
@@ -26,6 +28,28 @@ const STATUS_COLORS: Record<string, string> = {
 
 function DownloadItem({task, onCancelled}: Props) {
     const {t} = useI18n()
+    const [showLogs, setShowLogs] = useState(false)
+    const [logs, setLogs] = useState<string[]>([])
+    const logEndRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const off = EventsOn('download:log', (data: {taskId: string; line: string}) => {
+            if (data.taskId === task.id) {
+                setLogs(prev => {
+                    const next = [...prev, data.line]
+                    // Keep last 200 lines to avoid memory issues
+                    return next.length > 200 ? next.slice(-200) : next
+                })
+            }
+        })
+        return () => { if (typeof off === 'function') off() }
+    }, [task.id])
+
+    useEffect(() => {
+        if (showLogs && logEndRef.current) {
+            logEndRef.current.scrollIntoView({behavior: 'smooth'})
+        }
+    }, [logs, showLogs])
 
     const handleCancel = async () => {
         try {
@@ -100,6 +124,15 @@ function DownloadItem({task, onCancelled}: Props) {
             </div>
             <div className="download-actions">
                 <span className={`status-badge ${statusColor}`}>{statusLabel}</span>
+                {(task.status === 'downloading' || logs.length > 0) && (
+                    <button
+                        className="btn-ghost btn-sm"
+                        onClick={() => setShowLogs(!showLogs)}
+                        title={showLogs ? t('action.hideLogs') : t('action.showLogs')}
+                    >
+                        {showLogs ? '▼' : '▶'} {t('action.logs')}
+                    </button>
+                )}
                 {task.status === 'downloading' || task.status === 'pending' ? (
                     <button className="btn-ghost btn-sm" onClick={handleCancel}>
                         {t('action.cancel')}
@@ -116,6 +149,16 @@ function DownloadItem({task, onCancelled}: Props) {
                     </>
                 )}
             </div>
+            {showLogs && logs.length > 0 && (
+                <div className="download-logs">
+                    <pre className="download-logs-content">
+                        {logs.map((line, i) => (
+                            <div key={i} className="log-line">{line}</div>
+                        ))}
+                        <div ref={logEndRef} />
+                    </pre>
+                </div>
+            )}
         </div>
     )
 }

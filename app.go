@@ -412,6 +412,12 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	var lastOutputFile string
 	writer := &lineWriter{
 		handler: func(line string) {
+			// Emit log line to frontend
+			wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{
+				"taskId": taskID,
+				"line":   line,
+			})
+
 			if m := progressRe.FindStringSubmatch(line); m != nil {
 				pct, _ := strconv.ParseFloat(m[1], 64)
 				var cp *DownloadTask

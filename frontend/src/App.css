@@ -382,6 +382,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
+  flex-wrap: wrap;
 }
 
 .download-thumb {
@@ -473,6 +474,38 @@ body {
   padding: 2px 8px;
   border-radius: 99px;
   font-weight: 500;
+}
+
+/* Download logs */
+.download-logs {
+  width: 100%;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.download-logs-content {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  max-height: 200px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-line {
+  padding: 1px 0;
+}
+
+.log-line:hover {
+  background: var(--bg-hover);
 }
 
 /* ===== Toast ===== */

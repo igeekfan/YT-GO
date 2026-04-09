@@ -47,6 +47,9 @@
     'action.cancel': '取消',
     'action.open': '打开文件',
     'action.openFolder': '打开文件夹',
+    'action.logs': '日志',
+    'action.showLogs': '显示日志',
+    'action.hideLogs': '隐藏日志',
 
     'toast.getInfoFail': '获取视频信息失败',
     'toast.downloadStartFail': '启动下载失败',
