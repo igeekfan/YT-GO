@@ -50,6 +50,7 @@ type DownloadTask struct {
 // PlaylistInfo holds metadata about a playlist URL
 type PlaylistInfo struct {
 	URL      string      `json:"url"`
+	Kind     string      `json:"kind"`
 	Title    string      `json:"title"`
 	Uploader string      `json:"uploader"`
 	Count    int         `json:"count"`

@@ -74,6 +74,12 @@
     'playlist.gettingInfo': 'Loading playlist...',
     'playlist.getFail': 'Failed to get playlist info',
     'playlist.startingAll': 'Adding tasks...',
+    'collection.playlist.detected': 'Playlist detected',
+    'collection.playlist.count': '{count} videos',
+    'collection.playlist.downloadAll': 'Download full playlist',
+    'collection.channel.detected': 'Channel content detected',
+    'collection.channel.count': '{count} videos',
+    'collection.channel.downloadAll': 'Download listed videos',
 
     'settings.title': 'Settings',
     'settings.outputDir': 'Default Download Directory',

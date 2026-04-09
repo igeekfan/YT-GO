@@ -186,6 +186,7 @@ export namespace main {
 	}
 	export class PlaylistInfo {
 	    url: string;
+	    kind: string;
 	    title: string;
 	    uploader: string;
 	    count: number;
@@ -198,6 +199,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.url = source["url"];
+	        this.kind = source["kind"];
 	        this.title = source["title"];
 	        this.uploader = source["uploader"];
 	        this.count = source["count"];

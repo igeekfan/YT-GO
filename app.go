@@ -508,6 +508,14 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	return info, nil
 }
 
+func detectCollectionKind(url string) string {
+	lower := strings.ToLower(url)
+	if strings.Contains(lower, "/@") || strings.Contains(lower, "/channel/") || strings.Contains(lower, "/user/") || strings.Contains(lower, "/c/") {
+		return "channel"
+	}
+	return "playlist"
+}
+
 // GetPlaylistInfo fetches all video entries from a playlist URL via yt-dlp --flat-playlist
 func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	if a.ytdlpPath == "" {
@@ -519,7 +527,7 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	args := []string{
 		"--ignore-config",
 		"--flat-playlist",
-		"--dump-json",
+		"--dump-single-json",
 		"--no-warnings",
 	}
 	// Apply proxy and cookies from settings
@@ -543,57 +551,65 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 		return PlaylistInfo{}, fmt.Errorf("failed to get playlist info: %w", err)
 	}
 
-	result := PlaylistInfo{URL: url}
-	lines := strings.Split(strings.TrimSpace(toUTF8(out)), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(line), &raw); err != nil {
-			continue
-		}
-		// First entry may contain playlist-level metadata
-		if result.Title == "" {
-			if v, ok := raw["playlist_title"].(string); ok {
-				result.Title = v
-			} else if v, ok := raw["title"].(string); ok {
-				// Only use as playlist title if it looks like a playlist entry
-				if _, isPlaylist := raw["entries"]; isPlaylist {
-					result.Title = v
-				}
+	result := PlaylistInfo{URL: url, Kind: detectCollectionKind(url)}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		a.emitLog("[GetPlaylistInfo] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
+		return PlaylistInfo{}, fmt.Errorf("failed to parse playlist info: %w", err)
+	}
+	if v, ok := raw["title"].(string); ok {
+		result.Title = v
+	}
+	if v, ok := raw["playlist_title"].(string); ok && v != "" {
+		result.Title = v
+	}
+	if v, ok := raw["uploader"].(string); ok {
+		result.Uploader = v
+	} else if v, ok := raw["playlist_uploader"].(string); ok {
+		result.Uploader = v
+	} else if v, ok := raw["channel"].(string); ok {
+		result.Uploader = v
+	}
+	if result.Kind == "playlist" {
+		if extractor, ok := raw["extractor_key"].(string); ok && strings.Contains(strings.ToLower(extractor), "tab") {
+			lowerTitle := strings.ToLower(result.Title)
+			if strings.Contains(lowerTitle, "channel") || strings.Contains(lowerTitle, "videos") {
+				result.Kind = "channel"
 			}
-			if v, ok := raw["playlist_uploader"].(string); ok {
-				result.Uploader = v
+		}
+	}
+	if entries, ok := raw["entries"].([]interface{}); ok {
+		for _, entry := range entries {
+			entryMap, ok := entry.(map[string]interface{})
+			if !ok {
+				continue
 			}
-		}
-		// Build per-video info
-		info := VideoInfo{}
-		if v, ok := raw["webpage_url"].(string); ok {
-			info.URL = v
-		} else if v, ok := raw["url"].(string); ok {
-			info.URL = v
-		}
-		if v, ok := raw["title"].(string); ok {
-			info.Title = v
-		}
-		if v, ok := raw["id"].(string); ok {
-			info.ID = v
-		}
-		if v, ok := raw["thumbnail"].(string); ok {
-			info.Thumbnail = v
-		}
-		if v, ok := raw["duration"].(float64); ok {
-			info.Duration = v
-		}
-		if v, ok := raw["uploader"].(string); ok {
-			info.Uploader = v
-		} else if v, ok := raw["channel"].(string); ok {
-			info.Uploader = v
-		}
-		if info.URL != "" || info.ID != "" {
-			result.Videos = append(result.Videos, info)
+			info := VideoInfo{}
+			if v, ok := entryMap["webpage_url"].(string); ok {
+				info.URL = v
+			} else if v, ok := entryMap["url"].(string); ok {
+				info.URL = v
+			}
+			if v, ok := entryMap["title"].(string); ok {
+				info.Title = v
+			}
+			if v, ok := entryMap["id"].(string); ok {
+				info.ID = v
+			}
+			if v, ok := entryMap["thumbnail"].(string); ok {
+				info.Thumbnail = v
+			}
+			if v, ok := entryMap["duration"].(float64); ok {
+				info.Duration = v
+			}
+			if v, ok := entryMap["uploader"].(string); ok {
+				info.Uploader = v
+			} else if v, ok := entryMap["channel"].(string); ok {
+				info.Uploader = v
+			}
+			if info.URL != "" || info.ID != "" {
+				result.Videos = append(result.Videos, info)
+			}
 		}
 	}
 	result.Count = len(result.Videos)

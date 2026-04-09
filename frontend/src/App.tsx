@@ -179,6 +179,7 @@ function App() {
     const hasCustomFormatSelection = !!selectedFormat || !!selectedVideoFormat || !!selectedAudioFormat
     const videoOnlyFormats = formatInfo?.formats.filter(f => f.hasVideo && !f.hasAudio) || []
     const audioOnlyFormats = formatInfo?.formats.filter(f => f.hasAudio && !f.hasVideo) || []
+    const collectionKind = playlistInfo?.kind === 'channel' ? 'channel' : 'playlist'
     const combineVideoFormats = (videoOnlyFormats.length > 0 ? videoOnlyFormats : formatInfo?.formats.filter(f => f.hasVideo) || [])
         .sort((a, b) => (b.filesize || 0) - (a.filesize || 0))
     const combineAudioFormats = (audioOnlyFormats.length > 0 ? audioOnlyFormats : formatInfo?.formats.filter(f => f.hasAudio) || [])
@@ -461,10 +462,10 @@ function App() {
                             </div>
                             <div className="video-meta">
                                 <div className="video-title">
-                                    {t('playlist.detected')}{playlistInfo.title ? `: ${playlistInfo.title}` : ''}
+                                    {t(`collection.${collectionKind}.detected` as any)}{playlistInfo.title ? `: ${playlistInfo.title}` : ''}
                                 </div>
                                 <div className="video-details">
-                                    <span>{t('playlist.videoCount', {count: String(playlistInfo.count)})}</span>
+                                    <span>{t(`collection.${collectionKind}.count` as any, {count: String(playlistInfo.count)})}</span>
                                     {playlistInfo.uploader && (
                                         <span>{t('playlist.uploader')}: {playlistInfo.uploader}</span>
                                     )}
@@ -617,7 +618,7 @@ function App() {
                                 onClick={handleDownloadAll}
                                 disabled={isStarting || !outputDir}
                             >
-                                {isStarting ? t('playlist.startingAll') : t('playlist.downloadAll')}
+                                {isStarting ? t('playlist.startingAll') : t(`collection.${collectionKind}.downloadAll` as any)}
                             </button>
                         )}
                     </div>

@@ -74,6 +74,12 @@
     'playlist.gettingInfo': '获取播放列表中...',
     'playlist.getFail': '获取播放列表失败',
     'playlist.startingAll': '正在添加任务...',
+    'collection.playlist.detected': '检测到播放列表',
+    'collection.playlist.count': '{count} 个视频',
+    'collection.playlist.downloadAll': '下载整个播放列表',
+    'collection.channel.detected': '检测到频道内容',
+    'collection.channel.count': '{count} 个视频',
+    'collection.channel.downloadAll': '下载当前列表',
 
     'settings.title': '设置',
     'settings.outputDir': '默认下载目录',

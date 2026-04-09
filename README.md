@@ -8,16 +8,16 @@ YT-GO is a cross-platform desktop YouTube downloader powered by [yt-dlp](https:/
 
 YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
 
-- Fetch video or playlist metadata before downloading
+- Fetch video, playlist, or channel-list metadata before downloading
 - Choose preset quality, a single detected format, or a combined video+audio format
 - Manage multiple concurrent download tasks in one desktop app
 - Keep practical settings such as proxy, cookies, rate limit, notifications, and concurrency persisted locally
 
 ## Features
 
-- One-click metadata fetch for YouTube videos and playlist URLs
+- One-click metadata fetch for YouTube videos, playlist URLs, and channel video list URLs
 - Video preview with title, uploader, duration, platform, and thumbnail
-- Playlist detection and batch enqueue for playlist items
+- Playlist and channel-list detection with batch enqueue support
 - Preset qualities: Best, 1080p, 720p, 480p, 360p, and audio-only (MP3)
 - Format probing after metadata fetch, including:
 	- single format selection
@@ -35,11 +35,11 @@ YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
 
 ## Usage
 
-1. Paste a video or playlist URL.
+1. Paste a video, playlist, or supported channel videos URL.
 2. Click Get Info.
 3. Optionally detect formats and choose either a single format or a combined video+audio pair.
 4. Choose the output directory.
-5. Start download, or enqueue the entire playlist.
+5. Start download, or batch-enqueue the detected collection.
 
 ## Troubleshooting
 
@@ -93,7 +93,6 @@ Build outputs are generated in `build/bin/`.
 
 ## Roadmap
 
-- Channel-level batch download workflow
 - Continued refinement of format selection and media options
 - Keep README as the product-facing source of truth while PLAN tracks only future work
 
