@@ -94,6 +94,8 @@
     'settings.rateLimit': 'Download Rate Limit',
     'settings.maxConcurrent': 'Max Concurrent Downloads',
     'settings.notifications': 'Notify on Completion',
+    'settings.saveDescription': 'Save video description file',
+    'settings.saveThumbnail': 'Save thumbnail file',
     'settings.save': 'Save',
     'settings.saving': 'Saving...',
 

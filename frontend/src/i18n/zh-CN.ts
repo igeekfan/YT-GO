@@ -94,6 +94,8 @@
     'settings.rateLimit': '下载限速',
     'settings.maxConcurrent': '最大并发数',
     'settings.notifications': '下载完成通知',
+    'settings.saveDescription': '保存视频描述文件',
+    'settings.saveThumbnail': '保存缩略图文件',
     'settings.save': '保存',
     'settings.saving': '保存中...',
 

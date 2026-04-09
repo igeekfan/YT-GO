@@ -41,6 +41,8 @@ type SettingsRecord struct {
 	RateLimit     string // e.g. "1M", "500K"
 	MaxConcurrent int    // max concurrent downloads (0 = unlimited)
 	Notifications bool   // desktop notifications on completion
+	SaveDescription bool  // --write-description
+	SaveThumbnail bool    // --write-thumbnail
 	CookiesFrom   string // --cookies-from-browser value (chrome, firefox, edge, etc.)
 	CookiesFile   string // --cookies file path
 }

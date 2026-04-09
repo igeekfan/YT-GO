@@ -243,6 +243,8 @@ func (a *App) GetSettings() Settings {
 		RateLimit:     "",
 		MaxConcurrent: 3,
 		Notifications: true,
+		SaveDescription: false,
+		SaveThumbnail: false,
 	}
 	if a.db == nil {
 		return defaults
@@ -270,6 +272,8 @@ func (a *App) GetSettings() Settings {
 		defaults.MaxConcurrent = rec.MaxConcurrent
 	}
 	defaults.Notifications = rec.Notifications
+	defaults.SaveDescription = rec.SaveDescription
+	defaults.SaveThumbnail = rec.SaveThumbnail
 	defaults.CookiesFrom = rec.CookiesFrom
 	defaults.CookiesFile = rec.CookiesFile
 	return defaults
@@ -290,6 +294,8 @@ func (a *App) SaveSettings(s Settings) error {
 		RateLimit:     s.RateLimit,
 		MaxConcurrent: s.MaxConcurrent,
 		Notifications: s.Notifications,
+		SaveDescription: s.SaveDescription,
+		SaveThumbnail: s.SaveThumbnail,
 		CookiesFrom:   s.CookiesFrom,
 		CookiesFile:   s.CookiesFile,
 	}
@@ -866,6 +872,12 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	}
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
+	}
+	if settings.SaveDescription {
+		args = append(args, "--write-description")
+	}
+	if settings.SaveThumbnail {
+		args = append(args, "--write-thumbnail")
 	}
 	args = appendCookiesArgs(args, settings)
 

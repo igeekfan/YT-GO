@@ -240,6 +240,26 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                         />
                     </div>
 
+                    <div className="setting-item setting-item-row">
+                        <label className="setting-label">{t('settings.saveDescription')}</label>
+                        <input
+                            type="checkbox"
+                            className="setting-checkbox"
+                            checked={settings.saveDescription || false}
+                            onChange={e => update('saveDescription', e.target.checked)}
+                        />
+                    </div>
+
+                    <div className="setting-item setting-item-row">
+                        <label className="setting-label">{t('settings.saveThumbnail')}</label>
+                        <input
+                            type="checkbox"
+                            className="setting-checkbox"
+                            checked={settings.saveThumbnail || false}
+                            onChange={e => update('saveThumbnail', e.target.checked)}
+                        />
+                    </div>
+
                     {/* Diagnostic Info */}
                     <div className="setting-item">
                         <label className="setting-label">{t('settings.diagnostic') || '诊断信息'}</label>

@@ -26,6 +26,7 @@ YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
 - Retry failed tasks or retry all failed tasks from the download list
 - Cancel a running task and automatically remove it from the queue
 - Real-time logs, progress, speed, ETA, and output path tracking
+- Optional sidecar files for video description and thumbnail
 - Open the downloaded file or its folder directly after completion
 - Persistent download history stored locally in SQLite
 - Persistent settings for output dir, default quality, language, theme, proxy, rate limit, cookies, notifications, and concurrency

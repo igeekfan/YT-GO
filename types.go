@@ -67,6 +67,8 @@ type Settings struct {
 	RateLimit     string `json:"rateLimit"`
 	MaxConcurrent int    `json:"maxConcurrent"`
 	Notifications bool   `json:"notifications"`
+	SaveDescription bool `json:"saveDescription"`
+	SaveThumbnail bool   `json:"saveThumbnail"`
 	CookiesFrom   string `json:"cookiesFrom"`   // --cookies-from-browser value (e.g. chrome, firefox, edge)
 	CookiesFile   string `json:"cookiesFile"`   // --cookies file path
 }

@@ -233,6 +233,8 @@ export namespace main {
 	    rateLimit: string;
 	    maxConcurrent: number;
 	    notifications: boolean;
+	    saveDescription: boolean;
+	    saveThumbnail: boolean;
 	    cookiesFrom: string;
 	    cookiesFile: string;
 	
@@ -250,6 +252,8 @@ export namespace main {
 	        this.rateLimit = source["rateLimit"];
 	        this.maxConcurrent = source["maxConcurrent"];
 	        this.notifications = source["notifications"];
+	        this.saveDescription = source["saveDescription"];
+	        this.saveThumbnail = source["saveThumbnail"];
 	        this.cookiesFrom = source["cookiesFrom"];
 	        this.cookiesFile = source["cookiesFile"];
 	    }
