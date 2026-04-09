@@ -25,12 +25,58 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
 }
 
+function parseResolutionHeight(res: string): number {
+    const m = res.match(/(\d+)p/)
+    if (m) return parseInt(m[1], 10)
+    const m2 = res.match(/(\d+)x(\d+)/)
+    if (m2) return parseInt(m2[2], 10)
+    return 0
+}
+
 function formatOptionLabel(format: FormatInfo['formats'][number]): string {
-    const primary = format.resolution || (format.hasAudio && !format.hasVideo ? 'audio' : format.formatId)
-    const codec = [format.ext, format.note ? `(${format.note})` : '', format.filesize ? formatFileSize(format.filesize) : '']
-        .filter(Boolean)
-        .join(' ')
-    return `${primary} | ${codec}`
+    const parts: string[] = []
+    // Type badge
+    if (format.hasVideo && format.hasAudio) parts.push('[V+A]')
+    else if (format.hasVideo) parts.push('[V]')
+    else if (format.hasAudio) parts.push('[A]')
+    // Resolution or audio indicator
+    if (format.resolution && format.resolution !== 'audio only') {
+        parts.push(format.resolution)
+    } else if (format.hasAudio && !format.hasVideo) {
+        parts.push('audio')
+    }
+    // FPS
+    if (format.fps && format.fps > 0 && format.hasVideo) {
+        parts.push(`${format.fps}fps`)
+    }
+    // Container
+    if (format.ext) parts.push(format.ext)
+    // Codec info
+    const codecs: string[] = []
+    if (format.vcodec && format.vcodec !== 'none') codecs.push(format.vcodec.split('.')[0])
+    if (format.acodec && format.acodec !== 'none') codecs.push(format.acodec.split('.')[0])
+    if (codecs.length > 0) parts.push(codecs.join('+'))
+    // File size
+    if (format.filesize) parts.push(formatFileSize(format.filesize))
+    // Note
+    if (format.note) parts.push(`(${format.note})`)
+    return parts.join(' | ')
+}
+
+function sortFormats(formats: FormatInfo['formats'][number][]): FormatInfo['formats'][number][] {
+    return [...formats].sort((a, b) => {
+        // First: video+audio > video > audio
+        const aScore = (a.hasVideo ? 2 : 0) + (a.hasAudio ? 1 : 0)
+        const bScore = (b.hasVideo ? 2 : 0) + (b.hasAudio ? 1 : 0)
+        if (aScore !== bScore) return bScore - aScore
+        // Then: higher resolution first
+        const aHeight = parseResolutionHeight(a.resolution || '')
+        const bHeight = parseResolutionHeight(b.resolution || '')
+        if (aHeight !== bHeight) return bHeight - aHeight
+        // Then: higher bitrate/filesize first
+        if ((b.filesize || 0) !== (a.filesize || 0)) return (b.filesize || 0) - (a.filesize || 0)
+        return (b.tbr || 0) - (a.tbr || 0)
+    })
 }
 
 function getConsoleLogType(line: string): 'error' | 'warning' | 'command' | 'info' {
@@ -181,9 +227,14 @@ function App() {
     const audioOnlyFormats = formatInfo?.formats.filter(f => f.hasAudio && !f.hasVideo) || []
     const collectionKind = playlistInfo?.kind === 'channel' ? 'channel' : 'playlist'
     const combineVideoFormats = (videoOnlyFormats.length > 0 ? videoOnlyFormats : formatInfo?.formats.filter(f => f.hasVideo) || [])
-        .sort((a, b) => (b.filesize || 0) - (a.filesize || 0))
+        .sort((a, b) => {
+            const aH = parseResolutionHeight(a.resolution || '')
+            const bH = parseResolutionHeight(b.resolution || '')
+            if (aH !== bH) return bH - aH
+            return (b.filesize || 0) - (a.filesize || 0)
+        })
     const combineAudioFormats = (audioOnlyFormats.length > 0 ? audioOnlyFormats : formatInfo?.formats.filter(f => f.hasAudio) || [])
-        .sort((a, b) => (b.filesize || 0) - (a.filesize || 0))
+        .sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0))
 
     const resolveDownloadQuality = () => {
         if (formatMode === 'single' && selectedFormat) return `f:${selectedFormat}`
@@ -537,14 +588,7 @@ function App() {
                                                     }}
                                                 >
                                                     <option value="">{t('format.usePreset')}</option>
-                                                    {formatInfo.formats
-                                                        .filter(f => f.hasVideo || f.hasAudio)
-                                                        .sort((a, b) => {
-                                                            const aScore = (a.hasVideo ? 2 : 0) + (a.hasAudio ? 1 : 0)
-                                                            const bScore = (b.hasVideo ? 2 : 0) + (b.hasAudio ? 1 : 0)
-                                                            if (aScore !== bScore) return bScore - aScore
-                                                            return (b.filesize || 0) - (a.filesize || 0)
-                                                        })
+                                                    {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio))
                                                         .map(f => (
                                                             <option key={f.formatId} value={f.formatId}>
                                                                 {formatOptionLabel(f)}
