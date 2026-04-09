@@ -99,6 +99,21 @@ body {
   color: #f87171;
 }
 
+.ytdlp-update-btn {
+  font-size: 14px;
+  padding: 2px 6px;
+  margin-left: 4px;
+}
+.ytdlp-update-btn:disabled {
+  cursor: wait;
+}
+
+.btn-xs {
+  padding: 2px 6px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
 .header-right {
   display: flex;
   align-items: center;

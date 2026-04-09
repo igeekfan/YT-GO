@@ -8,6 +8,9 @@
     'ytdlp.notFound': 'yt-dlp not found, please install it first',
     'ytdlp.version': 'yt-dlp {version}',
     'ytdlp.checkFail': 'Failed to check yt-dlp',
+    'ytdlp.update': 'Update yt-dlp',
+    'ytdlp.updateSuccess': 'yt-dlp updated successfully',
+    'ytdlp.updateFail': 'Failed to update yt-dlp',
 
     'url.placeholder': 'Enter YouTube or other video URL...',
     'url.getInfo': 'Get Info',

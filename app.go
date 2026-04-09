@@ -221,6 +221,24 @@ func (a *App) CheckYtDlp() YtDlpStatus {
 	}
 }
 
+// UpdateYtDlp runs yt-dlp -U to update to the latest version
+func (a *App) UpdateYtDlp() (string, error) {
+	if a.ytdlpPath == "" {
+		return "", fmt.Errorf("yt-dlp not found")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, a.ytdlpPath, "-U")
+	out, err := cmd.CombinedOutput()
+	output := strings.TrimSpace(string(out))
+
+	if err != nil {
+		return output, fmt.Errorf("update failed: %w", err)
+	}
+	return output, nil
+}
+
 // GetVideoInfo fetches video metadata via yt-dlp --dump-json
 func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	if a.ytdlpPath == "" {

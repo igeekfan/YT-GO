@@ -33,3 +33,5 @@ export function SelectFolder():Promise<string>;
 export function SetLang(arg1:string):Promise<void>;
 
 export function StartDownload(arg1:main.DownloadRequest):Promise<string>;
+
+export function UpdateYtDlp():Promise<string>;

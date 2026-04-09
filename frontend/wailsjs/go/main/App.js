@@ -65,3 +65,7 @@ export function SetLang(arg1) {
 export function StartDownload(arg1) {
   return window['go']['main']['App']['StartDownload'](arg1);
 }
+
+export function UpdateYtDlp() {
+  return window['go']['main']['App']['UpdateYtDlp']();
+}

@@ -8,6 +8,9 @@
     'ytdlp.notFound': '未检测到 yt-dlp，请先安装',
     'ytdlp.version': 'yt-dlp {version}',
     'ytdlp.checkFail': '检测 yt-dlp 失败',
+    'ytdlp.update': '更新 yt-dlp',
+    'ytdlp.updateSuccess': 'yt-dlp 更新成功',
+    'ytdlp.updateFail': 'yt-dlp 更新失败',
 
     'url.placeholder': '输入 YouTube 或其他视频链接...',
     'url.getInfo': '获取信息',

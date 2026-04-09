@@ -1,5 +1,5 @@
 ﻿import {useState, useEffect, useCallback} from 'react'
-import {CheckYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings} from '../wailsjs/go/main/App'
+import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings} from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings} from './types'
 import {useI18n} from './i18n/context'
@@ -41,6 +41,7 @@ function App() {
     const [outputDir, setOutputDir] = useState('')
     const [isGettingInfo, setIsGettingInfo] = useState(false)
     const [isStarting, setIsStarting] = useState(false)
+    const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
     const [downloads, setDownloads] = useState<DownloadTask[]>([])
     const [toast, setToast] = useState<string | null>(null)
     const [showSettings, setShowSettings] = useState(false)
@@ -49,6 +50,21 @@ function App() {
         setToast(msg)
         setTimeout(() => setToast(null), 3000)
     }, [])
+
+    const handleUpdateYtDlp = async () => {
+        setIsUpdatingYtDlp(true)
+        try {
+            const result = await UpdateYtDlp()
+            showToast(t('ytdlp.updateSuccess'))
+            // Re-check version after update
+            const status = await CheckYtDlp()
+            setYtdlp(status)
+        } catch (e: any) {
+            showToast(t('ytdlp.updateFail') + (e?.message ? `: ${e.message}` : ''))
+        } finally {
+            setIsUpdatingYtDlp(false)
+        }
+    }
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme)
@@ -201,6 +217,16 @@ function App() {
                                 ? t('ytdlp.version', {version: ytdlp.version})
                                 : t('ytdlp.notFound')}
                         </span>
+                    )}
+                    {ytdlp?.available && (
+                        <button
+                            className="btn-ghost btn-xs ytdlp-update-btn"
+                            onClick={handleUpdateYtDlp}
+                            disabled={isUpdatingYtDlp}
+                            title={t('ytdlp.update')}
+                        >
+                            {isUpdatingYtDlp ? '⏳' : '↻'}
+                        </button>
                     )}
                 </div>
                 <div className="header-right">
