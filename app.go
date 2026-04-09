@@ -814,6 +814,7 @@ var (
 	destRe1    = regexp.MustCompile(`^\[download\] Destination: (.+)$`)
 	destRe2    = regexp.MustCompile(`Merging formats into "(.+)"`)
 	destRe3    = regexp.MustCompile(`^\[ExtractAudio\] Destination: (.+)$`)
+	finalPathRe = regexp.MustCompile(`^\[YT-GO-OUTPUT\](.+)$`)
 )
 
 func (a *App) runDownload(taskID string, req DownloadRequest) {
@@ -837,6 +838,7 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	args = append(args,
 		"--newline",
 		"--progress",
+		"--print", "after_move:[YT-GO-OUTPUT]%(filepath)s",
 		"-o", filepath.Join(req.OutputDir, "%(title)s.%(ext)s"),
 		"--no-playlist",
 	)
@@ -870,6 +872,11 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	var lastOutputFile string
 	writer := &lineWriter{
 		handler: func(line string) {
+			if m := finalPathRe.FindStringSubmatch(line); m != nil {
+				lastOutputFile = strings.TrimSpace(m[1])
+				return
+			}
+
 			// Emit log line to frontend
 			wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{
 				"taskId": taskID,
