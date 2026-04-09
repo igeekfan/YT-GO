@@ -1,0 +1,118 @@
+export namespace main {
+	
+	export class VideoInfo {
+	    url: string;
+	    id: string;
+	    title: string;
+	    thumbnail: string;
+	    duration: number;
+	    uploader: string;
+	    platform: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VideoInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.url = source["url"];
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.thumbnail = source["thumbnail"];
+	        this.duration = source["duration"];
+	        this.uploader = source["uploader"];
+	        this.platform = source["platform"];
+	    }
+	}
+	export class DownloadRequest {
+	    url: string;
+	    outputDir: string;
+	    quality: string;
+	    videoInfo?: VideoInfo;
+	
+	    static createFrom(source: any = {}) {
+	        return new DownloadRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.url = source["url"];
+	        this.outputDir = source["outputDir"];
+	        this.quality = source["quality"];
+	        this.videoInfo = this.convertValues(source["videoInfo"], VideoInfo);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class DownloadTask {
+	    id: string;
+	    url: string;
+	    title: string;
+	    thumbnail: string;
+	    status: string;
+	    progress: number;
+	    speed: string;
+	    eta: string;
+	    size: string;
+	    outputPath: string;
+	    outputDir: string;
+	    error: string;
+	    createdAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DownloadTask(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.url = source["url"];
+	        this.title = source["title"];
+	        this.thumbnail = source["thumbnail"];
+	        this.status = source["status"];
+	        this.progress = source["progress"];
+	        this.speed = source["speed"];
+	        this.eta = source["eta"];
+	        this.size = source["size"];
+	        this.outputPath = source["outputPath"];
+	        this.outputDir = source["outputDir"];
+	        this.error = source["error"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
+	
+	export class YtDlpStatus {
+	    available: boolean;
+	    version: string;
+	    path: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new YtDlpStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.version = source["version"];
+	        this.path = source["path"];
+	    }
+	}
+
+}
+

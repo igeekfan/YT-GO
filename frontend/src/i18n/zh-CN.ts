@@ -1,0 +1,57 @@
+﻿const zhCN = {
+    'app.title': 'YT-Goto',
+    'app.theme.dark': '夜间',
+    'app.theme.light': '日间',
+    'lang.zh': '中文',
+    'lang.en': 'English',
+
+    'ytdlp.notFound': '未检测到 yt-dlp，请先安装',
+    'ytdlp.version': 'yt-dlp {version}',
+    'ytdlp.checkFail': '检测 yt-dlp 失败',
+
+    'url.placeholder': '输入 YouTube 或其他视频链接...',
+    'url.getInfo': '获取信息',
+    'url.gettingInfo': '获取中...',
+    'url.empty': '请输入视频链接',
+
+    'video.duration': '时长',
+    'video.uploader': '频道',
+    'video.platform': '平台',
+
+    'quality.label': '画质',
+    'quality.best': '最佳画质',
+    'quality.1080p': '1080p',
+    'quality.720p': '720p',
+    'quality.480p': '480p',
+    'quality.360p': '360p',
+    'quality.audio': '仅音频 (MP3)',
+
+    'outputDir.label': '保存到',
+    'outputDir.placeholder': '选择下载目录...',
+    'outputDir.browse': '浏览',
+
+    'download.start': '开始下载',
+    'download.downloading': '下载中...',
+    'download.noDir': '请选择保存目录',
+
+    'downloads.title': '下载列表',
+    'downloads.empty': '暂无下载任务',
+    'downloads.clearCompleted': '清除已完成',
+
+    'status.pending': '等待中',
+    'status.downloading': '下载中',
+    'status.completed': '已完成',
+    'status.error': '失败',
+    'status.cancelled': '已取消',
+
+    'action.cancel': '取消',
+    'action.open': '打开文件',
+    'action.openFolder': '打开文件夹',
+
+    'toast.getInfoFail': '获取视频信息失败',
+    'toast.downloadStartFail': '启动下载失败',
+    'toast.cancelFail': '取消失败',
+    'toast.openFail': '打开失败',
+}
+
+export default zhCN
