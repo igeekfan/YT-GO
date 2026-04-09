@@ -1,7 +1,7 @@
 ﻿import {useState, useEffect, useCallback} from 'react'
-import {CheckYtDlp, GetVideoInfo, GetPlaylistInfo, SelectFolder, StartDownload, GetDownloads, GetSettings} from '../wailsjs/go/main/App'
+import {CheckYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings} from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
-import {YtDlpStatus, VideoInfo, PlaylistInfo, DownloadTask, Settings} from './types'
+import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings} from './types'
 import {useI18n} from './i18n/context'
 import DownloadList from './components/DownloadList'
 import SettingsDialog from './components/SettingsDialog'
@@ -18,6 +18,13 @@ function formatDuration(seconds: number): string {
     return `${m}:${String(s).padStart(2, '0')}`
 }
 
+function formatFileSize(bytes: number): string {
+    if (!bytes) return ''
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
+}
+
 function App() {
     const {t, lang, setLang} = useI18n()
     const [theme, setTheme] = useState<'dark' | 'light'>(() =>
@@ -27,6 +34,9 @@ function App() {
     const [url, setUrl] = useState('')
     const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
     const [playlistInfo, setPlaylistInfo] = useState<PlaylistInfo | null>(null)
+    const [formatInfo, setFormatInfo] = useState<FormatInfo | null>(null)
+    const [selectedFormat, setSelectedFormat] = useState('')
+    const [isGettingFormats, setIsGettingFormats] = useState(false)
     const [quality, setQuality] = useState('best')
     const [outputDir, setOutputDir] = useState('')
     const [isGettingInfo, setIsGettingInfo] = useState(false)
@@ -74,6 +84,8 @@ function App() {
         setIsGettingInfo(true)
         setVideoInfo(null)
         setPlaylistInfo(null)
+        setFormatInfo(null)
+        setSelectedFormat('')
         try {
             const info = await GetVideoInfo(url.trim())
             setVideoInfo(info)
@@ -94,6 +106,20 @@ function App() {
         }
     }
 
+    const handleGetFormats = async () => {
+        if (!url.trim()) return
+        setIsGettingFormats(true)
+        try {
+            const info = await GetFormats(url.trim())
+            setFormatInfo(info)
+            setSelectedFormat('')
+        } catch (e: any) {
+            showToast(t('toast.getFormatsFail') + (e?.message ? `: ${e.message}` : ''))
+        } finally {
+            setIsGettingFormats(false)
+        }
+    }
+
     const handleDownload = async () => {
         if (!url.trim()) return
         if (!outputDir) {
@@ -102,15 +128,19 @@ function App() {
         }
         setIsStarting(true)
         try {
+            // Use selected format if available, otherwise use quality preset
+            const downloadQuality = selectedFormat ? `f:${selectedFormat}` : quality
             await StartDownload({
                 url: url.trim(),
                 outputDir,
-                quality,
+                quality: downloadQuality,
                 videoInfo: videoInfo || undefined,
             } as any)
             setUrl('')
             setVideoInfo(null)
             setPlaylistInfo(null)
+            setFormatInfo(null)
+            setSelectedFormat('')
         } catch (e: any) {
             showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
@@ -279,7 +309,11 @@ function App() {
                             <select
                                 className="select-input"
                                 value={quality}
-                                onChange={e => setQuality(e.target.value)}
+                                onChange={e => {
+                                    setQuality(e.target.value)
+                                    setSelectedFormat('')
+                                }}
+                                disabled={!!selectedFormat}
                             >
                                 {QUALITY_OPTIONS.map(q => (
                                     <option key={q} value={q}>
@@ -288,6 +322,38 @@ function App() {
                                 ))}
                             </select>
                         </div>
+                        {videoInfo && (
+                            <div className="option-group">
+                                <label className="option-label">{t('format.label')}</label>
+                                <div className="format-row">
+                                    {!formatInfo ? (
+                                        <button
+                                            className="btn-secondary"
+                                            onClick={handleGetFormats}
+                                            disabled={isGettingFormats}
+                                        >
+                                            {isGettingFormats ? t('format.loading') : t('format.detect')}
+                                        </button>
+                                    ) : (
+                                        <select
+                                            className="select-input format-select"
+                                            value={selectedFormat}
+                                            onChange={e => setSelectedFormat(e.target.value)}
+                                        >
+                                            <option value="">{t('format.usePreset')}</option>
+                                            {formatInfo.formats
+                                                .filter(f => f.hasVideo || f.hasAudio)
+                                                .map(f => (
+                                                    <option key={f.formatId} value={f.formatId}>
+                                                        {f.formatId} - {f.ext} {f.resolution || (f.hasAudio && !f.hasVideo ? 'audio' : '')} {f.note && `(${f.note})`} {f.filesize ? formatFileSize(f.filesize) : ''}
+                                                    </option>
+                                                ))
+                                            }
+                                        </select>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         <div className="option-group flex-1">
                             <label className="option-label">{t('outputDir.label')}</label>
                             <div className="dir-row">

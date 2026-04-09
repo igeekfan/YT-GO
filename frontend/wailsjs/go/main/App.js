@@ -22,6 +22,10 @@ export function GetDownloads() {
   return window['go']['main']['App']['GetDownloads']();
 }
 
+export function GetFormats(arg1) {
+  return window['go']['main']['App']['GetFormats'](arg1);
+}
+
 export function GetLang() {
   return window['go']['main']['App']['GetLang']();
 }

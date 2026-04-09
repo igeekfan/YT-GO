@@ -66,3 +66,25 @@ type Settings struct {
 	MaxConcurrent int    `json:"maxConcurrent"`
 	Notifications bool   `json:"notifications"`
 }
+
+// Format represents a single video/audio format option
+type Format struct {
+	FormatID   string  `json:"formatId"`
+	Ext        string  `json:"ext"`
+	Resolution string  `json:"resolution"`
+	FPS        float64 `json:"fps"`
+	VCodec     string  `json:"vcodec"`
+	ACodec     string  `json:"acodec"`
+	Filesize   int64   `json:"filesize"`
+	TBR        float64 `json:"tbr"` // total bitrate
+	Note       string  `json:"note"`
+	HasVideo   bool    `json:"hasVideo"`
+	HasAudio   bool    `json:"hasAudio"`
+}
+
+// FormatInfo holds all available formats for a video
+type FormatInfo struct {
+	URL     string   `json:"url"`
+	Title   string   `json:"title"`
+	Formats []Format `json:"formats"`
+}

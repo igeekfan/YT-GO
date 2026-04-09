@@ -344,6 +344,82 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	return result, nil
 }
 
+// GetFormats fetches all available formats for a video URL via yt-dlp --dump-json
+func (a *App) GetFormats(url string) (FormatInfo, error) {
+	if a.ytdlpPath == "" {
+		return FormatInfo{}, fmt.Errorf("yt-dlp not found")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, a.ytdlpPath,
+		"--dump-json",
+		"--no-download",
+		"--no-warnings",
+		"--no-playlist",
+		url,
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		return FormatInfo{}, fmt.Errorf("failed to get formats: %w", err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return FormatInfo{}, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	result := FormatInfo{URL: url}
+	if v, ok := raw["title"].(string); ok {
+		result.Title = v
+	}
+
+	// Parse formats array
+	if formatsRaw, ok := raw["formats"].([]interface{}); ok {
+		for _, fRaw := range formatsRaw {
+			fMap, ok := fRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			f := Format{}
+			if v, ok := fMap["format_id"].(string); ok {
+				f.FormatID = v
+			}
+			if v, ok := fMap["ext"].(string); ok {
+				f.Ext = v
+			}
+			if v, ok := fMap["resolution"].(string); ok {
+				f.Resolution = v
+			}
+			if v, ok := fMap["fps"].(float64); ok {
+				f.FPS = v
+			}
+			if v, ok := fMap["vcodec"].(string); ok {
+				f.VCodec = v
+				f.HasVideo = v != "none" && v != ""
+			}
+			if v, ok := fMap["acodec"].(string); ok {
+				f.ACodec = v
+				f.HasAudio = v != "none" && v != ""
+			}
+			if v, ok := fMap["filesize"].(float64); ok {
+				f.Filesize = int64(v)
+			} else if v, ok := fMap["filesize_approx"].(float64); ok {
+				f.Filesize = int64(v)
+			}
+			if v, ok := fMap["tbr"].(float64); ok {
+				f.TBR = v
+			}
+			if v, ok := fMap["format_note"].(string); ok {
+				f.Note = v
+			}
+			result.Formats = append(result.Formats, f)
+		}
+	}
+
+	return result, nil
+}
+
 // SelectFolder opens a folder picker dialog
 func (a *App) SelectFolder() string {
 	dir, err := wailsRuntime.OpenDirectoryDialog(a.ctx, wailsRuntime.OpenDialogOptions{
@@ -369,7 +445,12 @@ func (a *App) GetDefaultDownloadDir() string {
 }
 
 // qualityArgs returns yt-dlp format arguments for the selected quality
+// If quality starts with "f:", treat it as a custom format ID
 func qualityArgs(quality string) []string {
+	// Custom format ID support (e.g., "f:137+140")
+	if len(quality) > 2 && quality[:2] == "f:" {
+		return []string{"-f", quality[2:]}
+	}
 	switch quality {
 	case "1080p":
 		return []string{"-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]"}

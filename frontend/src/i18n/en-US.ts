@@ -73,6 +73,12 @@
     'settings.notifications': 'Notify on Completion',
     'settings.save': 'Save',
     'settings.saving': 'Saving...',
+
+    'format.label': 'Format',
+    'format.detect': 'Detect',
+    'format.loading': 'Detecting...',
+    'format.usePreset': 'Use preset quality',
+    'toast.getFormatsFail': 'Failed to get format list',
 }
 
 export default enUS

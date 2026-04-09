@@ -12,6 +12,8 @@ export function GetDefaultDownloadDir():Promise<string>;
 
 export function GetDownloads():Promise<Array<main.DownloadTask>>;
 
+export function GetFormats(arg1:string):Promise<main.FormatInfo>;
+
 export function GetLang():Promise<string>;
 
 export function GetPlaylistInfo(arg1:string):Promise<main.PlaylistInfo>;

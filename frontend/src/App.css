@@ -249,6 +249,17 @@ body {
   border-color: var(--accent);
 }
 
+.format-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.format-select {
+  min-width: 200px;
+  max-width: 320px;
+}
+
 .dir-row {
   display: flex;
   gap: 6px;

@@ -73,6 +73,12 @@
     'settings.notifications': '下载完成通知',
     'settings.save': '保存',
     'settings.saving': '保存中...',
+
+    'format.label': '格式',
+    'format.detect': '检测格式',
+    'format.loading': '检测中...',
+    'format.usePreset': '使用预设画质',
+    'toast.getFormatsFail': '获取格式列表失败',
 }
 
 
