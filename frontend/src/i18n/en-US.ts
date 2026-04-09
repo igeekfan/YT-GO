@@ -82,6 +82,8 @@
     'format.loading': 'Detecting...',
     'format.usePreset': 'Use preset quality',
     'toast.getFormatsFail': 'Failed to get format list',
+
+    'notification.downloadComplete': 'Download Complete',
 }
 
 export default enUS

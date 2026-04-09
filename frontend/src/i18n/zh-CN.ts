@@ -82,6 +82,8 @@
     'format.loading': '检测中...',
     'format.usePreset': '使用预设画质',
     'toast.getFormatsFail': '获取格式列表失败',
+
+    'notification.downloadComplete': '下载完成',
 }
 
 

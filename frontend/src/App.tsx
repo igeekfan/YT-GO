@@ -45,11 +45,28 @@ function App() {
     const [downloads, setDownloads] = useState<DownloadTask[]>([])
     const [toast, setToast] = useState<string | null>(null)
     const [showSettings, setShowSettings] = useState(false)
+    const [notificationsEnabled, setNotificationsEnabled] = useState(false)
 
     const showToast = useCallback((msg: string) => {
         setToast(msg)
         setTimeout(() => setToast(null), 3000)
     }, [])
+
+    // Request notification permission and send completion notification
+    const sendNotification = useCallback((title: string, body: string) => {
+        if (!notificationsEnabled) return
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+                new Notification(title, { body })
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        new Notification(title, { body })
+                    }
+                })
+            }
+        }
+    }, [notificationsEnabled])
 
     const handleUpdateYtDlp = async () => {
         setIsUpdatingYtDlp(true)
@@ -78,12 +95,28 @@ function App() {
             if (s.quality) setQuality(s.quality)
             if (s.theme) setTheme(s.theme as 'dark' | 'light')
             if (s.language) setLang(s.language as any)
+            setNotificationsEnabled(s.notifications || false)
+            // Request notification permission if enabled
+            if (s.notifications && 'Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission()
+            }
         }).catch(() => {})
         GetDownloads().then(tasks => { if (tasks) setDownloads(tasks) }).catch(() => {})
+    }, [])
 
+    // Listen for download updates and send notifications
+    useEffect(() => {
         const off = EventsOn('download:update', (task: DownloadTask) => {
             setDownloads(prev => {
                 const idx = prev.findIndex(d => d.id === task.id)
+                const wasCompleted = idx >= 0 && prev[idx].status === 'completed'
+                const nowCompleted = task.status === 'completed'
+
+                // Send notification if just completed
+                if (!wasCompleted && nowCompleted) {
+                    sendNotification(t('notification.downloadComplete'), task.title || task.url)
+                }
+
                 if (idx >= 0) {
                     const next = [...prev]
                     next[idx] = task
@@ -93,7 +126,7 @@ function App() {
             })
         })
         return () => { if (typeof off === 'function') off() }
-    }, [])
+    }, [sendNotification, t])
 
     const handleGetInfo = async () => {
         if (!url.trim()) return
@@ -430,6 +463,11 @@ function App() {
                     setQuality(s.quality)
                     setTheme(s.theme as 'dark' | 'light')
                     setLang(s.language as any)
+                    setNotificationsEnabled(s.notifications || false)
+                    // Request notification permission if newly enabled
+                    if (s.notifications && 'Notification' in window && Notification.permission === 'default') {
+                        Notification.requestPermission()
+                    }
                 }}
             />
         </div>
