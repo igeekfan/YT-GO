@@ -7,7 +7,14 @@
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "IGEEKFAN",
+    "name": "igeekfan",
     "email": "igeekfan@foxmail.com"
+  },
+  "info": {
+    "companyName": "igeekfan",
+    "productName": "ytgo",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2026 igeekfan",
+    "comments": "A cross-platform YouTube downloader powered by yt-dlp"
   }
 }

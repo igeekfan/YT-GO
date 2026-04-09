@@ -52,6 +52,15 @@
     'toast.downloadStartFail': '启动下载失败',
     'toast.cancelFail': '取消失败',
     'toast.openFail': '打开失败',
+
+    'playlist.detected': '检测到播放列表',
+    'playlist.videoCount': '{count} 个视频',
+    'playlist.uploader': '频道',
+    'playlist.downloadAll': '全部下载',
+    'playlist.gettingInfo': '获取播放列表中...',
+    'playlist.getFail': '获取播放列表失败',
+    'playlist.startingAll': '正在添加任务...',
 }
+
 
 export default zhCN

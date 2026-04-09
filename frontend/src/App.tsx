@@ -1,7 +1,7 @@
 ﻿import {useState, useEffect, useCallback} from 'react'
-import {CheckYtDlp, GetVideoInfo, GetDefaultDownloadDir, SelectFolder, StartDownload, GetDownloads} from '../wailsjs/go/main/App'
+import {CheckYtDlp, GetVideoInfo, GetPlaylistInfo, GetDefaultDownloadDir, SelectFolder, StartDownload, GetDownloads} from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
-import {YtDlpStatus, VideoInfo, DownloadTask} from './types'
+import {YtDlpStatus, VideoInfo, PlaylistInfo, DownloadTask} from './types'
 import {useI18n} from './i18n/context'
 import DownloadList from './components/DownloadList'
 import './App.css'
@@ -25,6 +25,7 @@ function App() {
     const [ytdlp, setYtdlp] = useState<YtDlpStatus | null>(null)
     const [url, setUrl] = useState('')
     const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
+    const [playlistInfo, setPlaylistInfo] = useState<PlaylistInfo | null>(null)
     const [quality, setQuality] = useState('best')
     const [outputDir, setOutputDir] = useState('')
     const [isGettingInfo, setIsGettingInfo] = useState(false)
@@ -65,11 +66,22 @@ function App() {
         if (!url.trim()) return
         setIsGettingInfo(true)
         setVideoInfo(null)
+        setPlaylistInfo(null)
         try {
             const info = await GetVideoInfo(url.trim())
             setVideoInfo(info)
         } catch (e: any) {
-            showToast(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
+            // Try as playlist if single video fetch fails or URL looks like a playlist
+            try {
+                const plist = await GetPlaylistInfo(url.trim())
+                if (plist && plist.count > 0) {
+                    setPlaylistInfo(plist)
+                } else {
+                    showToast(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
+                }
+            } catch {
+                showToast(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
+            }
         } finally {
             setIsGettingInfo(false)
         }
@@ -91,6 +103,34 @@ function App() {
             } as any)
             setUrl('')
             setVideoInfo(null)
+            setPlaylistInfo(null)
+        } catch (e: any) {
+            showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
+        } finally {
+            setIsStarting(false)
+        }
+    }
+
+    const handleDownloadAll = async () => {
+        if (!playlistInfo || !outputDir) {
+            if (!outputDir) showToast(t('download.noDir'))
+            return
+        }
+        setIsStarting(true)
+        try {
+            for (const video of playlistInfo.videos) {
+                if (video.url) {
+                    await StartDownload({
+                        url: video.url,
+                        outputDir,
+                        quality,
+                        videoInfo: video,
+                    } as any)
+                }
+            }
+            setUrl('')
+            setVideoInfo(null)
+            setPlaylistInfo(null)
         } catch (e: any) {
             showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
@@ -194,6 +234,30 @@ function App() {
                         </div>
                     )}
 
+                    {/* Playlist info preview */}
+                    {playlistInfo && (
+                        <div className="video-card playlist-card">
+                            <div className="playlist-icon">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                                    <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+                                    <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                                </svg>
+                            </div>
+                            <div className="video-meta">
+                                <div className="video-title">
+                                    {t('playlist.detected')}{playlistInfo.title ? `: ${playlistInfo.title}` : ''}
+                                </div>
+                                <div className="video-details">
+                                    <span>{t('playlist.videoCount', {count: String(playlistInfo.count)})}</span>
+                                    {playlistInfo.uploader && (
+                                        <span>{t('playlist.uploader')}: {playlistInfo.uploader}</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Download options */}
                     <div className="options-row">
                         <div className="option-group">
@@ -232,6 +296,15 @@ function App() {
                         >
                             {isStarting ? t('download.downloading') : t('download.start')}
                         </button>
+                        {playlistInfo && playlistInfo.count > 0 && (
+                            <button
+                                className="btn-primary download-btn"
+                                onClick={handleDownloadAll}
+                                disabled={isStarting || !outputDir}
+                            >
+                                {isStarting ? t('playlist.startingAll') : t('playlist.downloadAll')}
+                            </button>
+                        )}
                     </div>
                 </div>
 

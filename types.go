@@ -45,3 +45,12 @@ type DownloadTask struct {
 	Error      string  `json:"error"`
 	CreatedAt  string  `json:"createdAt"`
 }
+
+// PlaylistInfo holds metadata about a playlist URL
+type PlaylistInfo struct {
+	URL      string      `json:"url"`
+	Title    string      `json:"title"`
+	Uploader string      `json:"uploader"`
+	Count    int         `json:"count"`
+	Videos   []VideoInfo `json:"videos"`
+}

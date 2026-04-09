@@ -52,6 +52,14 @@
     'toast.downloadStartFail': 'Failed to start download',
     'toast.cancelFail': 'Failed to cancel',
     'toast.openFail': 'Failed to open',
+
+    'playlist.detected': 'Playlist detected',
+    'playlist.videoCount': '{count} videos',
+    'playlist.uploader': 'Channel',
+    'playlist.downloadAll': 'Download All',
+    'playlist.gettingInfo': 'Loading playlist...',
+    'playlist.getFail': 'Failed to get playlist info',
+    'playlist.startingAll': 'Adding tasks...',
 }
 
 export default enUS

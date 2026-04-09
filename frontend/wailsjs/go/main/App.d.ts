@@ -14,6 +14,8 @@ export function GetDownloads():Promise<Array<main.DownloadTask>>;
 
 export function GetLang():Promise<string>;
 
+export function GetPlaylistInfo(arg1:string):Promise<main.PlaylistInfo>;
+
 export function GetVideoInfo(arg1:string):Promise<main.VideoInfo>;
 
 export function OpenFile(arg1:string):Promise<void>;

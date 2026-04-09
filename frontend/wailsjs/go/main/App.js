@@ -26,6 +26,10 @@ export function GetLang() {
   return window['go']['main']['App']['GetLang']();
 }
 
+export function GetPlaylistInfo(arg1) {
+  return window['go']['main']['App']['GetPlaylistInfo'](arg1);
+}
+
 export function GetVideoInfo(arg1) {
   return window['go']['main']['App']['GetVideoInfo'](arg1);
 }
