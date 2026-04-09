@@ -4,17 +4,48 @@
 
 YT-GO is a cross-platform desktop YouTube downloader powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pick a quality, choose an output folder, and download — no command line needed.
 
+## Overview
+
+YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
+
+- Fetch video or playlist metadata before downloading
+- Choose preset quality, a single detected format, or a combined video+audio format
+- Manage multiple concurrent download tasks in one desktop app
+- Keep practical settings such as proxy, cookies, rate limit, notifications, and concurrency persisted locally
+
 ## Features
 
-- Paste any YouTube (or yt-dlp supported) URL and fetch video metadata with one click
-- Choose download quality: Best, 1080p, 720p, 480p, 360p, or Audio-only (MP3)
-- Select a custom output directory or use the default Downloads folder
-- Real-time download progress: percentage, speed, ETA, and file size
-- Cancel running downloads at any time
-- Manage multiple downloads simultaneously with a task list
-- Displays video title, uploader, duration, and thumbnail before downloading
-- Switch between English and Chinese interface
+- One-click metadata fetch for YouTube videos and playlist URLs
+- Video preview with title, uploader, duration, platform, and thumbnail
+- Playlist detection and batch enqueue for playlist items
+- Preset qualities: Best, 1080p, 720p, 480p, 360p, and audio-only (MP3)
+- Format probing after metadata fetch, including:
+	- single format selection
+	- combined video + audio format selection
+- Concurrent downloads with configurable max parallel tasks
+- Retry failed tasks or retry all failed tasks from the download list
+- Cancel a running task and automatically remove it from the queue
+- Real-time logs, progress, speed, ETA, and output path tracking
+- Open the downloaded file or its folder directly after completion
+- Persistent download history stored locally in SQLite
+- Persistent settings for output dir, default quality, language, theme, proxy, rate limit, cookies, notifications, and concurrency
+- Built-in yt-dlp update check and in-app update action
 - Automatic yt-dlp detection from PATH or the application directory
+- English and Simplified Chinese UI
+
+## Usage
+
+1. Paste a video or playlist URL.
+2. Click Get Info.
+3. Optionally detect formats and choose either a single format or a combined video+audio pair.
+4. Choose the output directory.
+5. Start download, or enqueue the entire playlist.
+
+## Troubleshooting
+
+- If YouTube asks you to sign in, configure browser cookies or a cookies.txt file in Settings.
+- If some YouTube formats are missing, ensure Node.js is installed so yt-dlp can use a supported JS runtime.
+- If yt-dlp is missing, install it and click Re-check in the app.
 
 ## Requirements
 
@@ -59,6 +90,12 @@ wails build
 ```
 
 Build outputs are generated in `build/bin/`.
+
+## Roadmap
+
+- Channel-level batch download workflow
+- Continued refinement of format selection and media options
+- Keep README as the product-facing source of truth while PLAN tracks only future work
 
 ## Stack
 
