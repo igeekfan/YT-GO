@@ -22,21 +22,23 @@ import (
 
 // App struct
 type App struct {
-	ctx       context.Context
-	i18n      *I18n
-	downloads map[string]*DownloadTask
-	cancelFns map[string]context.CancelFunc
-	mu        sync.RWMutex
-	ytdlpPath string
-	db        *gorm.DB
+	ctx          context.Context
+	i18n         *I18n
+	downloads    map[string]*DownloadTask
+	cancelFns    map[string]context.CancelFunc
+	mu           sync.RWMutex
+	ytdlpPath    string
+	db           *gorm.DB
+	downloadSem  chan struct{} // semaphore for concurrent download limiting
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	app := &App{
-		downloads: make(map[string]*DownloadTask),
-		cancelFns: make(map[string]context.CancelFunc),
-		i18n:      NewI18n(),
+		downloads:   make(map[string]*DownloadTask),
+		cancelFns:   make(map[string]context.CancelFunc),
+		i18n:        NewI18n(),
+		downloadSem: make(chan struct{}, 3), // default max 3 concurrent downloads
 	}
 	app.ytdlpPath = app.findYtDlp()
 	return app
@@ -49,6 +51,16 @@ func (a *App) startup(ctx context.Context) {
 	if db, err := openDB(); err == nil {
 		a.db = db
 		a.loadFromDB()
+		// Initialize download semaphore based on settings
+		settings := a.GetSettings()
+		maxConcurrent := settings.MaxConcurrent
+		if maxConcurrent < 1 {
+			maxConcurrent = 3 // default
+		}
+		if maxConcurrent > 10 {
+			maxConcurrent = 10 // cap at 10
+		}
+		a.downloadSem = make(chan struct{}, maxConcurrent)
 	}
 }
 
@@ -579,6 +591,10 @@ var (
 )
 
 func (a *App) runDownload(taskID string, req DownloadRequest) {
+	// Acquire semaphore slot (blocks if at max concurrent downloads)
+	a.downloadSem <- struct{}{}
+	defer func() { <-a.downloadSem }() // Release slot when done
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	a.mu.Lock()
