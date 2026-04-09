@@ -563,8 +563,18 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 		"--progress",
 		"-o", filepath.Join(req.OutputDir, "%(title)s.%(ext)s"),
 		"--no-playlist",
-		req.URL,
 	)
+
+	// Apply settings: rate limit and proxy
+	settings := a.GetSettings()
+	if settings.RateLimit != "" {
+		args = append(args, "--rate-limit", settings.RateLimit)
+	}
+	if settings.Proxy != "" {
+		args = append(args, "--proxy", settings.Proxy)
+	}
+
+	args = append(args, req.URL)
 
 	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
 
