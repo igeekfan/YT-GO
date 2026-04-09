@@ -54,3 +54,15 @@ type PlaylistInfo struct {
 	Count    int         `json:"count"`
 	Videos   []VideoInfo `json:"videos"`
 }
+
+// Settings holds user preferences
+type Settings struct {
+	OutputDir     string `json:"outputDir"`
+	Quality       string `json:"quality"`
+	Language      string `json:"language"`
+	Theme         string `json:"theme"`
+	Proxy         string `json:"proxy"`
+	RateLimit     string `json:"rateLimit"`
+	MaxConcurrent int    `json:"maxConcurrent"`
+	Notifications bool   `json:"notifications"`
+}

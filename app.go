@@ -86,6 +86,66 @@ func (a *App) deleteRecords(ids []string) {
 	a.db.Delete(&DownloadRecord{}, ids)
 }
 
+// GetSettings returns persisted user settings
+func (a *App) GetSettings() Settings {
+	defaults := Settings{
+		OutputDir:     a.GetDefaultDownloadDir(),
+		Quality:       "best",
+		Language:      "zh-CN",
+		Theme:         "dark",
+		Proxy:         "",
+		RateLimit:     "",
+		MaxConcurrent: 3,
+		Notifications: true,
+	}
+	if a.db == nil {
+		return defaults
+	}
+	var rec SettingsRecord
+	if err := a.db.First(&rec, 1).Error; err != nil {
+		return defaults
+	}
+	// Merge stored values with defaults (empty fields use defaults)
+	if rec.OutputDir != "" {
+		defaults.OutputDir = rec.OutputDir
+	}
+	if rec.Quality != "" {
+		defaults.Quality = rec.Quality
+	}
+	if rec.Language != "" {
+		defaults.Language = rec.Language
+	}
+	if rec.Theme != "" {
+		defaults.Theme = rec.Theme
+	}
+	defaults.Proxy = rec.Proxy
+	defaults.RateLimit = rec.RateLimit
+	if rec.MaxConcurrent > 0 {
+		defaults.MaxConcurrent = rec.MaxConcurrent
+	}
+	defaults.Notifications = rec.Notifications
+	return defaults
+}
+
+// SaveSettings persists user settings to the database
+func (a *App) SaveSettings(s Settings) error {
+	if a.db == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	rec := SettingsRecord{
+		ID:            1,
+		OutputDir:     s.OutputDir,
+		Quality:       s.Quality,
+		Language:      s.Language,
+		Theme:         s.Theme,
+		Proxy:         s.Proxy,
+		RateLimit:     s.RateLimit,
+		MaxConcurrent: s.MaxConcurrent,
+		Notifications: s.Notifications,
+	}
+	return a.db.Save(&rec).Error
+}
+
 // SetLang sets the application language
 func (a *App) SetLang(lang string) {
 	a.i18n.SetLang(Lang(lang))

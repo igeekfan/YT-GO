@@ -63,6 +63,16 @@
     'playlist.gettingInfo': '获取播放列表中...',
     'playlist.getFail': '获取播放列表失败',
     'playlist.startingAll': '正在添加任务...',
+
+    'settings.title': '设置',
+    'settings.outputDir': '默认下载目录',
+    'settings.quality': '默认画质',
+    'settings.proxy': '代理服务器',
+    'settings.rateLimit': '下载限速',
+    'settings.maxConcurrent': '最大并发数',
+    'settings.notifications': '下载完成通知',
+    'settings.save': '保存',
+    'settings.saving': '保存中...',
 }
 
 

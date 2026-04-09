@@ -30,6 +30,10 @@ export function GetPlaylistInfo(arg1) {
   return window['go']['main']['App']['GetPlaylistInfo'](arg1);
 }
 
+export function GetSettings() {
+  return window['go']['main']['App']['GetSettings']();
+}
+
 export function GetVideoInfo(arg1) {
   return window['go']['main']['App']['GetVideoInfo'](arg1);
 }
@@ -40,6 +44,10 @@ export function OpenFile(arg1) {
 
 export function OpenFolder(arg1) {
   return window['go']['main']['App']['OpenFolder'](arg1);
+}
+
+export function SaveSettings(arg1) {
+  return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
 export function SelectFolder() {

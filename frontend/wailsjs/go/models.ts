@@ -134,6 +134,32 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class Settings {
+	    outputDir: string;
+	    quality: string;
+	    language: string;
+	    theme: string;
+	    proxy: string;
+	    rateLimit: string;
+	    maxConcurrent: number;
+	    notifications: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Settings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.outputDir = source["outputDir"];
+	        this.quality = source["quality"];
+	        this.language = source["language"];
+	        this.theme = source["theme"];
+	        this.proxy = source["proxy"];
+	        this.rateLimit = source["rateLimit"];
+	        this.maxConcurrent = source["maxConcurrent"];
+	        this.notifications = source["notifications"];
+	    }
+	}
 	
 	export class YtDlpStatus {
 	    available: boolean;

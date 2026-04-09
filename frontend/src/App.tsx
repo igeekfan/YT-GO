@@ -1,9 +1,10 @@
 ﻿import {useState, useEffect, useCallback} from 'react'
-import {CheckYtDlp, GetVideoInfo, GetPlaylistInfo, GetDefaultDownloadDir, SelectFolder, StartDownload, GetDownloads} from '../wailsjs/go/main/App'
+import {CheckYtDlp, GetVideoInfo, GetPlaylistInfo, SelectFolder, StartDownload, GetDownloads, GetSettings} from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
-import {YtDlpStatus, VideoInfo, PlaylistInfo, DownloadTask} from './types'
+import {YtDlpStatus, VideoInfo, PlaylistInfo, DownloadTask, Settings} from './types'
 import {useI18n} from './i18n/context'
 import DownloadList from './components/DownloadList'
+import SettingsDialog from './components/SettingsDialog'
 import './App.css'
 
 const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
@@ -32,6 +33,7 @@ function App() {
     const [isStarting, setIsStarting] = useState(false)
     const [downloads, setDownloads] = useState<DownloadTask[]>([])
     const [toast, setToast] = useState<string | null>(null)
+    const [showSettings, setShowSettings] = useState(false)
 
     const showToast = useCallback((msg: string) => {
         setToast(msg)
@@ -45,7 +47,12 @@ function App() {
 
     useEffect(() => {
         CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
-        GetDefaultDownloadDir().then(dir => { if (dir) setOutputDir(dir) }).catch(() => {})
+        GetSettings().then(s => {
+            if (s.outputDir) setOutputDir(s.outputDir)
+            if (s.quality) setQuality(s.quality)
+            if (s.theme) setTheme(s.theme as 'dark' | 'light')
+            if (s.language) setLang(s.language as any)
+        }).catch(() => {})
         GetDownloads().then(tasks => { if (tasks) setDownloads(tasks) }).catch(() => {})
 
         const off = EventsOn('download:update', (task: DownloadTask) => {
@@ -167,6 +174,13 @@ function App() {
                     )}
                 </div>
                 <div className="header-right">
+                    <button
+                        className="btn-ghost btn-sm"
+                        onClick={() => setShowSettings(true)}
+                        title={t('settings.title')}
+                    >
+                        ⚙
+                    </button>
                     <button
                         className="btn-ghost btn-sm"
                         onClick={() => setLang(lang === 'zh-CN' ? 'en-US' : 'zh-CN')}
@@ -314,6 +328,18 @@ function App() {
 
             {/* Toast */}
             {toast && <div className="toast">{toast}</div>}
+
+            {/* Settings Dialog */}
+            <SettingsDialog
+                open={showSettings}
+                onClose={() => setShowSettings(false)}
+                onSaved={(s) => {
+                    setOutputDir(s.outputDir)
+                    setQuality(s.quality)
+                    setTheme(s.theme as 'dark' | 'light')
+                    setLang(s.language as any)
+                }}
+            />
         </div>
     )
 }

@@ -525,3 +525,114 @@ body {
   max-width: 400px;
   text-align: center;
 }
+
+/* ===== Dialog ===== */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dialog-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dialog-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+/* ===== Settings ===== */
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-item-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.setting-row {
+  display: flex;
+  gap: 8px;
+}
+
+.setting-input {
+  flex: 1;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.setting-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.setting-input-sm {
+  width: 80px;
+  flex: none;
+}
+
+.setting-select {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.setting-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}

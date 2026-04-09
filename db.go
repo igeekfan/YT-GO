@@ -28,6 +28,20 @@ type DownloadRecord struct {
 	CreatedAt  string `gorm:"not null"`
 }
 
+// SettingsRecord stores user preferences in SQLite.
+// Only one row with ID=1 is expected.
+type SettingsRecord struct {
+	ID            uint   `gorm:"primaryKey"`
+	OutputDir     string // default download directory
+	Quality       string // default quality: best, 1080p, 720p, etc.
+	Language      string // zh-CN, en-US
+	Theme         string // dark, light
+	Proxy         string // HTTP/SOCKS5 proxy URL
+	RateLimit     string // e.g. "1M", "500K"
+	MaxConcurrent int    // max concurrent downloads (0 = unlimited)
+	Notifications bool   // desktop notifications on completion
+}
+
 // openDB opens (or creates) the SQLite database at %APPDATA%/YT-GO/history.db
 // and auto-migrates the schema.
 func openDB() (*gorm.DB, error) {
@@ -46,7 +60,7 @@ func openDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&DownloadRecord{}); err != nil {
+	if err := db.AutoMigrate(&DownloadRecord{}, &SettingsRecord{}); err != nil {
 		return nil, err
 	}
 	return db, nil

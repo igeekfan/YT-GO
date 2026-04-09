@@ -16,11 +16,15 @@ export function GetLang():Promise<string>;
 
 export function GetPlaylistInfo(arg1:string):Promise<main.PlaylistInfo>;
 
+export function GetSettings():Promise<main.Settings>;
+
 export function GetVideoInfo(arg1:string):Promise<main.VideoInfo>;
 
 export function OpenFile(arg1:string):Promise<void>;
 
 export function OpenFolder(arg1:string):Promise<void>;
+
+export function SaveSettings(arg1:main.Settings):Promise<void>;
 
 export function SelectFolder():Promise<string>;
 

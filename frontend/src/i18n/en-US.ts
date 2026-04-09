@@ -63,6 +63,16 @@
     'playlist.gettingInfo': 'Loading playlist...',
     'playlist.getFail': 'Failed to get playlist info',
     'playlist.startingAll': 'Adding tasks...',
+
+    'settings.title': 'Settings',
+    'settings.outputDir': 'Default Download Directory',
+    'settings.quality': 'Default Quality',
+    'settings.proxy': 'Proxy Server',
+    'settings.rateLimit': 'Download Rate Limit',
+    'settings.maxConcurrent': 'Max Concurrent Downloads',
+    'settings.notifications': 'Notify on Completion',
+    'settings.save': 'Save',
+    'settings.saving': 'Saving...',
 }
 
 export default enUS
