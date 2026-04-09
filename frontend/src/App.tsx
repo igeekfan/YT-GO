@@ -20,7 +20,7 @@ function formatDuration(seconds: number): string {
 function App() {
     const {t, lang, setLang} = useI18n()
     const [theme, setTheme] = useState<'dark' | 'light'>(() =>
-        (localStorage.getItem('ytgoto-theme') as 'dark' | 'light') || 'dark'
+        (localStorage.getItem('YT-GOto-theme') as 'dark' | 'light') || 'dark'
     )
     const [ytdlp, setYtdlp] = useState<YtDlpStatus | null>(null)
     const [url, setUrl] = useState('')
@@ -40,7 +40,7 @@ function App() {
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme)
-        localStorage.setItem('ytgoto-theme', theme)
+        localStorage.setItem('YT-GOto-theme', theme)
     }, [theme])
 
     useEffect(() => {

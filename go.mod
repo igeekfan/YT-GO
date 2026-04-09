@@ -1,4 +1,4 @@
-module ytgo
+module YT-GO
 
 go 1.25.0
 

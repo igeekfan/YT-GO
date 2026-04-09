@@ -91,7 +91,7 @@ jobs:
 
       - name: Compress portable binary
         working-directory: ./build/bin
-        run: Compress-Archive "ytgo.exe" "YTGO_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
+        run: Compress-Archive "YT-GO.exe" "YTGO_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
 
       - name: Upload release asset (Portable)
         uses: softprops/action-gh-release@v2
@@ -110,7 +110,7 @@ jobs:
 
       - name: Rename installer
         working-directory: ./build/bin
-        run: Rename-Item -Path "ytgo-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe" -NewName "YTGO_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
+        run: Rename-Item -Path "YT-GO-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe" -NewName "YTGO_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
 
       - name: Upload release asset (Installer)
         uses: softprops/action-gh-release@v2

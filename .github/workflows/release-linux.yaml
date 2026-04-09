@@ -89,18 +89,18 @@ jobs:
         shell: bash
         run: |
           CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
-          -o ytgo
+          -o YT-GO
 
       - name: Create deb package structure
         shell: bash
         run: |
-          mkdir -p build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64/DEBIAN
-          mkdir -p build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64/usr/local/bin
-          mkdir -p build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64/usr/share/applications
-          mkdir -p build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64/usr/share/icons/hicolor/512x512/apps
+          mkdir -p build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64/DEBIAN
+          mkdir -p build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64/usr/local/bin
+          mkdir -p build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64/usr/share/applications
+          mkdir -p build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64/usr/share/icons/hicolor/512x512/apps
 
-          cat > build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64/DEBIAN/control << EOF
-          Package: ytgo
+          cat > build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64/DEBIAN/control << EOF
+          Package: YT-GO
           Version: ${{ steps.normalise_version.outputs.version }}
           Section: utils
           Priority: optional
@@ -113,22 +113,22 @@ jobs:
       - name: Package deb
         shell: bash
         run: |
-          cp build/bin/ytgo build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64/usr/local/bin/
-          cp build/appicon.png build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64/usr/share/icons/hicolor/512x512/apps/ytgo.png
+          cp build/bin/YT-GO build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64/usr/local/bin/
+          cp build/appicon.png build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64/usr/share/icons/hicolor/512x512/apps/YT-GO.png
 
-          cat > build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64/usr/share/applications/ytgo.desktop << EOF
+          cat > build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64/usr/share/applications/YT-GO.desktop << EOF
           [Desktop Entry]
           Name=YTGO
           Comment=Youtube Downloader
-          Exec=/usr/local/bin/ytgo
-          Icon=ytgo
+          Exec=/usr/local/bin/YT-GO
+          Icon=YT-GO
           Terminal=false
           Type=Application
           Categories=Utility;
           EOF
 
           cd build/linux
-          dpkg-deb --build -Zxz "ytgo_${{ steps.normalise_version.outputs.version }}_amd64"
+          dpkg-deb --build -Zxz "YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
 
       - name: Package AppImage
         shell: bash
@@ -147,10 +147,10 @@ jobs:
           popd
 
           mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
-          build_dir="build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64"
+          build_dir="build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
 
-          cp -r $build_dir/usr/share/icons/hicolor/512x512/apps/ytgo.png AppDir/usr/share/icons/hicolor/512x512/apps/
-          cp $build_dir/usr/local/bin/ytgo AppDir/usr/bin/
+          cp -r $build_dir/usr/share/icons/hicolor/512x512/apps/YT-GO.png AppDir/usr/share/icons/hicolor/512x512/apps/
+          cp $build_dir/usr/local/bin/YT-GO AppDir/usr/bin/
 
           curl -o linuxdeploy-plugin-gtk.sh "https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
           chmod +x linuxdeploy-plugin-gtk.sh
@@ -160,22 +160,22 @@ jobs:
           ./linuxdeploy --appdir AppDir \
              --output=appimage \
              --plugin=gtk \
-             -e $build_dir/usr/local/bin/ytgo \
-             -d $build_dir/usr/share/applications/ytgo.desktop
+             -e $build_dir/usr/local/bin/YT-GO \
+             -d $build_dir/usr/share/applications/YT-GO.desktop
 
       - name: Rename files
         shell: bash
         run: |
-          mv build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_amd64.deb \
-             build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.deb
+          mv build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64.deb \
+             build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.deb
           mv YTGO-${{ steps.normalise_platform_arch.outputs.arch }}.AppImage \
-             ytgo_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.AppImage
+             YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.AppImage
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.normalise_version.outputs.version }}
           files: |
-            ./build/linux/ytgo_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.deb
-            ytgo_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.AppImage
+            ./build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.deb
+            YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.AppImage
           token: ${{ secrets.GITHUB_TOKEN }}

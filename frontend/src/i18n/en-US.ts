@@ -1,5 +1,5 @@
 ﻿const enUS: typeof import('./zh-CN').default = {
-    'app.title': 'YT-Goto',
+    'app.title': 'YT-GO',
     'app.theme.dark': 'Dark',
     'app.theme.light': 'Light',
     'lang.zh': '中文',

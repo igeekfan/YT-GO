@@ -10,7 +10,7 @@ const translations: Record<Lang, Record<string, string>> = {
     'en-US': enUS as Record<string, string>,
 }
 
-const STORAGE_KEY_LANG = 'ytgoto-lang'
+const STORAGE_KEY_LANG = 'YT-GOto-lang'
 
 function loadLang(): Lang {
     const stored = localStorage.getItem(STORAGE_KEY_LANG)

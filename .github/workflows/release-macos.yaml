@@ -87,7 +87,7 @@ jobs:
         shell: bash
         working-directory: ./build
         run: |
-          mv bin/ytgo.app "bin/YTGO.app"
+          mv bin/YT-GO.app "bin/YTGO.app"
           ./create-dmg/create-dmg \
             --no-internet-enable \
             --volname "YTGO" \

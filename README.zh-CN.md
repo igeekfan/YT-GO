@@ -1,8 +1,8 @@
-# ytgo
+# YT-GO
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-ytgo 是一个跨平台桌面 YouTube 下载工具，基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 驱动。粘贴链接、选择画质、指定保存目录，一键下载，无需命令行。
+YT-GO 是一个跨平台桌面 YouTube 下载工具，基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 驱动。粘贴链接、选择画质、指定保存目录，一键下载，无需命令行。
 
 ## 功能概览
 
@@ -18,7 +18,7 @@ ytgo 是一个跨平台桌面 YouTube 下载工具，基于 [yt-dlp](https://git
 
 ## 前置要求
 
-需要安装 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 并确保其在系统 `PATH` 中可用，或将其放置在 ytgo 可执行文件的同一目录下。
+需要安装 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 并确保其在系统 `PATH` 中可用，或将其放置在 YT-GO 可执行文件的同一目录下。
 
 ```bash
 # 通过 pip 安装
@@ -33,13 +33,13 @@ brew install yt-dlp
 
 ## 下载
 
-可在 [Releases](https://github.com/igeekfan/ytgo/releases) 页面获取对应平台版本。
+可在 [Releases](https://github.com/igeekfan/YT-GO/releases) 页面获取对应平台版本。
 
 | 平台 | 安装包 | 便携版 |
 |------|--------|--------|
-| Windows | `ytgo_Setup_{version}_windows_x64.exe` | `ytgo_Portable_{version}_windows_x64.zip` |
-| macOS | `ytgo_{version}_mac_arm64.dmg` / `ytgo_{version}_mac_intel.dmg` | - |
-| Linux | `ytgo_{version}_linux_amd64.deb` | `ytgo_{version}_linux_amd64.AppImage` |
+| Windows | `YT-GO_Setup_{version}_windows_x64.exe` | `YT-GO_Portable_{version}_windows_x64.zip` |
+| macOS | `YT-GO_{version}_mac_arm64.dmg` / `YT-GO_{version}_mac_intel.dmg` | - |
+| Linux | `YT-GO_{version}_linux_amd64.deb` | `YT-GO_{version}_linux_amd64.AppImage` |
 
 ## 开发
 

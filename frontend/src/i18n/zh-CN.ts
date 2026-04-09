@@ -1,5 +1,5 @@
 ﻿const zhCN = {
-    'app.title': 'YT-Goto',
+    'app.title': 'YT-GO',
     'app.theme.dark': '夜间',
     'app.theme.light': '日间',
     'lang.zh': '中文',

@@ -1,8 +1,8 @@
-# ytgo
+# YT-GO
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-ytgo is a cross-platform desktop YouTube downloader powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pick a quality, choose an output folder, and download — no command line needed.
+YT-GO is a cross-platform desktop YouTube downloader powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pick a quality, choose an output folder, and download — no command line needed.
 
 ## Features
 
@@ -18,7 +18,7 @@ ytgo is a cross-platform desktop YouTube downloader powered by [yt-dlp](https://
 
 ## Requirements
 
-[yt-dlp](https://github.com/yt-dlp/yt-dlp) must be installed and available in your system `PATH`, or placed in the same directory as the ytgo executable.
+[yt-dlp](https://github.com/yt-dlp/yt-dlp) must be installed and available in your system `PATH`, or placed in the same directory as the YT-GO executable.
 
 ```bash
 # Install yt-dlp via pip
@@ -33,13 +33,13 @@ brew install yt-dlp
 
 ## Downloads
 
-Download the latest release from the [Releases](https://github.com/igeekfan/ytgo/releases) page.
+Download the latest release from the [Releases](https://github.com/igeekfan/YT-GO/releases) page.
 
 | Platform | Installer | Portable |
 |----------|-----------|----------|
-| Windows | `ytgo_Setup_{version}_windows_x64.exe` | `ytgo_Portable_{version}_windows_x64.zip` |
-| macOS | `ytgo_{version}_mac_arm64.dmg` / `ytgo_{version}_mac_intel.dmg` | - |
-| Linux | `ytgo_{version}_linux_amd64.deb` | `ytgo_{version}_linux_amd64.AppImage` |
+| Windows | `YT-GO_Setup_{version}_windows_x64.exe` | `YT-GO_Portable_{version}_windows_x64.zip` |
+| macOS | `YT-GO_{version}_mac_arm64.dmg` / `YT-GO_{version}_mac_intel.dmg` | - |
+| Linux | `YT-GO_{version}_linux_amd64.deb` | `YT-GO_{version}_linux_amd64.AppImage` |
 
 ## Development
 
