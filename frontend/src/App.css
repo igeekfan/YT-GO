@@ -132,6 +132,70 @@ body {
   gap: 20px;
 }
 
+/* ===== yt-dlp Install Guide ===== */
+.ytdlp-install-guide {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.ytdlp-install-guide .install-guide-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.ytdlp-install-guide h3 {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+}
+
+.ytdlp-install-guide > p {
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+}
+
+.install-commands {
+  background: var(--bg-primary);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.install-method {
+  margin-bottom: 12px;
+}
+
+.install-method:last-child {
+  margin-bottom: 0;
+}
+
+.install-method strong {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.install-method code {
+  display: block;
+  background: var(--bg-tertiary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  color: var(--accent);
+  user-select: all;
+}
+
+.install-note {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
 /* ===== URL section ===== */
 .url-section {
   background: var(--bg-secondary);

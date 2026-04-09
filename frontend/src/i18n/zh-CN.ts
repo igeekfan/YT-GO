@@ -11,6 +11,9 @@
     'ytdlp.update': '更新 yt-dlp',
     'ytdlp.updateSuccess': 'yt-dlp 更新成功',
     'ytdlp.updateFail': 'yt-dlp 更新失败',
+    'ytdlp.installGuide': '请使用以下任一方法安装 yt-dlp：',
+    'ytdlp.installNote': '安装完成后，点击下方按钮重新检测',
+    'ytdlp.recheck': '重新检测',
 
     'url.placeholder': '输入 YouTube 或其他视频链接...',
     'url.getInfo': '获取信息',

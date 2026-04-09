@@ -295,7 +295,39 @@ function App() {
 
             {/* Main content */}
             <main className="app-main">
-                {/* URL input */}
+                {/* yt-dlp installation guide when not found */}
+                {ytdlp && !ytdlp.available && (
+                    <div className="ytdlp-install-guide">
+                        <div className="install-guide-icon">⚠️</div>
+                        <h3>{t('ytdlp.notFound')}</h3>
+                        <p>{t('ytdlp.installGuide')}</p>
+                        <div className="install-commands">
+                            <div className="install-method">
+                                <strong>Windows (winget):</strong>
+                                <code>winget install yt-dlp</code>
+                            </div>
+                            <div className="install-method">
+                                <strong>Windows (scoop):</strong>
+                                <code>scoop install yt-dlp</code>
+                            </div>
+                            <div className="install-method">
+                                <strong>macOS (Homebrew):</strong>
+                                <code>brew install yt-dlp</code>
+                            </div>
+                            <div className="install-method">
+                                <strong>Linux (pip):</strong>
+                                <code>pip install yt-dlp</code>
+                            </div>
+                        </div>
+                        <p className="install-note">{t('ytdlp.installNote')}</p>
+                        <button className="btn-primary" onClick={() => CheckYtDlp().then(setYtdlp)}>
+                            {t('ytdlp.recheck')}
+                        </button>
+                    </div>
+                )}
+
+                {/* URL input - only show when yt-dlp is available */}
+                {ytdlp?.available && (
                 <div className="url-section">
                     <div className="url-row">
                         <input
@@ -463,6 +495,7 @@ function App() {
                         )}
                     </div>
                 </div>
+                )}
 
                 {/* Downloads list */}
                 <DownloadList downloads={downloads} onUpdate={setDownloads} />

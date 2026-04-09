@@ -11,6 +11,9 @@
     'ytdlp.update': 'Update yt-dlp',
     'ytdlp.updateSuccess': 'yt-dlp updated successfully',
     'ytdlp.updateFail': 'Failed to update yt-dlp',
+    'ytdlp.installGuide': 'Please install yt-dlp using one of the following methods:',
+    'ytdlp.installNote': 'After installation, click the button below to re-check',
+    'ytdlp.recheck': 'Re-check',
 
     'url.placeholder': 'Enter YouTube or other video URL...',
     'url.getInfo': 'Get Info',
