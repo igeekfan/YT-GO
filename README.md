@@ -16,20 +16,28 @@ YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
 ## Features
 
 - One-click metadata fetch for YouTube videos, playlist URLs, and channel video list URLs
+- Generic site support: works with any URL that yt-dlp supports (Bilibili, Twitter/X, etc.)
 - Video preview with title, uploader, duration, platform, and thumbnail
 - Playlist and channel-list detection with batch enqueue support
+- Playlist item selector with select all/none and individual checkbox selection
 - Preset qualities: Best, 1080p, 720p, 480p, 360p, and audio-only (MP3)
 - Format probing after metadata fetch, including:
-	- single format selection
+	- single format selection with type badges [V+A], [V], [A], resolution, fps, codecs, and file size
 	- combined video + audio format selection
+	- smart format sorting by type, resolution, and bitrate
 - Concurrent downloads with configurable max parallel tasks
-- Retry failed tasks or retry all failed tasks from the download list
+- Download history search and filtering by status (all, downloading, completed, failed)
+- Retry failed tasks, re-download completed tasks, or retry all failed tasks from the download list
 - Cancel a running task and automatically remove it from the queue
 - Real-time logs, progress, speed, ETA, and output path tracking
+- Subtitle support: download subtitles with configurable languages and optional embedding into video
+- Chapter embedding and SponsorBlock markers
 - Optional sidecar files for video description and thumbnail
+- Customizable filename template, output container format (MP4/MKV/WebM), and audio format (MP3/M4A/Opus/FLAC/WAV)
 - Open the downloaded file or its folder directly after completion
 - Persistent download history stored locally in SQLite
-- Persistent settings for output dir, default quality, language, theme, proxy, rate limit, cookies, notifications, and concurrency
+- Settings organized into five tabs: Download, Media, Network & Auth, Tools, and Appearance
+- Tool center with yt-dlp update, FFmpeg detection, Node.js runtime status, and full diagnostics
 - Built-in yt-dlp update check and in-app update action
 - Automatic yt-dlp detection from PATH or the application directory
 - English and Simplified Chinese UI
@@ -94,8 +102,7 @@ Build outputs are generated in `build/bin/`.
 
 ## Roadmap
 
-- Continued refinement of format selection and media options
-- Keep README as the product-facing source of truth while PLAN tracks only future work
+See [PLAN.md](PLAN.md) for the detailed development roadmap and future work items.
 
 ## Stack
 
