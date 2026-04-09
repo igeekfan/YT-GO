@@ -35,6 +35,7 @@ type DownloadTask struct {
 	URL        string  `json:"url"`
 	Title      string  `json:"title"`
 	Thumbnail  string  `json:"thumbnail"`
+	Quality    string  `json:"quality"`
 	Status     string  `json:"status"` // pending, downloading, completed, error, cancelled
 	Progress   float64 `json:"progress"`
 	Speed      string  `json:"speed"`

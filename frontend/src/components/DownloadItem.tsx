@@ -7,6 +7,7 @@ import {EventsOn} from '../../wailsjs/runtime/runtime'
 interface Props {
     task: DownloadTask
     onCancelled: (id: string) => void
+    onRetry: (task: DownloadTask) => void
 }
 
 function formatDuration(seconds: number): string {
@@ -26,7 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
     cancelled: 'bg-gray-500/20 text-gray-400',
 }
 
-function DownloadItem({task, onCancelled}: Props) {
+function DownloadItem({task, onCancelled, onRetry}: Props) {
     const {t} = useI18n()
     const [showLogs, setShowLogs] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
@@ -138,6 +139,11 @@ function DownloadItem({task, onCancelled}: Props) {
                         {t('action.cancel')}
                     </button>
                 ) : null}
+                {(task.status === 'error' || task.status === 'cancelled') && (
+                    <button className="btn-ghost btn-sm" onClick={() => onRetry(task)}>
+                        {t('action.retry')}
+                    </button>
+                )}
                 {task.status === 'completed' && (
                     <>
                         <button className="btn-ghost btn-sm" onClick={handleOpenFile}>

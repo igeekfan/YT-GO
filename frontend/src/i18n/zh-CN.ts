@@ -43,6 +43,7 @@
     'downloads.title': '下载列表',
     'downloads.empty': '暂无下载任务',
     'downloads.clearCompleted': '清除已完成',
+    'downloads.retryFailed': '重试失败任务',
 
     'status.pending': '等待中',
     'status.downloading': '下载中',
@@ -51,6 +52,7 @@
     'status.cancelled': '已取消',
 
     'action.cancel': '取消',
+    'action.retry': '重试',
     'action.open': '打开文件',
     'action.openFolder': '打开文件夹',
     'action.logs': '日志',
@@ -92,6 +94,12 @@
     'format.label': '格式',
     'format.detect': '检测格式',
     'format.loading': '检测中...',
+    'format.mode.single': '单格式',
+    'format.mode.combine': '组合格式（视频+音频）',
+    'format.video': '视频轨',
+    'format.audio': '音频轨',
+    'format.selectVideo': '选择视频格式',
+    'format.selectAudio': '选择音频格式',
     'format.usePreset': '使用预设画质',
     'toast.getFormatsFail': '获取格式列表失败',
 

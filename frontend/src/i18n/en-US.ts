@@ -43,6 +43,7 @@
     'downloads.title': 'Downloads',
     'downloads.empty': 'No downloads yet',
     'downloads.clearCompleted': 'Clear Completed',
+    'downloads.retryFailed': 'Retry Failed',
 
     'status.pending': 'Pending',
     'status.downloading': 'Downloading',
@@ -51,6 +52,7 @@
     'status.cancelled': 'Cancelled',
 
     'action.cancel': 'Cancel',
+    'action.retry': 'Retry',
     'action.open': 'Open File',
     'action.openFolder': 'Open Folder',
     'action.logs': 'Logs',
@@ -92,6 +94,12 @@
     'format.label': 'Format',
     'format.detect': 'Detect',
     'format.loading': 'Detecting...',
+    'format.mode.single': 'Single Format',
+    'format.mode.combine': 'Combined Format (Video + Audio)',
+    'format.video': 'Video Track',
+    'format.audio': 'Audio Track',
+    'format.selectVideo': 'Select video format',
+    'format.selectAudio': 'Select audio format',
     'format.usePreset': 'Use preset quality',
     'toast.getFormatsFail': 'Failed to get format list',
 

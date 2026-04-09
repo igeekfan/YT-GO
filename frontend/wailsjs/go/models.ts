@@ -85,6 +85,7 @@ export namespace main {
 	    url: string;
 	    title: string;
 	    thumbnail: string;
+	    quality: string;
 	    status: string;
 	    progress: number;
 	    speed: string;
@@ -105,6 +106,7 @@ export namespace main {
 	        this.url = source["url"];
 	        this.title = source["title"];
 	        this.thumbnail = source["thumbnail"];
+	        this.quality = source["quality"];
 	        this.status = source["status"];
 	        this.progress = source["progress"];
 	        this.speed = source["speed"];

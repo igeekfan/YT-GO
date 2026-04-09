@@ -54,6 +54,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	if db, err := openDB(); err == nil {
 		a.db = db
+		a.cleanupTransientDownloads()
 		a.loadFromDB()
 		// Initialize download semaphore based on settings
 		settings := a.GetSettings()
@@ -66,6 +67,15 @@ func (a *App) startup(ctx context.Context) {
 		}
 		a.downloadSem = make(chan struct{}, maxConcurrent)
 	}
+}
+
+// cleanupTransientDownloads removes stale transient tasks left by a previous session.
+// Pending/downloading/cancelled tasks should not survive an application restart.
+func (a *App) cleanupTransientDownloads() {
+	if a.db == nil {
+		return
+	}
+	a.db.Where("status IN ?", []string{"pending", "downloading", "cancelled"}).Delete(&DownloadRecord{})
 }
 
 // loadFromDB loads all persisted download records into the in-memory map.
@@ -755,6 +765,7 @@ func (a *App) StartDownload(req DownloadRequest) (string, error) {
 		ID:        taskID,
 		URL:       req.URL,
 		OutputDir: req.OutputDir,
+		Quality:   req.Quality,
 		Status:    "pending",
 		CreatedAt: time.Now().Format(time.RFC3339),
 	}
@@ -903,10 +914,12 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	a.mu.Lock()
 	delete(a.cancelFns, taskID)
 	var finalTask *DownloadTask
+	var removed bool
 	if t, ok := a.downloads[taskID]; ok {
 		switch {
 		case wasCancelled:
-			t.Status = "cancelled"
+			delete(a.downloads, taskID)
+			removed = true
 		case err != nil:
 			t.Status = "error"
 			t.Error = err.Error()
@@ -921,6 +934,12 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 		finalTask = &cp
 	}
 	a.mu.Unlock()
+
+	if removed {
+		wailsRuntime.EventsEmit(a.ctx, "download:remove", taskID)
+		go a.deleteRecords([]string{taskID})
+		return
+	}
 
 	if finalTask != nil {
 		wailsRuntime.EventsEmit(a.ctx, "download:update", finalTask)

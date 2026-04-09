@@ -25,6 +25,14 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
 }
 
+function formatOptionLabel(format: FormatInfo['formats'][number]): string {
+    const primary = format.resolution || (format.hasAudio && !format.hasVideo ? 'audio' : format.formatId)
+    const codec = [format.ext, format.note ? `(${format.note})` : '', format.filesize ? formatFileSize(format.filesize) : '']
+        .filter(Boolean)
+        .join(' ')
+    return `${primary} | ${codec}`
+}
+
 function getConsoleLogType(line: string): 'error' | 'warning' | 'command' | 'info' {
     const normalized = line.toLowerCase()
     if (normalized.includes(' failed:') || normalized.includes('error:')) return 'error'
@@ -43,7 +51,10 @@ function App() {
     const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
     const [playlistInfo, setPlaylistInfo] = useState<PlaylistInfo | null>(null)
     const [formatInfo, setFormatInfo] = useState<FormatInfo | null>(null)
+    const [formatMode, setFormatMode] = useState<'single' | 'combine'>('single')
     const [selectedFormat, setSelectedFormat] = useState('')
+    const [selectedVideoFormat, setSelectedVideoFormat] = useState('')
+    const [selectedAudioFormat, setSelectedAudioFormat] = useState('')
     const [isGettingFormats, setIsGettingFormats] = useState(false)
     const [quality, setQuality] = useState('best')
     const [outputDir, setOutputDir] = useState('')
@@ -139,6 +150,13 @@ function App() {
         return () => { if (typeof off === 'function') off() }
     }, [sendNotification, t])
 
+    useEffect(() => {
+        const off = EventsOn('download:remove', (taskId: string) => {
+            setDownloads(prev => prev.filter(d => d.id !== taskId))
+        })
+        return () => { if (typeof off === 'function') off() }
+    }, [])
+
     // Listen for app:log events (console output from backend)
     useEffect(() => {
         const off = EventsOn('app:log', (msg: string) => {
@@ -158,13 +176,34 @@ function App() {
         }
     }, [consoleLogs, showConsole])
 
+    const hasCustomFormatSelection = !!selectedFormat || !!selectedVideoFormat || !!selectedAudioFormat
+    const videoOnlyFormats = formatInfo?.formats.filter(f => f.hasVideo && !f.hasAudio) || []
+    const audioOnlyFormats = formatInfo?.formats.filter(f => f.hasAudio && !f.hasVideo) || []
+    const combineVideoFormats = (videoOnlyFormats.length > 0 ? videoOnlyFormats : formatInfo?.formats.filter(f => f.hasVideo) || [])
+        .sort((a, b) => (b.filesize || 0) - (a.filesize || 0))
+    const combineAudioFormats = (audioOnlyFormats.length > 0 ? audioOnlyFormats : formatInfo?.formats.filter(f => f.hasAudio) || [])
+        .sort((a, b) => (b.filesize || 0) - (a.filesize || 0))
+
+    const resolveDownloadQuality = () => {
+        if (formatMode === 'single' && selectedFormat) return `f:${selectedFormat}`
+        if (formatMode === 'combine') {
+            if (selectedVideoFormat && selectedAudioFormat) return `f:${selectedVideoFormat}+${selectedAudioFormat}`
+            if (selectedVideoFormat) return `f:${selectedVideoFormat}`
+            if (selectedAudioFormat) return `f:${selectedAudioFormat}`
+        }
+        return quality
+    }
+
     const handleGetInfo = async () => {
         if (!url.trim()) return
         setIsGettingInfo(true)
         setVideoInfo(null)
         setPlaylistInfo(null)
         setFormatInfo(null)
+        setFormatMode('single')
         setSelectedFormat('')
+        setSelectedVideoFormat('')
+        setSelectedAudioFormat('')
         try {
             const info = await GetVideoInfo(url.trim())
             setVideoInfo(info)
@@ -199,6 +238,8 @@ function App() {
             const info = await GetFormats(url.trim())
             setFormatInfo(info)
             setSelectedFormat('')
+            setSelectedVideoFormat('')
+            setSelectedAudioFormat('')
         } catch (e: any) {
             showToast(t('toast.getFormatsFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
@@ -214,8 +255,7 @@ function App() {
         }
         setIsStarting(true)
         try {
-            // Use selected format if available, otherwise use quality preset
-            const downloadQuality = selectedFormat ? `f:${selectedFormat}` : quality
+            const downloadQuality = resolveDownloadQuality()
             await StartDownload({
                 url: url.trim(),
                 outputDir,
@@ -227,6 +267,8 @@ function App() {
             setPlaylistInfo(null)
             setFormatInfo(null)
             setSelectedFormat('')
+            setSelectedVideoFormat('')
+            setSelectedAudioFormat('')
         } catch (e: any) {
             showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
@@ -241,12 +283,13 @@ function App() {
         }
         setIsStarting(true)
         try {
+            const downloadQuality = resolveDownloadQuality()
             for (const video of playlistInfo.videos) {
                 if (video.url) {
                     await StartDownload({
                         url: video.url,
                         outputDir,
-                        quality,
+                        quality: downloadQuality,
                         videoInfo: video,
                     } as any)
                 }
@@ -440,8 +483,10 @@ function App() {
                                 onChange={e => {
                                     setQuality(e.target.value)
                                     setSelectedFormat('')
+                                    setSelectedVideoFormat('')
+                                    setSelectedAudioFormat('')
                                 }}
-                                disabled={!!selectedFormat}
+                                disabled={hasCustomFormatSelection}
                             >
                                 {QUALITY_OPTIONS.map(q => (
                                     <option key={q} value={q}>
@@ -465,29 +510,81 @@ function App() {
                                             {isGettingFormats ? t('format.loading') : t('format.detect')}
                                         </button>
                                     ) : (
-                                        <select
-                                            className="select-input format-select"
-                                            value={selectedFormat}
-                                            onChange={e => setSelectedFormat(e.target.value)}
-                                        >
-                                            <option value="">{t('format.usePreset')}</option>
-                                            {formatInfo.formats
-                                                .filter(f => f.hasVideo || f.hasAudio)
-                                                .sort((a, b) => {
-                                                    // Sort: video+audio first, then video only, then audio only
-                                                    const aScore = (a.hasVideo ? 2 : 0) + (a.hasAudio ? 1 : 0)
-                                                    const bScore = (b.hasVideo ? 2 : 0) + (b.hasAudio ? 1 : 0)
-                                                    if (aScore !== bScore) return bScore - aScore
-                                                    // Then by filesize descending
-                                                    return (b.filesize || 0) - (a.filesize || 0)
-                                                })
-                                                .map(f => (
-                                                    <option key={f.formatId} value={f.formatId}>
-                                                        {f.resolution || (f.hasAudio && !f.hasVideo ? '🔊 audio' : f.formatId)} | {f.ext} {f.note && `(${f.note})`} {f.filesize ? formatFileSize(f.filesize) : ''}
-                                                    </option>
-                                                ))
-                                            }
-                                        </select>
+                                        <div className="format-stack">
+                                            <select
+                                                className="select-input format-mode-select"
+                                                value={formatMode}
+                                                onChange={e => {
+                                                    const nextMode = e.target.value as 'single' | 'combine'
+                                                    setFormatMode(nextMode)
+                                                    setSelectedFormat('')
+                                                    setSelectedVideoFormat('')
+                                                    setSelectedAudioFormat('')
+                                                }}
+                                            >
+                                                <option value="single">{t('format.mode.single')}</option>
+                                                <option value="combine">{t('format.mode.combine')}</option>
+                                            </select>
+                                            {formatMode === 'single' ? (
+                                                <select
+                                                    className="select-input format-select"
+                                                    value={selectedFormat}
+                                                    onChange={e => {
+                                                        setSelectedFormat(e.target.value)
+                                                        setSelectedVideoFormat('')
+                                                        setSelectedAudioFormat('')
+                                                    }}
+                                                >
+                                                    <option value="">{t('format.usePreset')}</option>
+                                                    {formatInfo.formats
+                                                        .filter(f => f.hasVideo || f.hasAudio)
+                                                        .sort((a, b) => {
+                                                            const aScore = (a.hasVideo ? 2 : 0) + (a.hasAudio ? 1 : 0)
+                                                            const bScore = (b.hasVideo ? 2 : 0) + (b.hasAudio ? 1 : 0)
+                                                            if (aScore !== bScore) return bScore - aScore
+                                                            return (b.filesize || 0) - (a.filesize || 0)
+                                                        })
+                                                        .map(f => (
+                                                            <option key={f.formatId} value={f.formatId}>
+                                                                {formatOptionLabel(f)}
+                                                            </option>
+                                                        ))}
+                                                </select>
+                                            ) : (
+                                                <div className="format-combine-grid">
+                                                    <div className="format-combine-group">
+                                                        <span className="format-sub-label">{t('format.video')}</span>
+                                                        <select
+                                                            className="select-input format-select"
+                                                            value={selectedVideoFormat}
+                                                            onChange={e => setSelectedVideoFormat(e.target.value)}
+                                                        >
+                                                            <option value="">{t('format.selectVideo')}</option>
+                                                            {combineVideoFormats.map(f => (
+                                                                <option key={f.formatId} value={f.formatId}>
+                                                                    {formatOptionLabel(f)}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div className="format-combine-group">
+                                                        <span className="format-sub-label">{t('format.audio')}</span>
+                                                        <select
+                                                            className="select-input format-select"
+                                                            value={selectedAudioFormat}
+                                                            onChange={e => setSelectedAudioFormat(e.target.value)}
+                                                        >
+                                                            <option value="">{t('format.selectAudio')}</option>
+                                                            {combineAudioFormats.map(f => (
+                                                                <option key={f.formatId} value={f.formatId}>
+                                                                    {formatOptionLabel(f)}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>

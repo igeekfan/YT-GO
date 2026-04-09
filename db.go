@@ -17,6 +17,7 @@ type DownloadRecord struct {
 	URL        string `gorm:"not null"`
 	Title      string
 	Thumbnail  string
+	Quality    string
 	Status     string  `gorm:"not null;default:'pending'"`
 	Progress   float64 `gorm:"default:0"`
 	Speed      string
@@ -75,6 +76,7 @@ func taskToRecord(t *DownloadTask) DownloadRecord {
 		URL:        t.URL,
 		Title:      t.Title,
 		Thumbnail:  t.Thumbnail,
+		Quality:    t.Quality,
 		Status:     t.Status,
 		Progress:   t.Progress,
 		Speed:      t.Speed,
@@ -94,6 +96,7 @@ func recordToTask(r DownloadRecord) *DownloadTask {
 		URL:        r.URL,
 		Title:      r.Title,
 		Thumbnail:  r.Thumbnail,
+		Quality:    r.Quality,
 		Status:     r.Status,
 		Progress:   r.Progress,
 		Speed:      r.Speed,
