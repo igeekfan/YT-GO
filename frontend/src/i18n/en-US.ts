@@ -70,6 +70,8 @@
     'settings.title': 'Settings',
     'settings.outputDir': 'Default Download Directory',
     'settings.quality': 'Default Quality',
+    'settings.theme': 'Theme',
+    'settings.language': 'Language',
     'settings.proxy': 'Proxy Server',
     'settings.rateLimit': 'Download Rate Limit',
     'settings.maxConcurrent': 'Max Concurrent Downloads',

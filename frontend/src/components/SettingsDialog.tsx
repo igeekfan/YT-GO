@@ -10,9 +10,11 @@ interface Props {
 }
 
 const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
+const THEME_OPTIONS = ['dark', 'light']
+const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
 
 function SettingsDialog({open, onClose, onSaved}: Props) {
-    const {t} = useI18n()
+    const {t, lang, setLang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
     const [saving, setSaving] = useState(false)
 
@@ -83,6 +85,34 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                         >
                             {QUALITY_OPTIONS.map(q => (
                                 <option key={q} value={q}>{t(`quality.${q}` as any)}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Theme */}
+                    <div className="setting-item">
+                        <label className="setting-label">{t('settings.theme')}</label>
+                        <select
+                            className="setting-select"
+                            value={settings.theme || 'dark'}
+                            onChange={e => update('theme', e.target.value)}
+                        >
+                            {THEME_OPTIONS.map(th => (
+                                <option key={th} value={th}>{t(`app.theme.${th}` as any)}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Language */}
+                    <div className="setting-item">
+                        <label className="setting-label">{t('settings.language')}</label>
+                        <select
+                            className="setting-select"
+                            value={settings.language || lang}
+                            onChange={e => update('language', e.target.value)}
+                        >
+                            {LANGUAGE_OPTIONS.map(l => (
+                                <option key={l} value={l}>{l === 'zh-CN' ? '中文' : 'English'}</option>
                             ))}
                         </select>
                     </div>

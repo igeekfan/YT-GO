@@ -247,14 +247,25 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, a.ytdlpPath,
+	args := []string{
 		"--dump-json",
 		"--no-playlist",
 		"--no-warnings",
-		url,
-	)
-	out, err := cmd.Output()
+	}
+	// Apply proxy from settings
+	settings := a.GetSettings()
+	if settings.Proxy != "" {
+		args = append(args, "--proxy", settings.Proxy)
+	}
+	args = append(args, url)
+
+	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
+		errMsg := strings.TrimSpace(string(out))
+		if errMsg != "" {
+			return VideoInfo{}, fmt.Errorf("%s", errMsg)
+		}
 		return VideoInfo{}, fmt.Errorf("failed to get video info: %w", err)
 	}
 	var raw map[string]interface{}
@@ -294,14 +305,25 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, a.ytdlpPath,
+	args := []string{
 		"--flat-playlist",
 		"--dump-json",
 		"--no-warnings",
-		url,
-	)
-	out, err := cmd.Output()
+	}
+	// Apply proxy from settings
+	settings := a.GetSettings()
+	if settings.Proxy != "" {
+		args = append(args, "--proxy", settings.Proxy)
+	}
+	args = append(args, url)
+
+	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
+		errMsg := strings.TrimSpace(string(out))
+		if errMsg != "" {
+			return PlaylistInfo{}, fmt.Errorf("%s", errMsg)
+		}
 		return PlaylistInfo{}, fmt.Errorf("failed to get playlist info: %w", err)
 	}
 
@@ -370,15 +392,26 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, a.ytdlpPath,
+	args := []string{
 		"--dump-json",
 		"--no-download",
 		"--no-warnings",
 		"--no-playlist",
-		url,
-	)
-	out, err := cmd.Output()
+	}
+	// Apply proxy from settings
+	settings := a.GetSettings()
+	if settings.Proxy != "" {
+		args = append(args, "--proxy", settings.Proxy)
+	}
+	args = append(args, url)
+
+	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
+		errMsg := strings.TrimSpace(string(out))
+		if errMsg != "" {
+			return FormatInfo{}, fmt.Errorf("%s", errMsg)
+		}
 		return FormatInfo{}, fmt.Errorf("failed to get formats: %w", err)
 	}
 

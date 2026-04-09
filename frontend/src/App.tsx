@@ -138,6 +138,13 @@ function App() {
         try {
             const info = await GetVideoInfo(url.trim())
             setVideoInfo(info)
+            // Auto-fetch available formats after getting video info
+            try {
+                const formats = await GetFormats(url.trim())
+                setFormatInfo(formats)
+            } catch {
+                // Ignore format fetch errors - user can still use presets
+            }
         } catch (e: any) {
             // Try as playlist if single video fetch fails or URL looks like a playlist
             try {
@@ -385,7 +392,9 @@ function App() {
                             <div className="option-group">
                                 <label className="option-label">{t('format.label')}</label>
                                 <div className="format-row">
-                                    {!formatInfo ? (
+                                    {isGettingInfo ? (
+                                        <span className="format-loading">{t('format.loading')}</span>
+                                    ) : !formatInfo ? (
                                         <button
                                             className="btn-secondary"
                                             onClick={handleGetFormats}
@@ -402,9 +411,17 @@ function App() {
                                             <option value="">{t('format.usePreset')}</option>
                                             {formatInfo.formats
                                                 .filter(f => f.hasVideo || f.hasAudio)
+                                                .sort((a, b) => {
+                                                    // Sort: video+audio first, then video only, then audio only
+                                                    const aScore = (a.hasVideo ? 2 : 0) + (a.hasAudio ? 1 : 0)
+                                                    const bScore = (b.hasVideo ? 2 : 0) + (b.hasAudio ? 1 : 0)
+                                                    if (aScore !== bScore) return bScore - aScore
+                                                    // Then by filesize descending
+                                                    return (b.filesize || 0) - (a.filesize || 0)
+                                                })
                                                 .map(f => (
                                                     <option key={f.formatId} value={f.formatId}>
-                                                        {f.formatId} - {f.ext} {f.resolution || (f.hasAudio && !f.hasVideo ? 'audio' : '')} {f.note && `(${f.note})`} {f.filesize ? formatFileSize(f.filesize) : ''}
+                                                        {f.resolution || (f.hasAudio && !f.hasVideo ? '🔊 audio' : f.formatId)} | {f.ext} {f.note && `(${f.note})`} {f.filesize ? formatFileSize(f.filesize) : ''}
                                                     </option>
                                                 ))
                                             }

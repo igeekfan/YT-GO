@@ -70,6 +70,8 @@
     'settings.title': '设置',
     'settings.outputDir': '默认下载目录',
     'settings.quality': '默认画质',
+    'settings.theme': '主题',
+    'settings.language': '语言',
     'settings.proxy': '代理服务器',
     'settings.rateLimit': '下载限速',
     'settings.maxConcurrent': '最大并发数',
