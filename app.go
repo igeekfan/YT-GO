@@ -126,10 +126,36 @@ func (a *App) findYtDlp() string {
 			return path
 		}
 	}
+	// Check alongside the application binary
 	execDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err == nil {
 		for _, name := range candidates {
 			p := filepath.Join(execDir, name)
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
+		}
+	}
+	// Check common install locations not always in PATH
+	var extraDirs []string
+	if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" {
+		// winget installs: %LOCALAPPDATA%\Microsoft\WinGet\Packages\yt-dlp.yt-dlp*\
+		wingetPackages := filepath.Join(localApp, "Microsoft", "WinGet", "Packages")
+		if entries, err := os.ReadDir(wingetPackages); err == nil {
+			for _, e := range entries {
+				if e.IsDir() && strings.HasPrefix(e.Name(), "yt-dlp.yt-dlp") {
+					extraDirs = append(extraDirs, filepath.Join(wingetPackages, e.Name()))
+				}
+			}
+		}
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		// scoop: ~/scoop/shims/
+		extraDirs = append(extraDirs, filepath.Join(home, "scoop", "shims"))
+	}
+	for _, dir := range extraDirs {
+		for _, name := range candidates {
+			p := filepath.Join(dir, name)
 			if _, err := os.Stat(p); err == nil {
 				return p
 			}
