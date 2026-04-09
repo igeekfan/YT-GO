@@ -21,10 +21,15 @@ const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
 const THEME_OPTIONS = ['dark', 'light']
 const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
 
+type SettingsTab = 'download' | 'media' | 'network' | 'tools' | 'appearance'
+
+const TAB_KEYS: SettingsTab[] = ['download', 'media', 'network', 'tools', 'appearance']
+
 function SettingsDialog({open, onClose, onSaved}: Props) {
-    const {t, lang, setLang} = useI18n()
+    const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
     const [saving, setSaving] = useState(false)
+    const [activeTab, setActiveTab] = useState<SettingsTab>('download')
     const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
     const [loadingDiag, setLoadingDiag] = useState(false)
 
@@ -32,6 +37,7 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
         if (open) {
             GetSettings().then(setSettings).catch(console.error)
             setDiagnostic(null)
+            setActiveTab('download')
         }
     }, [open])
 
@@ -74,6 +80,235 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
         setSettings({...settings, [key]: value})
     }
 
+    const renderDownloadTab = () => (
+        <>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.outputDir')}</label>
+                <div className="setting-row">
+                    <input
+                        type="text"
+                        className="setting-input flex-1"
+                        value={settings.outputDir}
+                        onChange={e => update('outputDir', e.target.value)}
+                    />
+                    <button className="btn-secondary btn-sm" onClick={handleSelectFolder}>
+                        {t('outputDir.browse')}
+                    </button>
+                </div>
+            </div>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.quality')}</label>
+                <select
+                    className="setting-select"
+                    value={settings.quality}
+                    onChange={e => update('quality', e.target.value)}
+                >
+                    {QUALITY_OPTIONS.map(q => (
+                        <option key={q} value={q}>{t(`quality.${q}` as any)}</option>
+                    ))}
+                </select>
+            </div>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.rateLimit')}</label>
+                <input
+                    type="text"
+                    className="setting-input"
+                    value={settings.rateLimit}
+                    onChange={e => update('rateLimit', e.target.value)}
+                    placeholder="e.g. 1M, 500K (empty = unlimited)"
+                />
+            </div>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.maxConcurrent')}</label>
+                <input
+                    type="number"
+                    className="setting-input setting-input-sm"
+                    value={settings.maxConcurrent}
+                    min={1}
+                    max={10}
+                    onChange={e => update('maxConcurrent', parseInt(e.target.value) || 1)}
+                />
+            </div>
+        </>
+    )
+
+    const renderMediaTab = () => (
+        <>
+            <div className="setting-item setting-item-row">
+                <label className="setting-label">{t('settings.saveDescription')}</label>
+                <input
+                    type="checkbox"
+                    className="setting-checkbox"
+                    checked={settings.saveDescription || false}
+                    onChange={e => update('saveDescription', e.target.checked)}
+                />
+            </div>
+            <div className="setting-item setting-item-row">
+                <label className="setting-label">{t('settings.saveThumbnail')}</label>
+                <input
+                    type="checkbox"
+                    className="setting-checkbox"
+                    checked={settings.saveThumbnail || false}
+                    onChange={e => update('saveThumbnail', e.target.checked)}
+                />
+            </div>
+        </>
+    )
+
+    const renderNetworkTab = () => (
+        <>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.proxy')}</label>
+                <input
+                    type="text"
+                    className="setting-input"
+                    value={settings.proxy}
+                    onChange={e => update('proxy', e.target.value)}
+                    placeholder="http://127.0.0.1:7890 or socks5://127.0.0.1:1080"
+                />
+            </div>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.cookiesFrom')}</label>
+                <select
+                    className="setting-select"
+                    value={settings.cookiesFrom || ''}
+                    onChange={e => {
+                        const val = e.target.value
+                        setSettings(prev => prev ? {...prev, cookiesFrom: val, cookiesFile: val ? '' : prev.cookiesFile} : prev)
+                    }}
+                >
+                    <option value="">{t('settings.cookiesFromNone')}</option>
+                    <option value="chrome">Chrome</option>
+                    <option value="firefox">Firefox</option>
+                    <option value="edge">Edge</option>
+                    <option value="opera">Opera</option>
+                    <option value="brave">Brave</option>
+                    <option value="vivaldi">Vivaldi</option>
+                    <option value="safari">Safari</option>
+                </select>
+            </div>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.cookiesFile')}</label>
+                <div className="setting-row">
+                    <input
+                        type="text"
+                        className="setting-input flex-1"
+                        value={settings.cookiesFile || ''}
+                        onChange={e => {
+                            const val = e.target.value
+                            setSettings(prev => prev ? {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom} : prev)
+                        }}
+                        placeholder={t('settings.cookiesFilePlaceholder')}
+                        disabled={!!settings.cookiesFrom}
+                    />
+                    <button
+                        className="btn-secondary btn-sm"
+                        disabled={!!settings.cookiesFrom}
+                        onClick={async () => {
+                            const file = await SelectCookiesFile()
+                            if (file) {
+                                setSettings(prev => prev ? {...prev, cookiesFile: file, cookiesFrom: ''} : prev)
+                            }
+                        }}
+                    >
+                        {t('outputDir.browse')}
+                    </button>
+                </div>
+            </div>
+        </>
+    )
+
+    const renderToolsTab = () => (
+        <>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.diagnostic')}</label>
+                <button
+                    className="btn-secondary btn-sm mb-2"
+                    onClick={handleGetDiagnostic}
+                    disabled={loadingDiag}
+                >
+                    {loadingDiag ? t('settings.diagChecking') : t('settings.diagCheck')}
+                </button>
+                {diagnostic && (
+                    <div className="diagnostic-info">
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.diagPath')}:</span>
+                            <span className="diag-value">{diagnostic.ytdlpPath || t('settings.diagNotFound')}</span>
+                        </div>
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.diagVersion')}:</span>
+                            <span className="diag-value">{diagnostic.ytdlpVersion || '-'}</span>
+                        </div>
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.diagStatus')}:</span>
+                            <span className={`diag-value ${diagnostic.ytdlpFound ? 'text-green-400' : 'text-red-400'}`}>
+                                {diagnostic.ytdlpFound ? t('settings.diagAvailable') : t('settings.diagUnavailable')}
+                            </span>
+                        </div>
+                        {diagnostic.testOutput && (
+                            <div className="diag-item">
+                                <span className="diag-label">{t('settings.diagTest')}:</span>
+                                <span className="diag-value text-green-400">{diagnostic.testOutput}</span>
+                            </div>
+                        )}
+                        {diagnostic.error && (
+                            <div className="diag-item">
+                                <span className="diag-label">{t('settings.diagError')}:</span>
+                                <span className="diag-value text-red-400">{diagnostic.error}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </>
+    )
+
+    const renderAppearanceTab = () => (
+        <>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.theme')}</label>
+                <select
+                    className="setting-select"
+                    value={settings.theme || 'dark'}
+                    onChange={e => update('theme', e.target.value)}
+                >
+                    {THEME_OPTIONS.map(th => (
+                        <option key={th} value={th}>{t(`app.theme.${th}` as any)}</option>
+                    ))}
+                </select>
+            </div>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.language')}</label>
+                <select
+                    className="setting-select"
+                    value={settings.language || lang}
+                    onChange={e => update('language', e.target.value)}
+                >
+                    {LANGUAGE_OPTIONS.map(l => (
+                        <option key={l} value={l}>{l === 'zh-CN' ? '中文' : 'English'}</option>
+                    ))}
+                </select>
+            </div>
+            <div className="setting-item setting-item-row">
+                <label className="setting-label">{t('settings.notifications')}</label>
+                <input
+                    type="checkbox"
+                    className="setting-checkbox"
+                    checked={settings.notifications}
+                    onChange={e => update('notifications', e.target.checked)}
+                />
+            </div>
+        </>
+    )
+
+    const tabContent: Record<SettingsTab, () => JSX.Element> = {
+        download: renderDownloadTab,
+        media: renderMediaTab,
+        network: renderNetworkTab,
+        tools: renderToolsTab,
+        appearance: renderAppearanceTab,
+    }
+
     return (
         <div className="dialog-overlay" onClick={onClose}>
             <div className="dialog-content settings-dialog" onClick={e => e.stopPropagation()}>
@@ -81,226 +316,19 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                     <h2>{t('settings.title')}</h2>
                     <button className="btn-ghost btn-sm" onClick={onClose}>✕</button>
                 </div>
-                <div className="dialog-body">
-                    {/* Output Directory */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.outputDir')}</label>
-                        <div className="setting-row">
-                            <input
-                                type="text"
-                                className="setting-input flex-1"
-                                value={settings.outputDir}
-                                onChange={e => update('outputDir', e.target.value)}
-                            />
-                            <button className="btn-secondary btn-sm" onClick={handleSelectFolder}>
-                                {t('outputDir.browse')}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Default Quality */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.quality')}</label>
-                        <select
-                            className="setting-select"
-                            value={settings.quality}
-                            onChange={e => update('quality', e.target.value)}
-                        >
-                            {QUALITY_OPTIONS.map(q => (
-                                <option key={q} value={q}>{t(`quality.${q}` as any)}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Theme */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.theme')}</label>
-                        <select
-                            className="setting-select"
-                            value={settings.theme || 'dark'}
-                            onChange={e => update('theme', e.target.value)}
-                        >
-                            {THEME_OPTIONS.map(th => (
-                                <option key={th} value={th}>{t(`app.theme.${th}` as any)}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Language */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.language')}</label>
-                        <select
-                            className="setting-select"
-                            value={settings.language || lang}
-                            onChange={e => update('language', e.target.value)}
-                        >
-                            {LANGUAGE_OPTIONS.map(l => (
-                                <option key={l} value={l}>{l === 'zh-CN' ? '中文' : 'English'}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Proxy */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.proxy')}</label>
-                        <input
-                            type="text"
-                            className="setting-input"
-                            value={settings.proxy}
-                            onChange={e => update('proxy', e.target.value)}
-                            placeholder="http://127.0.0.1:7890 or socks5://127.0.0.1:1080"
-                        />
-                    </div>
-
-                    {/* Cookies from browser */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.cookiesFrom')}</label>
-                        <select
-                            className="setting-select"
-                            value={settings.cookiesFrom || ''}
-                            onChange={e => {
-                                const val = e.target.value
-                                setSettings(prev => prev ? {...prev, cookiesFrom: val, cookiesFile: val ? '' : prev.cookiesFile} : prev)
-                            }}
-                        >
-                            <option value="">{t('settings.cookiesFromNone')}</option>
-                            <option value="chrome">Chrome</option>
-                            <option value="firefox">Firefox</option>
-                            <option value="edge">Edge</option>
-                            <option value="opera">Opera</option>
-                            <option value="brave">Brave</option>
-                            <option value="vivaldi">Vivaldi</option>
-                            <option value="safari">Safari</option>
-                        </select>
-                    </div>
-
-                    {/* Cookies file */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.cookiesFile')}</label>
-                        <div className="setting-row">
-                            <input
-                                type="text"
-                                className="setting-input flex-1"
-                                value={settings.cookiesFile || ''}
-                                onChange={e => {
-                                    const val = e.target.value
-                                    setSettings(prev => prev ? {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom} : prev)
-                                }}
-                                placeholder={t('settings.cookiesFilePlaceholder')}
-                                disabled={!!settings.cookiesFrom}
-                            />
-                            <button
-                                className="btn-secondary btn-sm"
-                                disabled={!!settings.cookiesFrom}
-                                onClick={async () => {
-                                    const file = await SelectCookiesFile()
-                                    if (file) {
-                                        setSettings(prev => prev ? {...prev, cookiesFile: file, cookiesFrom: ''} : prev)
-                                    }
-                                }}
-                            >
-                                {t('outputDir.browse')}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Rate Limit */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.rateLimit')}</label>
-                        <input
-                            type="text"
-                            className="setting-input"
-                            value={settings.rateLimit}
-                            onChange={e => update('rateLimit', e.target.value)}
-                            placeholder="e.g. 1M, 500K (empty = unlimited)"
-                        />
-                    </div>
-
-                    {/* Max Concurrent Downloads */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.maxConcurrent')}</label>
-                        <input
-                            type="number"
-                            className="setting-input setting-input-sm"
-                            value={settings.maxConcurrent}
-                            min={1}
-                            max={10}
-                            onChange={e => update('maxConcurrent', parseInt(e.target.value) || 1)}
-                        />
-                    </div>
-
-                    {/* Notifications */}
-                    <div className="setting-item setting-item-row">
-                        <label className="setting-label">{t('settings.notifications')}</label>
-                        <input
-                            type="checkbox"
-                            className="setting-checkbox"
-                            checked={settings.notifications}
-                            onChange={e => update('notifications', e.target.checked)}
-                        />
-                    </div>
-
-                    <div className="setting-item setting-item-row">
-                        <label className="setting-label">{t('settings.saveDescription')}</label>
-                        <input
-                            type="checkbox"
-                            className="setting-checkbox"
-                            checked={settings.saveDescription || false}
-                            onChange={e => update('saveDescription', e.target.checked)}
-                        />
-                    </div>
-
-                    <div className="setting-item setting-item-row">
-                        <label className="setting-label">{t('settings.saveThumbnail')}</label>
-                        <input
-                            type="checkbox"
-                            className="setting-checkbox"
-                            checked={settings.saveThumbnail || false}
-                            onChange={e => update('saveThumbnail', e.target.checked)}
-                        />
-                    </div>
-
-                    {/* Diagnostic Info */}
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.diagnostic') || '诊断信息'}</label>
+                <div className="settings-tabs">
+                    {TAB_KEYS.map(tab => (
                         <button
-                            className="btn-secondary btn-sm mb-2"
-                            onClick={handleGetDiagnostic}
-                            disabled={loadingDiag}
+                            key={tab}
+                            className={`settings-tab${activeTab === tab ? ' settings-tab-active' : ''}`}
+                            onClick={() => setActiveTab(tab)}
                         >
-                            {loadingDiag ? '检查中...' : '检查 yt-dlp 状态'}
+                            {t(`settings.tab.${tab}` as any)}
                         </button>
-                        {diagnostic && (
-                            <div className="diagnostic-info">
-                                <div className="diag-item">
-                                    <span className="diag-label">yt-dlp 路径:</span>
-                                    <span className="diag-value">{diagnostic.ytdlpPath || '未找到'}</span>
-                                </div>
-                                <div className="diag-item">
-                                    <span className="diag-label">版本:</span>
-                                    <span className="diag-value">{diagnostic.ytdlpVersion || '-'}</span>
-                                </div>
-                                <div className="diag-item">
-                                    <span className="diag-label">状态:</span>
-                                    <span className={`diag-value ${diagnostic.ytdlpFound ? 'text-green-400' : 'text-red-400'}`}>
-                                        {diagnostic.ytdlpFound ? '✓ 可用' : '✗ 不可用'}
-                                    </span>
-                                </div>
-                                {diagnostic.testOutput && (
-                                    <div className="diag-item">
-                                        <span className="diag-label">测试:</span>
-                                        <span className="diag-value text-green-400">{diagnostic.testOutput}</span>
-                                    </div>
-                                )}
-                                {diagnostic.error && (
-                                    <div className="diag-item">
-                                        <span className="diag-label">错误:</span>
-                                        <span className="diag-value text-red-400">{diagnostic.error}</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    ))}
+                </div>
+                <div className="dialog-body">
+                    {tabContent[activeTab]()}
                 </div>
                 <div className="dialog-footer">
                     <button className="btn-secondary" onClick={onClose}>{t('action.cancel')}</button>
