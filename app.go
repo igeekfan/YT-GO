@@ -16,18 +16,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct
 type App struct {
-	ctx         context.Context
-	i18n        *I18n
-	downloads   map[string]*DownloadTask
-	cancelFns   map[string]context.CancelFunc
-	mu          sync.RWMutex
-	ytdlpPath   string
-	historyPath string
+	ctx       context.Context
+	i18n      *I18n
+	downloads map[string]*DownloadTask
+	cancelFns map[string]context.CancelFunc
+	mu        sync.RWMutex
+	ytdlpPath string
+	db        *gorm.DB
 }
 
 // NewApp creates a new App application struct
@@ -45,67 +46,44 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	a.loadHistory()
+	if db, err := openDB(); err == nil {
+		a.db = db
+		a.loadFromDB()
+	}
 }
 
-// historyFilePath returns the path to the history JSON file
-func (a *App) historyFilePath() string {
-	if a.historyPath != "" {
-		return a.historyPath
-	}
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return ""
-	}
-	appDir := filepath.Join(dir, "ytgo")
-	if err := os.MkdirAll(appDir, 0700); err != nil {
-		return ""
-	}
-	a.historyPath = filepath.Join(appDir, "history.json")
-	return a.historyPath
-}
-
-// loadHistory reads persisted tasks from disk on startup
-func (a *App) loadHistory() {
-	path := a.historyFilePath()
-	if path == "" {
+// loadFromDB loads all persisted download records into the in-memory map.
+func (a *App) loadFromDB() {
+	if a.db == nil {
 		return
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return
-	}
-	var tasks []*DownloadTask
-	if err := json.Unmarshal(data, &tasks); err != nil {
+	var records []DownloadRecord
+	if err := a.db.Order("created_at desc").Find(&records).Error; err != nil {
 		return
 	}
 	a.mu.Lock()
-	for _, t := range tasks {
+	for _, r := range records {
+		t := recordToTask(r)
 		a.downloads[t.ID] = t
 	}
 	a.mu.Unlock()
 }
 
-// saveHistory writes completed/failed/cancelled tasks to disk
-func (a *App) saveHistory() {
-	path := a.historyFilePath()
-	if path == "" {
+// upsertRecord saves or updates a single task in the database.
+func (a *App) upsertRecord(t *DownloadTask) {
+	if a.db == nil {
 		return
 	}
-	a.mu.RLock()
-	var tasks []*DownloadTask
-	for _, t := range a.downloads {
-		if t.Status == "completed" || t.Status == "error" || t.Status == "cancelled" {
-			cp := *t
-			tasks = append(tasks, &cp)
-		}
-	}
-	a.mu.RUnlock()
-	data, err := json.Marshal(tasks)
-	if err != nil {
+	rec := taskToRecord(t)
+	a.db.Save(&rec)
+}
+
+// deleteRecords removes all completed/error/cancelled records from the database.
+func (a *App) deleteRecords(ids []string) {
+	if a.db == nil || len(ids) == 0 {
 		return
 	}
-	_ = os.WriteFile(path, data, 0600)
+	a.db.Delete(&DownloadRecord{}, ids)
 }
 
 // SetLang sets the application language
@@ -370,6 +348,7 @@ func (a *App) StartDownload(req DownloadRequest) (string, error) {
 	a.downloads[taskID] = task
 	a.mu.Unlock()
 
+	go a.upsertRecord(task)
 	wailsRuntime.EventsEmit(a.ctx, "download:update", task)
 	go a.runDownload(taskID, req)
 	return taskID, nil
@@ -492,7 +471,7 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 
 	if finalTask != nil {
 		wailsRuntime.EventsEmit(a.ctx, "download:update", finalTask)
-		go a.saveHistory()
+		go a.upsertRecord(finalTask)
 	}
 }
 
@@ -523,18 +502,15 @@ func (a *App) GetDownloads() []*DownloadTask {
 // ClearCompleted removes finished/failed/cancelled tasks from the list
 func (a *App) ClearCompleted() {
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	var ids []string
 	for id, t := range a.downloads {
 		if t.Status == "completed" || t.Status == "error" || t.Status == "cancelled" {
+			ids = append(ids, id)
 			delete(a.downloads, id)
 		}
 	}
-	go func() {
-		path := a.historyFilePath()
-		if path != "" {
-			_ = os.WriteFile(path, []byte("[]"), 0600)
-		}
-	}()
+	a.mu.Unlock()
+	go a.deleteRecords(ids)
 }
 
 // OpenFolder opens a directory in the system file manager
