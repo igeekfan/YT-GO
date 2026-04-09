@@ -328,11 +328,16 @@ func (a *App) SaveSettings(s Settings) error {
 
 // DiagnosticInfo contains debug information about the application state
 type DiagnosticInfo struct {
-	YtDlpPath    string `json:"ytdlpPath"`
-	YtDlpVersion string `json:"ytdlpVersion"`
-	YtDlpFound   bool   `json:"ytdlpFound"`
-	TestOutput   string `json:"testOutput"`
-	Error        string `json:"error"`
+	YtDlpPath     string `json:"ytdlpPath"`
+	YtDlpVersion  string `json:"ytdlpVersion"`
+	YtDlpFound    bool   `json:"ytdlpFound"`
+	FFmpegPath    string `json:"ffmpegPath"`
+	FFmpegVersion string `json:"ffmpegVersion"`
+	FFmpegFound   bool   `json:"ffmpegFound"`
+	NodeVersion   string `json:"nodeVersion"`
+	AppVersion    string `json:"appVersion"`
+	TestOutput    string `json:"testOutput"`
+	Error         string `json:"error"`
 }
 
 // GetDiagnosticInfo returns debug information to help troubleshoot issues
@@ -340,6 +345,7 @@ func (a *App) GetDiagnosticInfo() DiagnosticInfo {
 	info := DiagnosticInfo{
 		YtDlpPath:  a.ytdlpPath,
 		YtDlpFound: a.ytdlpPath != "",
+		AppVersion: AppVersion,
 	}
 
 	if a.ytdlpPath == "" {
@@ -367,18 +373,50 @@ func (a *App) GetDiagnosticInfo() DiagnosticInfo {
 		if err != nil {
 			info.Error = fmt.Sprintf("help command failed: %v", err)
 		} else {
-			// Just check if output contains expected text
 			if strings.Contains(string(testOut), "youtube") || strings.Contains(string(testOut), "Usage:") {
-				info.TestOutput = fmt.Sprintf("yt-dlp is working correctly; node runtime: %s", getNodeVersion())
+				info.TestOutput = "yt-dlp is working correctly"
 			} else {
-				info.TestOutput = fmt.Sprintf("unexpected output (first 200 chars): %s; node runtime: %s", string(testOut)[:min(200, len(testOut))], getNodeVersion())
+				info.TestOutput = fmt.Sprintf("unexpected output (first 200 chars): %s", string(testOut)[:min(200, len(testOut))])
 			}
 		}
 	} else {
 		info.Error = "yt-dlp not found in PATH or common installation directories"
 	}
 
+	// FFmpeg detection
+	info.FFmpegPath, info.FFmpegVersion, info.FFmpegFound = detectFFmpeg()
+
+	// Node.js version
+	info.NodeVersion = getNodeVersion()
+
 	return info
+}
+
+// detectFFmpeg checks if FFmpeg is available and returns its path, version, and found status
+func detectFFmpeg() (path string, version string, found bool) {
+	ffmpegPath, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		return "", "", false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, ffmpegPath, "-version").CombinedOutput()
+	if err != nil {
+		return ffmpegPath, "", true
+	}
+	output := strings.TrimSpace(string(out))
+	// Extract version from first line: "ffmpeg version N-xxxxx-g... Copyright ..."
+	if lines := strings.SplitN(output, "\n", 2); len(lines) > 0 {
+		firstLine := strings.TrimSpace(lines[0])
+		if strings.HasPrefix(firstLine, "ffmpeg version ") {
+			parts := strings.Fields(firstLine)
+			if len(parts) >= 3 {
+				return ffmpegPath, parts[2], true
+			}
+		}
+		return ffmpegPath, firstLine, true
+	}
+	return ffmpegPath, output, true
 }
 
 // SetLang sets the application language

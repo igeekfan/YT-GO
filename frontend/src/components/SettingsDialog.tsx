@@ -1,12 +1,17 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {GetSettings, SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo} from '../../wailsjs/go/main/App'
+import {GetSettings, SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp} from '../../wailsjs/go/main/App'
 
 interface DiagnosticInfo {
     ytdlpPath: string
     ytdlpVersion: string
     ytdlpFound: boolean
+    ffmpegPath: string
+    ffmpegVersion: string
+    ffmpegFound: boolean
+    nodeVersion: string
+    appVersion: string
     testOutput: string
     error: string
 }
@@ -32,6 +37,8 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
     const [activeTab, setActiveTab] = useState<SettingsTab>('download')
     const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
     const [loadingDiag, setLoadingDiag] = useState(false)
+    const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
+    const [updateResult, setUpdateResult] = useState<string | null>(null)
 
     useEffect(() => {
         if (open) {
@@ -50,6 +57,22 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
             console.error('Failed to get diagnostic info:', e)
         } finally {
             setLoadingDiag(false)
+        }
+    }
+
+    const handleUpdateYtDlp = async () => {
+        setIsUpdatingYtDlp(true)
+        setUpdateResult(null)
+        try {
+            const result = await UpdateYtDlp()
+            setUpdateResult(result || t('ytdlp.updateSuccess'))
+            // Refresh diagnostic info after update
+            const info = await GetDiagnosticInfo()
+            setDiagnostic(info as DiagnosticInfo)
+        } catch (e: any) {
+            setUpdateResult(t('ytdlp.updateFail') + (e?.message ? `: ${e.message}` : ''))
+        } finally {
+            setIsUpdatingYtDlp(false)
         }
     }
 
@@ -308,17 +331,41 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
 
     const renderToolsTab = () => (
         <>
+            {/* App version */}
+            {diagnostic && diagnostic.appVersion && (
+                <div className="setting-item setting-item-row">
+                    <label className="setting-label">{t('settings.appVersion')}</label>
+                    <span className="diag-value">v{diagnostic.appVersion}</span>
+                </div>
+            )}
+            {/* yt-dlp section */}
             <div className="setting-item">
-                <label className="setting-label">{t('settings.diagnostic')}</label>
-                <button
-                    className="btn-secondary btn-sm mb-2"
-                    onClick={handleGetDiagnostic}
-                    disabled={loadingDiag}
-                >
-                    {loadingDiag ? t('settings.diagChecking') : t('settings.diagCheck')}
-                </button>
+                <label className="setting-label">yt-dlp</label>
+                <div className="tools-btn-row">
+                    <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleGetDiagnostic}
+                        disabled={loadingDiag}
+                    >
+                        {loadingDiag ? t('settings.diagChecking') : t('settings.diagCheck')}
+                    </button>
+                    <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleUpdateYtDlp}
+                        disabled={isUpdatingYtDlp}
+                    >
+                        {isUpdatingYtDlp ? t('settings.ytdlpUpdating') : t('settings.ytdlpUpdate')}
+                    </button>
+                </div>
+                {updateResult && (
+                    <div className="diagnostic-info" style={{marginTop: 8}}>
+                        <div className="diag-item">
+                            <span className="diag-value">{updateResult}</span>
+                        </div>
+                    </div>
+                )}
                 {diagnostic && (
-                    <div className="diagnostic-info">
+                    <div className="diagnostic-info" style={{marginTop: 8}}>
                         <div className="diag-item">
                             <span className="diag-label">{t('settings.diagPath')}:</span>
                             <span className="diag-value">{diagnostic.ytdlpPath || t('settings.diagNotFound')}</span>
@@ -348,6 +395,42 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                     </div>
                 )}
             </div>
+            {/* FFmpeg section */}
+            {diagnostic && (
+                <div className="setting-item">
+                    <label className="setting-label">FFmpeg</label>
+                    <div className="diagnostic-info">
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.diagPath')}:</span>
+                            <span className="diag-value">{diagnostic.ffmpegPath || t('settings.diagNotFound')}</span>
+                        </div>
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.diagVersion')}:</span>
+                            <span className="diag-value">{diagnostic.ffmpegVersion || '-'}</span>
+                        </div>
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.diagStatus')}:</span>
+                            <span className={`diag-value ${diagnostic.ffmpegFound ? 'text-green-400' : 'text-red-400'}`}>
+                                {diagnostic.ffmpegFound ? t('settings.diagAvailable') : t('settings.diagUnavailable')}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Node.js section */}
+            {diagnostic && (
+                <div className="setting-item">
+                    <label className="setting-label">Node.js</label>
+                    <div className="diagnostic-info">
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.diagStatus')}:</span>
+                            <span className={`diag-value ${diagnostic.nodeVersion && !diagnostic.nodeVersion.startsWith('missing') ? 'text-green-400' : 'text-red-400'}`}>
+                                {diagnostic.nodeVersion || '-'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     )
 

@@ -936,6 +936,12 @@ body {
   border-bottom-color: var(--accent);
 }
 
+.tools-btn-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
 /* ===== Playlist Selector ===== */
 .playlist-selector {
   background: var(--bg-card);

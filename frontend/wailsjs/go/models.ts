@@ -4,6 +4,11 @@ export namespace main {
 	    ytdlpPath: string;
 	    ytdlpVersion: string;
 	    ytdlpFound: boolean;
+	    ffmpegPath: string;
+	    ffmpegVersion: string;
+	    ffmpegFound: boolean;
+	    nodeVersion: string;
+	    appVersion: string;
 	    testOutput: string;
 	    error: string;
 	
@@ -16,6 +21,11 @@ export namespace main {
 	        this.ytdlpPath = source["ytdlpPath"];
 	        this.ytdlpVersion = source["ytdlpVersion"];
 	        this.ytdlpFound = source["ytdlpFound"];
+	        this.ffmpegPath = source["ffmpegPath"];
+	        this.ffmpegVersion = source["ffmpegVersion"];
+	        this.ffmpegFound = source["ffmpegFound"];
+	        this.nodeVersion = source["nodeVersion"];
+	        this.appVersion = source["appVersion"];
 	        this.testOutput = source["testOutput"];
 	        this.error = source["error"];
 	    }
