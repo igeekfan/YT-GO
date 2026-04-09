@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/transform"
 	"gorm.io/gorm"
@@ -130,13 +131,18 @@ func (a *App) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
 
 // toUTF8 ensures the byte slice is valid UTF-8.
 // If it already is valid UTF-8, returns as-is.
-// Otherwise tries to decode from Windows-1252 (common on Western Windows).
+// Otherwise tries common Windows encodings used by yt-dlp output.
 func toUTF8(b []byte) string {
 	if utf8.Valid(b) {
 		return string(b)
 	}
+	// Try GB18030/CP936 first for Chinese Windows consoles.
+	decoded, _, err := transform.Bytes(simplifiedchinese.GB18030.NewDecoder(), b)
+	if err == nil && utf8.Valid(decoded) {
+		return string(decoded)
+	}
 	// Try Windows-1252 (superset of ISO-8859-1), which covers most Western yt-dlp output
-	decoded, _, err := transform.Bytes(charmap.Windows1252.NewDecoder(), b)
+	decoded, _, err = transform.Bytes(charmap.Windows1252.NewDecoder(), b)
 	if err == nil {
 		return string(decoded)
 	}
@@ -783,7 +789,7 @@ func (lw *lineWriter) Write(p []byte) (int, error) {
 		if idx < 0 {
 			break
 		}
-		line := strings.TrimRight(string(lw.buf[:idx]), "\r")
+		line := strings.TrimRight(toUTF8(lw.buf[:idx]), "\r")
 		lw.buf = lw.buf[idx+1:]
 		if line != "" {
 			lw.handler(line)
