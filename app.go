@@ -327,9 +327,11 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	args = append(args, url)
 
 	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
+	fmt.Printf("[GetVideoInfo] fetching info for URL: %s\n", url)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := strings.TrimSpace(string(out))
+		fmt.Printf("[GetVideoInfo] failed: err=%v, output=%s\n", err, errMsg)
 		if errMsg != "" {
 			return VideoInfo{}, fmt.Errorf("%s", errMsg)
 		}
@@ -337,6 +339,7 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	}
 	var raw map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil {
+		fmt.Printf("[GetVideoInfo] JSON parse failed: %v, raw output: %s\n", err, string(out))
 		return VideoInfo{}, fmt.Errorf("failed to parse video info: %w", err)
 	}
 
@@ -385,9 +388,11 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	args = append(args, url)
 
 	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
+	fmt.Printf("[GetPlaylistInfo] fetching playlist for URL: %s\n", url)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := strings.TrimSpace(string(out))
+		fmt.Printf("[GetPlaylistInfo] failed: err=%v, output=%s\n", err, errMsg)
 		if errMsg != "" {
 			return PlaylistInfo{}, fmt.Errorf("%s", errMsg)
 		}
@@ -473,9 +478,11 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 	args = append(args, url)
 
 	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
+	fmt.Printf("[GetFormats] fetching formats for URL: %s\n", url)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := strings.TrimSpace(string(out))
+		fmt.Printf("[GetFormats] failed: err=%v, output=%s\n", err, errMsg)
 		if errMsg != "" {
 			return FormatInfo{}, fmt.Errorf("%s", errMsg)
 		}
@@ -484,6 +491,7 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil {
+		fmt.Printf("[GetFormats] JSON parse failed: %v, raw output: %s\n", err, string(out))
 		return FormatInfo{}, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
