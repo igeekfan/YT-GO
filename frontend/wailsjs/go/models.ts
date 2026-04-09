@@ -240,6 +240,9 @@ export namespace main {
 	    embedSubtitles: boolean;
 	    embedChapters: boolean;
 	    sponsorBlock: boolean;
+	    filenameTemplate: string;
+	    mergeOutputFormat: string;
+	    audioFormat: string;
 	    cookiesFrom: string;
 	    cookiesFile: string;
 	
@@ -264,6 +267,9 @@ export namespace main {
 	        this.embedSubtitles = source["embedSubtitles"];
 	        this.embedChapters = source["embedChapters"];
 	        this.sponsorBlock = source["sponsorBlock"];
+	        this.filenameTemplate = source["filenameTemplate"];
+	        this.mergeOutputFormat = source["mergeOutputFormat"];
+	        this.audioFormat = source["audioFormat"];
 	        this.cookiesFrom = source["cookiesFrom"];
 	        this.cookiesFile = source["cookiesFile"];
 	    }

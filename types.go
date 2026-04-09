@@ -59,23 +59,26 @@ type PlaylistInfo struct {
 
 // Settings holds user preferences
 type Settings struct {
-	OutputDir     string `json:"outputDir"`
-	Quality       string `json:"quality"`
-	Language      string `json:"language"`
-	Theme         string `json:"theme"`
-	Proxy         string `json:"proxy"`
-	RateLimit     string `json:"rateLimit"`
-	MaxConcurrent int    `json:"maxConcurrent"`
-	Notifications bool   `json:"notifications"`
-	SaveDescription bool `json:"saveDescription"`
-	SaveThumbnail bool   `json:"saveThumbnail"`
-	WriteSubtitles bool  `json:"writeSubtitles"`
-	SubtitleLangs  string `json:"subtitleLangs"`
-	EmbedSubtitles bool  `json:"embedSubtitles"`
-	EmbedChapters  bool  `json:"embedChapters"`
-	SponsorBlock   bool  `json:"sponsorBlock"`
-	CookiesFrom   string `json:"cookiesFrom"`   // --cookies-from-browser value (e.g. chrome, firefox, edge)
-	CookiesFile   string `json:"cookiesFile"`   // --cookies file path
+	OutputDir       string `json:"outputDir"`
+	Quality         string `json:"quality"`
+	Language        string `json:"language"`
+	Theme           string `json:"theme"`
+	Proxy           string `json:"proxy"`
+	RateLimit       string `json:"rateLimit"`
+	MaxConcurrent   int    `json:"maxConcurrent"`
+	Notifications   bool   `json:"notifications"`
+	SaveDescription bool   `json:"saveDescription"`
+	SaveThumbnail   bool   `json:"saveThumbnail"`
+	WriteSubtitles  bool   `json:"writeSubtitles"`
+	SubtitleLangs   string `json:"subtitleLangs"`
+	EmbedSubtitles  bool   `json:"embedSubtitles"`
+	EmbedChapters   bool   `json:"embedChapters"`
+	SponsorBlock    bool   `json:"sponsorBlock"`
+	FilenameTemplate string `json:"filenameTemplate"`
+	MergeOutputFormat string `json:"mergeOutputFormat"`
+	AudioFormat     string `json:"audioFormat"`
+	CookiesFrom     string `json:"cookiesFrom"`
+	CookiesFile     string `json:"cookiesFile"`
 }
 
 // Format represents a single video/audio format option

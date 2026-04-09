@@ -250,6 +250,9 @@ func (a *App) GetSettings() Settings {
 		EmbedSubtitles: false,
 		EmbedChapters: false,
 		SponsorBlock: false,
+		FilenameTemplate: "",
+		MergeOutputFormat: "",
+		AudioFormat: "",
 	}
 	if a.db == nil {
 		return defaults
@@ -284,6 +287,9 @@ func (a *App) GetSettings() Settings {
 	defaults.EmbedSubtitles = rec.EmbedSubtitles
 	defaults.EmbedChapters = rec.EmbedChapters
 	defaults.SponsorBlock = rec.SponsorBlock
+	defaults.FilenameTemplate = rec.FilenameTemplate
+	defaults.MergeOutputFormat = rec.MergeOutputFormat
+	defaults.AudioFormat = rec.AudioFormat
 	defaults.CookiesFrom = rec.CookiesFrom
 	defaults.CookiesFile = rec.CookiesFile
 	return defaults
@@ -311,6 +317,9 @@ func (a *App) SaveSettings(s Settings) error {
 		EmbedSubtitles: s.EmbedSubtitles,
 		EmbedChapters: s.EmbedChapters,
 		SponsorBlock: s.SponsorBlock,
+		FilenameTemplate: s.FilenameTemplate,
+		MergeOutputFormat: s.MergeOutputFormat,
+		AudioFormat: s.AudioFormat,
 		CookiesFrom:   s.CookiesFrom,
 		CookiesFile:   s.CookiesFile,
 	}
@@ -872,21 +881,35 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 
 	args := qualityArgs(req.Quality)
 	args = append(args, "--ignore-config")
+
+	// Determine output filename template
+	settings := a.GetSettings()
+	outputTemplate := "%(title)s.%(ext)s"
+	if settings.FilenameTemplate != "" {
+		outputTemplate = settings.FilenameTemplate
+	}
+
 	args = append(args,
 		"--newline",
 		"--progress",
 		"--print", "after_move:[YT-GO-OUTPUT]%(filepath)s",
-		"-o", filepath.Join(req.OutputDir, "%(title)s.%(ext)s"),
+		"-o", filepath.Join(req.OutputDir, outputTemplate),
 		"--no-playlist",
 	)
 
-	// Apply settings: rate limit, proxy and cookies
-	settings := a.GetSettings()
+	// Apply settings: rate limit, proxy, cookies, and output options
 	if settings.RateLimit != "" {
 		args = append(args, "--rate-limit", settings.RateLimit)
 	}
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
+	}
+	if settings.MergeOutputFormat != "" {
+		args = append(args, "--merge-output-format", settings.MergeOutputFormat)
+	}
+	if settings.AudioFormat != "" && req.Quality == "audio" {
+		// Override audio format only when downloading audio
+		args = append(args, "--audio-format", settings.AudioFormat)
 	}
 	if settings.SaveDescription {
 		args = append(args, "--write-description")

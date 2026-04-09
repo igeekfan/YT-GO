@@ -48,6 +48,9 @@ type SettingsRecord struct {
 	EmbedSubtitles bool   // --embed-subs
 	EmbedChapters  bool   // --embed-chapters
 	SponsorBlock   bool   // --sponsorblock-mark all
+	FilenameTemplate string // custom output template
+	MergeOutputFormat string // --merge-output-format (mp4, mkv, etc.)
+	AudioFormat     string // --audio-format (mp3, m4a, etc.)
 	CookiesFrom   string // --cookies-from-browser value (chrome, firefox, edge, etc.)
 	CookiesFile   string // --cookies file path
 }

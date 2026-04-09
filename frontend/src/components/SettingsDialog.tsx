@@ -129,6 +129,44 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                     onChange={e => update('maxConcurrent', parseInt(e.target.value) || 1)}
                 />
             </div>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.filenameTemplate')}</label>
+                <input
+                    type="text"
+                    className="setting-input"
+                    value={settings.filenameTemplate || ''}
+                    onChange={e => update('filenameTemplate', e.target.value)}
+                    placeholder="%(title)s.%(ext)s"
+                />
+            </div>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.mergeOutputFormat')}</label>
+                <select
+                    className="setting-select"
+                    value={settings.mergeOutputFormat || ''}
+                    onChange={e => update('mergeOutputFormat', e.target.value)}
+                >
+                    <option value="">{t('settings.mergeOutputFormatAuto')}</option>
+                    <option value="mp4">MP4</option>
+                    <option value="mkv">MKV</option>
+                    <option value="webm">WebM</option>
+                </select>
+            </div>
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.audioFormat')}</label>
+                <select
+                    className="setting-select"
+                    value={settings.audioFormat || ''}
+                    onChange={e => update('audioFormat', e.target.value)}
+                >
+                    <option value="">{t('settings.audioFormatDefault')}</option>
+                    <option value="mp3">MP3</option>
+                    <option value="m4a">M4A</option>
+                    <option value="opus">Opus</option>
+                    <option value="flac">FLAC</option>
+                    <option value="wav">WAV</option>
+                </select>
+            </div>
         </>
     )
 
