@@ -238,6 +238,8 @@ export namespace main {
 	    writeSubtitles: boolean;
 	    subtitleLangs: string;
 	    embedSubtitles: boolean;
+	    embedChapters: boolean;
+	    sponsorBlock: boolean;
 	    cookiesFrom: string;
 	    cookiesFile: string;
 	
@@ -260,6 +262,8 @@ export namespace main {
 	        this.writeSubtitles = source["writeSubtitles"];
 	        this.subtitleLangs = source["subtitleLangs"];
 	        this.embedSubtitles = source["embedSubtitles"];
+	        this.embedChapters = source["embedChapters"];
+	        this.sponsorBlock = source["sponsorBlock"];
 	        this.cookiesFrom = source["cookiesFrom"];
 	        this.cookiesFile = source["cookiesFile"];
 	    }

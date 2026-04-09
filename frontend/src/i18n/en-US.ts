@@ -104,6 +104,8 @@
     'settings.writeSubtitles': 'Download subtitles',
     'settings.subtitleLangs': 'Subtitle languages',
     'settings.embedSubtitles': 'Embed subtitles into video',
+    'settings.embedChapters': 'Embed chapter markers',
+    'settings.sponsorBlock': 'SponsorBlock markers',
     'settings.save': 'Save',
     'settings.saving': 'Saving...',
     'settings.diagnostic': 'Diagnostics',

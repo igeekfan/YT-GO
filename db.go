@@ -46,6 +46,8 @@ type SettingsRecord struct {
 	WriteSubtitles bool   // --write-subs
 	SubtitleLangs  string // --sub-langs value (e.g. en,zh-Hans)
 	EmbedSubtitles bool   // --embed-subs
+	EmbedChapters  bool   // --embed-chapters
+	SponsorBlock   bool   // --sponsorblock-mark all
 	CookiesFrom   string // --cookies-from-browser value (chrome, firefox, edge, etc.)
 	CookiesFile   string // --cookies file path
 }

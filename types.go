@@ -72,6 +72,8 @@ type Settings struct {
 	WriteSubtitles bool  `json:"writeSubtitles"`
 	SubtitleLangs  string `json:"subtitleLangs"`
 	EmbedSubtitles bool  `json:"embedSubtitles"`
+	EmbedChapters  bool  `json:"embedChapters"`
+	SponsorBlock   bool  `json:"sponsorBlock"`
 	CookiesFrom   string `json:"cookiesFrom"`   // --cookies-from-browser value (e.g. chrome, firefox, edge)
 	CookiesFile   string `json:"cookiesFile"`   // --cookies file path
 }

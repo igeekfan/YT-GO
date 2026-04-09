@@ -104,6 +104,8 @@
     'settings.writeSubtitles': '下载字幕',
     'settings.subtitleLangs': '字幕语言',
     'settings.embedSubtitles': '嵌入字幕到视频',
+    'settings.embedChapters': '嵌入章节信息',
+    'settings.sponsorBlock': 'SponsorBlock 标记',
     'settings.save': '保存',
     'settings.saving': '保存中...',
     'settings.diagnostic': '诊断信息',

@@ -248,6 +248,8 @@ func (a *App) GetSettings() Settings {
 		WriteSubtitles: false,
 		SubtitleLangs: "",
 		EmbedSubtitles: false,
+		EmbedChapters: false,
+		SponsorBlock: false,
 	}
 	if a.db == nil {
 		return defaults
@@ -280,6 +282,8 @@ func (a *App) GetSettings() Settings {
 	defaults.WriteSubtitles = rec.WriteSubtitles
 	defaults.SubtitleLangs = rec.SubtitleLangs
 	defaults.EmbedSubtitles = rec.EmbedSubtitles
+	defaults.EmbedChapters = rec.EmbedChapters
+	defaults.SponsorBlock = rec.SponsorBlock
 	defaults.CookiesFrom = rec.CookiesFrom
 	defaults.CookiesFile = rec.CookiesFile
 	return defaults
@@ -305,6 +309,8 @@ func (a *App) SaveSettings(s Settings) error {
 		WriteSubtitles: s.WriteSubtitles,
 		SubtitleLangs: s.SubtitleLangs,
 		EmbedSubtitles: s.EmbedSubtitles,
+		EmbedChapters: s.EmbedChapters,
+		SponsorBlock: s.SponsorBlock,
 		CookiesFrom:   s.CookiesFrom,
 		CookiesFile:   s.CookiesFile,
 	}
@@ -896,6 +902,12 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 		if settings.EmbedSubtitles {
 			args = append(args, "--embed-subs")
 		}
+	}
+	if settings.EmbedChapters {
+		args = append(args, "--embed-chapters")
+	}
+	if settings.SponsorBlock {
+		args = append(args, "--sponsorblock-mark", "all")
 	}
 	args = appendCookiesArgs(args, settings)
 

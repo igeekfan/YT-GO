@@ -184,6 +184,24 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                     </div>
                 </>
             )}
+            <div className="setting-item setting-item-row">
+                <label className="setting-label">{t('settings.embedChapters')}</label>
+                <input
+                    type="checkbox"
+                    className="setting-checkbox"
+                    checked={settings.embedChapters || false}
+                    onChange={e => update('embedChapters', e.target.checked)}
+                />
+            </div>
+            <div className="setting-item setting-item-row">
+                <label className="setting-label">{t('settings.sponsorBlock')}</label>
+                <input
+                    type="checkbox"
+                    className="setting-checkbox"
+                    checked={settings.sponsorBlock || false}
+                    onChange={e => update('sponsorBlock', e.target.checked)}
+                />
+            </div>
         </>
     )
 
