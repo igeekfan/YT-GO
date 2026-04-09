@@ -65,6 +65,8 @@ type Settings struct {
 	RateLimit     string `json:"rateLimit"`
 	MaxConcurrent int    `json:"maxConcurrent"`
 	Notifications bool   `json:"notifications"`
+	CookiesFrom   string `json:"cookiesFrom"`   // --cookies-from-browser value (e.g. chrome, firefox, edge)
+	CookiesFile   string `json:"cookiesFile"`   // --cookies file path
 }
 
 // Format represents a single video/audio format option

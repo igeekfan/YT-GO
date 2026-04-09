@@ -114,6 +114,16 @@ func (a *App) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
 	return cmd
 }
 
+// appendCookiesArgs adds --cookies-from-browser or --cookies flags based on settings.
+func appendCookiesArgs(args []string, settings Settings) []string {
+	if settings.CookiesFrom != "" {
+		args = append(args, "--cookies-from-browser", settings.CookiesFrom)
+	} else if settings.CookiesFile != "" {
+		args = append(args, "--cookies", settings.CookiesFile)
+	}
+	return args
+}
+
 // GetSettings returns persisted user settings
 func (a *App) GetSettings() Settings {
 	defaults := Settings{
@@ -335,11 +345,12 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 		"--no-playlist",
 		"--no-warnings",
 	}
-	// Apply proxy from settings
+	// Apply proxy and cookies from settings
 	settings := a.GetSettings()
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
+	args = appendCookiesArgs(args, settings)
 	args = append(args, url)
 
 	cmd := a.ytdlpCmd(ctx, args...)
@@ -396,11 +407,12 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 		"--dump-json",
 		"--no-warnings",
 	}
-	// Apply proxy from settings
+	// Apply proxy and cookies from settings
 	settings := a.GetSettings()
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
+	args = appendCookiesArgs(args, settings)
 	args = append(args, url)
 
 	cmd := a.ytdlpCmd(ctx, args...)
@@ -486,11 +498,12 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 		"--no-warnings",
 		"--no-playlist",
 	}
-	// Apply proxy from settings
+	// Apply proxy and cookies from settings
 	settings := a.GetSettings()
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
+	args = appendCookiesArgs(args, settings)
 	args = append(args, url)
 
 	cmd := a.ytdlpCmd(ctx, args...)
@@ -693,7 +706,7 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 		"--no-playlist",
 	)
 
-	// Apply settings: rate limit and proxy
+	// Apply settings: rate limit, proxy and cookies
 	settings := a.GetSettings()
 	if settings.RateLimit != "" {
 		args = append(args, "--rate-limit", settings.RateLimit)
@@ -701,6 +714,7 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
+	args = appendCookiesArgs(args, settings)
 
 	args = append(args, req.URL)
 

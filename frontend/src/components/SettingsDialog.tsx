@@ -152,6 +152,44 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                         />
                     </div>
 
+                    {/* Cookies from browser */}
+                    <div className="setting-item">
+                        <label className="setting-label">{t('settings.cookiesFrom')}</label>
+                        <select
+                            className="setting-select"
+                            value={settings.cookiesFrom || ''}
+                            onChange={e => {
+                                update('cookiesFrom', e.target.value)
+                                if (e.target.value) update('cookiesFile', '')
+                            }}
+                        >
+                            <option value="">{t('settings.cookiesFromNone')}</option>
+                            <option value="chrome">Chrome</option>
+                            <option value="firefox">Firefox</option>
+                            <option value="edge">Edge</option>
+                            <option value="opera">Opera</option>
+                            <option value="brave">Brave</option>
+                            <option value="vivaldi">Vivaldi</option>
+                            <option value="safari">Safari</option>
+                        </select>
+                    </div>
+
+                    {/* Cookies file */}
+                    <div className="setting-item">
+                        <label className="setting-label">{t('settings.cookiesFile')}</label>
+                        <input
+                            type="text"
+                            className="setting-input"
+                            value={settings.cookiesFile || ''}
+                            onChange={e => {
+                                update('cookiesFile', e.target.value)
+                                if (e.target.value) update('cookiesFrom', '')
+                            }}
+                            placeholder={t('settings.cookiesFilePlaceholder')}
+                            disabled={!!settings.cookiesFrom}
+                        />
+                    </div>
+
                     {/* Rate Limit */}
                     <div className="setting-item">
                         <label className="setting-label">{t('settings.rateLimit')}</label>

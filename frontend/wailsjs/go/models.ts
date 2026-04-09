@@ -229,6 +229,8 @@ export namespace main {
 	    rateLimit: string;
 	    maxConcurrent: number;
 	    notifications: boolean;
+	    cookiesFrom: string;
+	    cookiesFile: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -244,6 +246,8 @@ export namespace main {
 	        this.rateLimit = source["rateLimit"];
 	        this.maxConcurrent = source["maxConcurrent"];
 	        this.notifications = source["notifications"];
+	        this.cookiesFrom = source["cookiesFrom"];
+	        this.cookiesFile = source["cookiesFile"];
 	    }
 	}
 	
