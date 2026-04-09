@@ -1,7 +1,7 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
 import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings} from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
-import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings} from './types'
+import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
 import {useI18n} from './i18n/context'
 import DownloadList from './components/DownloadList'
 import SettingsDialog from './components/SettingsDialog'
@@ -116,6 +116,15 @@ function App() {
     const [showConsole, setShowConsole] = useState(false)
     const consoleEndRef = useRef<HTMLDivElement>(null)
 
+    // Per-download options (override global settings)
+    const [dlOptSaveThumbnail, setDlOptSaveThumbnail] = useState(false)
+    const [dlOptSaveDescription, setDlOptSaveDescription] = useState(false)
+    const [dlOptEmbedChapters, setDlOptEmbedChapters] = useState(false)
+    const [dlOptWriteSubtitles, setDlOptWriteSubtitles] = useState(false)
+    const [dlOptEmbedSubtitles, setDlOptEmbedSubtitles] = useState(false)
+    const [dlOptSponsorBlock, setDlOptSponsorBlock] = useState(false)
+    const [selectedSubtitleLangs, setSelectedSubtitleLangs] = useState<Set<string>>(new Set())
+
     const showToast = useCallback((msg: string) => {
         setToast(msg)
         setTimeout(() => setToast(null), 3000)
@@ -165,6 +174,13 @@ function App() {
             if (s.theme) setTheme(s.theme as 'dark' | 'light')
             if (s.language) setLang(s.language as any)
             setNotificationsEnabled(s.notifications || false)
+            // Initialize per-download options from global settings
+            setDlOptSaveThumbnail(s.saveThumbnail || false)
+            setDlOptSaveDescription(s.saveDescription || false)
+            setDlOptEmbedChapters(s.embedChapters || false)
+            setDlOptWriteSubtitles(s.writeSubtitles || false)
+            setDlOptEmbedSubtitles(s.embedSubtitles || false)
+            setDlOptSponsorBlock(s.sponsorBlock || false)
             // Request notification permission if enabled
             if (s.notifications && 'Notification' in window && Notification.permission === 'default') {
                 Notification.requestPermission()
@@ -247,6 +263,30 @@ function App() {
         return quality
     }
 
+    const buildDownloadOptions = (): DownloadOptions | undefined => {
+        const langs = Array.from(selectedSubtitleLangs).join(',')
+        return {
+            saveThumbnail: dlOptSaveThumbnail,
+            saveDescription: dlOptSaveDescription,
+            embedChapters: dlOptEmbedChapters,
+            writeSubtitles: dlOptWriteSubtitles,
+            embedSubtitles: dlOptEmbedSubtitles,
+            sponsorBlock: dlOptSponsorBlock,
+            subtitleLangs: langs || '',
+        } as DownloadOptions
+    }
+
+    const handleSelectBestQuality = () => {
+        if (!formatInfo) return
+        const sorted = sortFormats(formatInfo.formats.filter(f => f.hasVideo && f.hasAudio))
+        if (sorted.length > 0) {
+            setFormatMode('single')
+            setSelectedFormat(sorted[0].formatId)
+            setSelectedVideoFormat('')
+            setSelectedAudioFormat('')
+        }
+    }
+
     const handleGetInfo = async () => {
         if (!url.trim()) return
         setIsGettingInfo(true)
@@ -258,6 +298,7 @@ function App() {
         setSelectedVideoFormat('')
         setSelectedAudioFormat('')
         setSelectedPlaylistItems(new Set())
+        setSelectedSubtitleLangs(new Set())
         try {
             const info = await GetVideoInfo(url.trim())
             setVideoInfo(info)
@@ -316,6 +357,7 @@ function App() {
                 outputDir,
                 quality: downloadQuality,
                 videoInfo: videoInfo || undefined,
+                options: buildDownloadOptions(),
             } as any)
             setUrl('')
             setVideoInfo(null)
@@ -348,6 +390,7 @@ function App() {
                         outputDir,
                         quality: downloadQuality,
                         videoInfo: video,
+                        options: buildDownloadOptions(),
                     } as any)
                 }
             }
@@ -595,13 +638,107 @@ function App() {
                                 ))}
                             </select>
                         </div>
-                        {videoInfo && (
+                        {videoInfo && formatInfo && (
+                            <div className="option-group">
+                                <label className="option-label">{t('format.label')}</label>
+                                <div className="format-list-container">
+                                    <div className="format-list-header">
+                                        <select
+                                            className="select-input format-mode-select"
+                                            value={formatMode}
+                                            onChange={e => {
+                                                const nextMode = e.target.value as 'single' | 'combine'
+                                                setFormatMode(nextMode)
+                                                setSelectedFormat('')
+                                                setSelectedVideoFormat('')
+                                                setSelectedAudioFormat('')
+                                            }}
+                                        >
+                                            <option value="single">{t('format.mode.single')}</option>
+                                            <option value="combine">{t('format.mode.combine')}</option>
+                                        </select>
+                                        {formatMode === 'single' && (
+                                            <button className="btn-best-quality" onClick={handleSelectBestQuality}>
+                                                {t('format.bestQuality')}
+                                            </button>
+                                        )}
+                                    </div>
+                                    {formatMode === 'single' ? (
+                                        <div className="format-list">
+                                            <label className={`format-list-item${!selectedFormat ? ' selected' : ''}`}>
+                                                <input
+                                                    type="radio"
+                                                    name="format-single"
+                                                    checked={!selectedFormat}
+                                                    onChange={() => {
+                                                        setSelectedFormat('')
+                                                        setSelectedVideoFormat('')
+                                                        setSelectedAudioFormat('')
+                                                    }}
+                                                />
+                                                {t('format.usePreset')}
+                                            </label>
+                                            {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio))
+                                                .map(f => (
+                                                    <label key={f.formatId} className={`format-list-item${selectedFormat === f.formatId ? ' selected' : ''}`}>
+                                                        <input
+                                                            type="radio"
+                                                            name="format-single"
+                                                            checked={selectedFormat === f.formatId}
+                                                            onChange={() => {
+                                                                setSelectedFormat(f.formatId)
+                                                                setSelectedVideoFormat('')
+                                                                setSelectedAudioFormat('')
+                                                            }}
+                                                        />
+                                                        {formatOptionLabel(f)}
+                                                    </label>
+                                                ))}
+                                        </div>
+                                    ) : (
+                                        <div className="format-combine-grid">
+                                            <div className="format-combine-group">
+                                                <span className="format-sub-label">{t('format.video')}</span>
+                                                <div className="format-list">
+                                                    <label className={`format-list-item${!selectedVideoFormat ? ' selected' : ''}`}>
+                                                        <input type="radio" name="format-video" checked={!selectedVideoFormat} onChange={() => setSelectedVideoFormat('')} />
+                                                        {t('format.selectVideo')}
+                                                    </label>
+                                                    {combineVideoFormats.map(f => (
+                                                        <label key={f.formatId} className={`format-list-item${selectedVideoFormat === f.formatId ? ' selected' : ''}`}>
+                                                            <input type="radio" name="format-video" checked={selectedVideoFormat === f.formatId} onChange={() => setSelectedVideoFormat(f.formatId)} />
+                                                            {formatOptionLabel(f)}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="format-combine-group">
+                                                <span className="format-sub-label">{t('format.audio')}</span>
+                                                <div className="format-list">
+                                                    <label className={`format-list-item${!selectedAudioFormat ? ' selected' : ''}`}>
+                                                        <input type="radio" name="format-audio" checked={!selectedAudioFormat} onChange={() => setSelectedAudioFormat('')} />
+                                                        {t('format.selectAudio')}
+                                                    </label>
+                                                    {combineAudioFormats.map(f => (
+                                                        <label key={f.formatId} className={`format-list-item${selectedAudioFormat === f.formatId ? ' selected' : ''}`}>
+                                                            <input type="radio" name="format-audio" checked={selectedAudioFormat === f.formatId} onChange={() => setSelectedAudioFormat(f.formatId)} />
+                                                            {formatOptionLabel(f)}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {videoInfo && !formatInfo && (
                             <div className="option-group">
                                 <label className="option-label">{t('format.label')}</label>
                                 <div className="format-row">
-                                    {isGettingInfo ? (
+                                    {isGettingFormats ? (
                                         <span className="format-loading">{t('format.loading')}</span>
-                                    ) : !formatInfo ? (
+                                    ) : (
                                         <button
                                             className="btn-secondary"
                                             onClick={handleGetFormats}
@@ -609,75 +746,6 @@ function App() {
                                         >
                                             {isGettingFormats ? t('format.loading') : t('format.detect')}
                                         </button>
-                                    ) : (
-                                        <div className="format-stack">
-                                            <select
-                                                className="select-input format-mode-select"
-                                                value={formatMode}
-                                                onChange={e => {
-                                                    const nextMode = e.target.value as 'single' | 'combine'
-                                                    setFormatMode(nextMode)
-                                                    setSelectedFormat('')
-                                                    setSelectedVideoFormat('')
-                                                    setSelectedAudioFormat('')
-                                                }}
-                                            >
-                                                <option value="single">{t('format.mode.single')}</option>
-                                                <option value="combine">{t('format.mode.combine')}</option>
-                                            </select>
-                                            {formatMode === 'single' ? (
-                                                <select
-                                                    className="select-input format-select"
-                                                    value={selectedFormat}
-                                                    onChange={e => {
-                                                        setSelectedFormat(e.target.value)
-                                                        setSelectedVideoFormat('')
-                                                        setSelectedAudioFormat('')
-                                                    }}
-                                                >
-                                                    <option value="">{t('format.usePreset')}</option>
-                                                    {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio))
-                                                        .map(f => (
-                                                            <option key={f.formatId} value={f.formatId}>
-                                                                {formatOptionLabel(f)}
-                                                            </option>
-                                                        ))}
-                                                </select>
-                                            ) : (
-                                                <div className="format-combine-grid">
-                                                    <div className="format-combine-group">
-                                                        <span className="format-sub-label">{t('format.video')}</span>
-                                                        <select
-                                                            className="select-input format-select"
-                                                            value={selectedVideoFormat}
-                                                            onChange={e => setSelectedVideoFormat(e.target.value)}
-                                                        >
-                                                            <option value="">{t('format.selectVideo')}</option>
-                                                            {combineVideoFormats.map(f => (
-                                                                <option key={f.formatId} value={f.formatId}>
-                                                                    {formatOptionLabel(f)}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                    <div className="format-combine-group">
-                                                        <span className="format-sub-label">{t('format.audio')}</span>
-                                                        <select
-                                                            className="select-input format-select"
-                                                            value={selectedAudioFormat}
-                                                            onChange={e => setSelectedAudioFormat(e.target.value)}
-                                                        >
-                                                            <option value="">{t('format.selectAudio')}</option>
-                                                            {combineAudioFormats.map(f => (
-                                                                <option key={f.formatId} value={f.formatId}>
-                                                                    {formatOptionLabel(f)}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -697,6 +765,78 @@ function App() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Per-download options panel (shown after video info is fetched) */}
+                    {videoInfo && (
+                        <div className="download-options-panel">
+                            <div className="download-options-title">⚙ {t('downloadOpt.title')}</div>
+                            <div className="download-options-grid">
+                                <label className="download-opt-item">
+                                    <input type="checkbox" checked={dlOptSaveThumbnail} onChange={e => setDlOptSaveThumbnail(e.target.checked)} />
+                                    {t('downloadOpt.saveThumbnail')}
+                                </label>
+                                <label className="download-opt-item">
+                                    <input type="checkbox" checked={dlOptSaveDescription} onChange={e => setDlOptSaveDescription(e.target.checked)} />
+                                    {t('downloadOpt.saveDescription')}
+                                </label>
+                                <label className="download-opt-item">
+                                    <input type="checkbox" checked={dlOptEmbedChapters} onChange={e => setDlOptEmbedChapters(e.target.checked)} />
+                                    {t('downloadOpt.embedChapters')}
+                                </label>
+                                <label className="download-opt-item">
+                                    <input type="checkbox" checked={dlOptWriteSubtitles} onChange={e => setDlOptWriteSubtitles(e.target.checked)} />
+                                    {t('downloadOpt.writeSubtitles')}
+                                </label>
+                                {dlOptWriteSubtitles && (
+                                    <label className="download-opt-item">
+                                        <input type="checkbox" checked={dlOptEmbedSubtitles} onChange={e => setDlOptEmbedSubtitles(e.target.checked)} />
+                                        {t('downloadOpt.embedSubtitles')}
+                                    </label>
+                                )}
+                                <label className="download-opt-item">
+                                    <input type="checkbox" checked={dlOptSponsorBlock} onChange={e => setDlOptSponsorBlock(e.target.checked)} />
+                                    {t('downloadOpt.sponsorBlock')}
+                                    <span className="sponsorblock-tooltip">
+                                        <span className="tooltip-icon">?</span>
+                                        <span className="tooltip-text">{t('downloadOpt.sponsorBlockDesc')}</span>
+                                    </span>
+                                </label>
+                            </div>
+                            {/* Subtitle language picker */}
+                            {dlOptWriteSubtitles && (
+                                <div className="subtitle-picker">
+                                    <div className="subtitle-picker-label">{t('downloadOpt.subtitleLangs')}</div>
+                                    {videoInfo.subtitles && videoInfo.subtitles.length > 0 ? (
+                                        <div className="subtitle-picker-list">
+                                            {videoInfo.subtitles.map(sub => (
+                                                <label key={sub.code} className="subtitle-picker-item">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedSubtitleLangs.has(sub.code)}
+                                                        onChange={e => {
+                                                            const next = new Set(selectedSubtitleLangs)
+                                                            if (e.target.checked) next.add(sub.code)
+                                                            else next.delete(sub.code)
+                                                            setSelectedSubtitleLangs(next)
+                                                        }}
+                                                    />
+                                                    {sub.name || sub.code}
+                                                    <span className="subtitle-picker-badge">
+                                                        {sub.auto ? t('downloadOpt.subtitleAuto') : t('downloadOpt.subtitleManual')}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="subtitle-picker-empty">{t('downloadOpt.noSubtitles')}</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="options-row">
                         <button
                             className="btn-primary download-btn"
                             onClick={handleDownload}

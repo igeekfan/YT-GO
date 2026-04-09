@@ -147,7 +147,21 @@
     'format.selectVideo': '选择视频格式',
     'format.selectAudio': '选择音频格式',
     'format.usePreset': '使用预设画质',
+    'format.bestQuality': '🏆 最佳画质',
     'toast.getFormatsFail': '获取格式列表失败',
+
+    'downloadOpt.title': '下载选项',
+    'downloadOpt.saveThumbnail': '保存缩略图',
+    'downloadOpt.saveDescription': '保存描述文件',
+    'downloadOpt.embedChapters': '嵌入章节信息',
+    'downloadOpt.writeSubtitles': '下载字幕',
+    'downloadOpt.embedSubtitles': '嵌入字幕',
+    'downloadOpt.subtitleLangs': '字幕语言',
+    'downloadOpt.sponsorBlock': 'SponsorBlock',
+    'downloadOpt.sponsorBlockDesc': 'SponsorBlock 可自动标记视频中的赞助片段、片头片尾等非正片内容，播放时可一键跳过。',
+    'downloadOpt.subtitleManual': '人工字幕',
+    'downloadOpt.subtitleAuto': '自动生成',
+    'downloadOpt.noSubtitles': '该视频无可用字幕',
 
     'notification.downloadComplete': '下载完成',
 }

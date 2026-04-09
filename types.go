@@ -12,21 +12,42 @@ type YtDlpStatus struct {
 
 // VideoInfo holds metadata about a video URL
 type VideoInfo struct {
-	URL       string  `json:"url"`
-	ID        string  `json:"id"`
-	Title     string  `json:"title"`
-	Thumbnail string  `json:"thumbnail"`
-	Duration  float64 `json:"duration"`
-	Uploader  string  `json:"uploader"`
-	Platform  string  `json:"platform"`
+	URL       string         `json:"url"`
+	ID        string         `json:"id"`
+	Title     string         `json:"title"`
+	Thumbnail string         `json:"thumbnail"`
+	Duration  float64        `json:"duration"`
+	Uploader  string         `json:"uploader"`
+	Platform  string         `json:"platform"`
+	Subtitles []SubtitleLang `json:"subtitles"` // available subtitle languages
+}
+
+// SubtitleLang represents an available subtitle language
+type SubtitleLang struct {
+	Code string `json:"code"` // language code, e.g. "en", "zh-Hans"
+	Name string `json:"name"` // display name, e.g. "English", "中文（简体）"
+	Auto bool   `json:"auto"` // true if auto-generated
 }
 
 // DownloadRequest specifies what to download
 type DownloadRequest struct {
-	URL       string     `json:"url"`
-	OutputDir string     `json:"outputDir"`
-	Quality   string     `json:"quality"` // best, 1080p, 720p, 480p, 360p, audio
-	VideoInfo *VideoInfo `json:"videoInfo"`
+	URL       string           `json:"url"`
+	OutputDir string           `json:"outputDir"`
+	Quality   string           `json:"quality"` // best, 1080p, 720p, 480p, 360p, audio
+	VideoInfo *VideoInfo       `json:"videoInfo"`
+	Options   *DownloadOptions `json:"options"` // per-download overrides (nil = use global settings)
+}
+
+// DownloadOptions allows per-download override of media settings.
+// When a field pointer is non-nil, it overrides the corresponding global setting.
+type DownloadOptions struct {
+	SaveDescription *bool   `json:"saveDescription"`
+	SaveThumbnail   *bool   `json:"saveThumbnail"`
+	EmbedChapters   *bool   `json:"embedChapters"`
+	WriteSubtitles  *bool   `json:"writeSubtitles"`
+	SubtitleLangs   string  `json:"subtitleLangs"`
+	EmbedSubtitles  *bool   `json:"embedSubtitles"`
+	SponsorBlock    *bool   `json:"sponsorBlock"`
 }
 
 // DownloadTask tracks a single download job

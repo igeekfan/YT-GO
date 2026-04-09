@@ -579,7 +579,55 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	if v, ok := raw["webpage_url"].(string); ok && v != "" {
 		info.URL = v
 	}
+	// Extract available subtitle languages
+	info.Subtitles = extractSubtitleLangs(raw)
 	return info, nil
+}
+
+// extractSubtitleLangs extracts available subtitle languages from yt-dlp JSON output.
+func extractSubtitleLangs(raw map[string]interface{}) []SubtitleLang {
+	var result []SubtitleLang
+	seen := make(map[string]bool)
+
+	// Manual subtitles first
+	if subs, ok := raw["subtitles"].(map[string]interface{}); ok {
+		for code := range subs {
+			if seen[code] {
+				continue
+			}
+			seen[code] = true
+			name := code
+			if arr, ok := subs[code].([]interface{}); ok && len(arr) > 0 {
+				if obj, ok := arr[0].(map[string]interface{}); ok {
+					if n, ok := obj["name"].(string); ok && n != "" {
+						name = n
+					}
+				}
+			}
+			result = append(result, SubtitleLang{Code: code, Name: name, Auto: false})
+		}
+	}
+
+	// Auto-generated captions
+	if autoCaptions, ok := raw["automatic_captions"].(map[string]interface{}); ok {
+		for code := range autoCaptions {
+			if seen[code] {
+				continue
+			}
+			seen[code] = true
+			name := code
+			if arr, ok := autoCaptions[code].([]interface{}); ok && len(arr) > 0 {
+				if obj, ok := arr[0].(map[string]interface{}); ok {
+					if n, ok := obj["name"].(string); ok && n != "" {
+						name = n
+					}
+				}
+			}
+			result = append(result, SubtitleLang{Code: code, Name: name, Auto: true})
+		}
+	}
+
+	return result
 }
 
 func detectCollectionKind(url string) string {
@@ -960,25 +1008,58 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 		// Override audio format only when downloading audio
 		args = append(args, "--audio-format", settings.AudioFormat)
 	}
-	if settings.SaveDescription {
+
+	// Resolve per-download overrides (req.Options) vs global settings
+	optSaveDescription := settings.SaveDescription
+	optSaveThumbnail := settings.SaveThumbnail
+	optWriteSubtitles := settings.WriteSubtitles
+	optSubtitleLangs := settings.SubtitleLangs
+	optEmbedSubtitles := settings.EmbedSubtitles
+	optEmbedChapters := settings.EmbedChapters
+	optSponsorBlock := settings.SponsorBlock
+	if req.Options != nil {
+		if req.Options.SaveDescription != nil {
+			optSaveDescription = *req.Options.SaveDescription
+		}
+		if req.Options.SaveThumbnail != nil {
+			optSaveThumbnail = *req.Options.SaveThumbnail
+		}
+		if req.Options.WriteSubtitles != nil {
+			optWriteSubtitles = *req.Options.WriteSubtitles
+		}
+		if req.Options.SubtitleLangs != "" {
+			optSubtitleLangs = req.Options.SubtitleLangs
+		}
+		if req.Options.EmbedSubtitles != nil {
+			optEmbedSubtitles = *req.Options.EmbedSubtitles
+		}
+		if req.Options.EmbedChapters != nil {
+			optEmbedChapters = *req.Options.EmbedChapters
+		}
+		if req.Options.SponsorBlock != nil {
+			optSponsorBlock = *req.Options.SponsorBlock
+		}
+	}
+
+	if optSaveDescription {
 		args = append(args, "--write-description")
 	}
-	if settings.SaveThumbnail {
+	if optSaveThumbnail {
 		args = append(args, "--write-thumbnail")
 	}
-	if settings.WriteSubtitles {
+	if optWriteSubtitles {
 		args = append(args, "--write-subs")
-		if settings.SubtitleLangs != "" {
-			args = append(args, "--sub-langs", settings.SubtitleLangs)
+		if optSubtitleLangs != "" {
+			args = append(args, "--sub-langs", optSubtitleLangs)
 		}
-		if settings.EmbedSubtitles {
+		if optEmbedSubtitles {
 			args = append(args, "--embed-subs")
 		}
 	}
-	if settings.EmbedChapters {
+	if optEmbedChapters {
 		args = append(args, "--embed-chapters")
 	}
-	if settings.SponsorBlock {
+	if optSponsorBlock {
 		args = append(args, "--sponsorblock-mark", "all")
 	}
 	args = appendCookiesArgs(args, settings)

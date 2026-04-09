@@ -147,7 +147,21 @@
     'format.selectVideo': 'Select video format',
     'format.selectAudio': 'Select audio format',
     'format.usePreset': 'Use preset quality',
+    'format.bestQuality': '🏆 Best Quality',
     'toast.getFormatsFail': 'Failed to get format list',
+
+    'downloadOpt.title': 'Download Options',
+    'downloadOpt.saveThumbnail': 'Save thumbnail',
+    'downloadOpt.saveDescription': 'Save description',
+    'downloadOpt.embedChapters': 'Embed chapters',
+    'downloadOpt.writeSubtitles': 'Download subtitles',
+    'downloadOpt.embedSubtitles': 'Embed subtitles',
+    'downloadOpt.subtitleLangs': 'Subtitle languages',
+    'downloadOpt.sponsorBlock': 'SponsorBlock',
+    'downloadOpt.sponsorBlockDesc': 'SponsorBlock automatically marks sponsored segments, intros, outros and other non-content sections in videos, allowing you to skip them during playback.',
+    'downloadOpt.subtitleManual': 'Manual',
+    'downloadOpt.subtitleAuto': 'Auto-generated',
+    'downloadOpt.noSubtitles': 'No subtitles available for this video',
 
     'notification.downloadComplete': 'Download Complete',
 }
