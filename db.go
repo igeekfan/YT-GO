@@ -13,8 +13,8 @@ import (
 // Fields mirror DownloadTask; transient run-time fields (Speed, ETA) are also
 // stored so the last-seen value is shown after a restart.
 type DownloadRecord struct {
-	ID         string  `gorm:"primaryKey"`
-	URL        string  `gorm:"not null"`
+	ID         string `gorm:"primaryKey"`
+	URL        string `gorm:"not null"`
 	Title      string
 	Thumbnail  string
 	Status     string  `gorm:"not null;default:'pending'"`
@@ -23,9 +23,9 @@ type DownloadRecord struct {
 	ETA        string
 	Size       string
 	OutputPath string
-	OutputDir  string  `gorm:"not null"`
+	OutputDir  string `gorm:"not null"`
 	Error      string
-	CreatedAt  string  `gorm:"not null"`
+	CreatedAt  string `gorm:"not null"`
 }
 
 // openDB opens (or creates) the SQLite database at %APPDATA%/YT-GO/history.db
