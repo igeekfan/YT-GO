@@ -534,13 +534,24 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	}
 	if v, ok := raw["extractor_key"].(string); ok {
 		info.Platform = v
+	} else if v, ok := raw["extractor"].(string); ok {
+		info.Platform = v
+	}
+	// Use webpage_url if available for more accurate URL tracking on generic sites
+	if v, ok := raw["webpage_url"].(string); ok && v != "" {
+		info.URL = v
 	}
 	return info, nil
 }
 
 func detectCollectionKind(url string) string {
 	lower := strings.ToLower(url)
+	// YouTube channel patterns
 	if strings.Contains(lower, "/@") || strings.Contains(lower, "/channel/") || strings.Contains(lower, "/user/") || strings.Contains(lower, "/c/") {
+		return "channel"
+	}
+	// Bilibili series/favorites
+	if strings.Contains(lower, "bilibili.com") && (strings.Contains(lower, "/favlist") || strings.Contains(lower, "/medialist") || strings.Contains(lower, "/channel/seriesdetail")) {
 		return "channel"
 	}
 	return "playlist"
