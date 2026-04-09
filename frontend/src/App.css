@@ -935,3 +935,60 @@ body {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
+
+/* ===== Playlist Selector ===== */
+.playlist-selector {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.playlist-selector-header {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.playlist-selector-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.playlist-selector-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  font-size: 13px;
+}
+
+.playlist-selector-item:hover {
+  background: var(--bg-hover);
+}
+
+.playlist-selector-idx {
+  color: var(--text-muted);
+  font-size: 11px;
+  min-width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.playlist-selector-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-selector-duration {
+  color: var(--text-secondary);
+  font-size: 11px;
+  flex-shrink: 0;
+}

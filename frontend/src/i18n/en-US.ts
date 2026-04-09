@@ -80,6 +80,9 @@
     'collection.channel.detected': 'Channel content detected',
     'collection.channel.count': '{count} videos',
     'collection.channel.downloadAll': 'Download listed videos',
+    'collection.selected': '{count} selected',
+    'collection.selectAll': 'Select All',
+    'collection.selectNone': 'Select None',
 
     'settings.title': 'Settings',
     'settings.tab.download': 'Download',

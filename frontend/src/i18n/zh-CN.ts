@@ -80,6 +80,9 @@
     'collection.channel.detected': '检测到频道内容',
     'collection.channel.count': '{count} 个视频',
     'collection.channel.downloadAll': '下载当前列表',
+    'collection.selected': '已选 {count} 个',
+    'collection.selectAll': '全选',
+    'collection.selectNone': '全不选',
 
     'settings.title': '设置',
     'settings.tab.download': '下载设置',

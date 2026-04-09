@@ -102,6 +102,7 @@ function App() {
     const [selectedVideoFormat, setSelectedVideoFormat] = useState('')
     const [selectedAudioFormat, setSelectedAudioFormat] = useState('')
     const [isGettingFormats, setIsGettingFormats] = useState(false)
+    const [selectedPlaylistItems, setSelectedPlaylistItems] = useState<Set<number>>(new Set())
     const [quality, setQuality] = useState('best')
     const [outputDir, setOutputDir] = useState('')
     const [isGettingInfo, setIsGettingInfo] = useState(false)
@@ -256,6 +257,7 @@ function App() {
         setSelectedFormat('')
         setSelectedVideoFormat('')
         setSelectedAudioFormat('')
+        setSelectedPlaylistItems(new Set())
         try {
             const info = await GetVideoInfo(url.trim())
             setVideoInfo(info)
@@ -272,6 +274,7 @@ function App() {
                 const plist = await GetPlaylistInfo(url.trim())
                 if (plist && plist.count > 0) {
                     setPlaylistInfo(plist)
+                    setSelectedPlaylistItems(new Set(plist.videos.map((_: any, i: number) => i)))
                 } else {
                     showToast(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
                 }
@@ -336,7 +339,9 @@ function App() {
         setIsStarting(true)
         try {
             const downloadQuality = resolveDownloadQuality()
-            for (const video of playlistInfo.videos) {
+            for (let i = 0; i < playlistInfo.videos.length; i++) {
+                if (!selectedPlaylistItems.has(i)) continue
+                const video = playlistInfo.videos[i]
                 if (video.url) {
                     await StartDownload({
                         url: video.url,
@@ -349,6 +354,7 @@ function App() {
             setUrl('')
             setVideoInfo(null)
             setPlaylistInfo(null)
+            setSelectedPlaylistItems(new Set())
         } catch (e: any) {
             showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
@@ -503,6 +509,7 @@ function App() {
 
                     {/* Playlist info preview */}
                     {playlistInfo && (
+                        <>
                         <div className="video-card playlist-card">
                             <div className="playlist-icon">
                                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -520,9 +527,50 @@ function App() {
                                     {playlistInfo.uploader && (
                                         <span>{t('playlist.uploader')}: {playlistInfo.uploader}</span>
                                     )}
+                                    <span>{t('collection.selected', {count: String(selectedPlaylistItems.size)})}</span>
                                 </div>
                             </div>
                         </div>
+                        {/* Playlist item selector */}
+                        <div className="playlist-selector">
+                            <div className="playlist-selector-header">
+                                <button
+                                    className="btn-ghost btn-sm"
+                                    onClick={() => setSelectedPlaylistItems(new Set(playlistInfo.videos.map((_: any, i: number) => i)))}
+                                >
+                                    {t('collection.selectAll')}
+                                </button>
+                                <button
+                                    className="btn-ghost btn-sm"
+                                    onClick={() => setSelectedPlaylistItems(new Set())}
+                                >
+                                    {t('collection.selectNone')}
+                                </button>
+                            </div>
+                            <div className="playlist-selector-list">
+                                {playlistInfo.videos.map((video, idx) => (
+                                    <label key={idx} className="playlist-selector-item">
+                                        <input
+                                            type="checkbox"
+                                            className="setting-checkbox"
+                                            checked={selectedPlaylistItems.has(idx)}
+                                            onChange={e => {
+                                                const next = new Set(selectedPlaylistItems)
+                                                if (e.target.checked) next.add(idx)
+                                                else next.delete(idx)
+                                                setSelectedPlaylistItems(next)
+                                            }}
+                                        />
+                                        <span className="playlist-selector-idx">{idx + 1}</span>
+                                        <span className="playlist-selector-title">{video.title || video.url || video.id}</span>
+                                        {video.duration > 0 && (
+                                            <span className="playlist-selector-duration">{formatDuration(video.duration)}</span>
+                                        )}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                        </>
                     )}
 
                     {/* Download options */}
@@ -660,9 +708,9 @@ function App() {
                             <button
                                 className="btn-primary download-btn"
                                 onClick={handleDownloadAll}
-                                disabled={isStarting || !outputDir}
+                                disabled={isStarting || !outputDir || selectedPlaylistItems.size === 0}
                             >
-                                {isStarting ? t('playlist.startingAll') : t(`collection.${collectionKind}.downloadAll` as any)}
+                                {isStarting ? t('playlist.startingAll') : `${t(`collection.${collectionKind}.downloadAll` as any)} (${selectedPlaylistItems.size})`}
                             </button>
                         )}
                     </div>
