@@ -235,6 +235,9 @@ export namespace main {
 	    notifications: boolean;
 	    saveDescription: boolean;
 	    saveThumbnail: boolean;
+	    writeSubtitles: boolean;
+	    subtitleLangs: string;
+	    embedSubtitles: boolean;
 	    cookiesFrom: string;
 	    cookiesFile: string;
 	
@@ -254,6 +257,9 @@ export namespace main {
 	        this.notifications = source["notifications"];
 	        this.saveDescription = source["saveDescription"];
 	        this.saveThumbnail = source["saveThumbnail"];
+	        this.writeSubtitles = source["writeSubtitles"];
+	        this.subtitleLangs = source["subtitleLangs"];
+	        this.embedSubtitles = source["embedSubtitles"];
 	        this.cookiesFrom = source["cookiesFrom"];
 	        this.cookiesFile = source["cookiesFile"];
 	    }

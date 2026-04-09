@@ -245,6 +245,9 @@ func (a *App) GetSettings() Settings {
 		Notifications: true,
 		SaveDescription: false,
 		SaveThumbnail: false,
+		WriteSubtitles: false,
+		SubtitleLangs: "",
+		EmbedSubtitles: false,
 	}
 	if a.db == nil {
 		return defaults
@@ -274,6 +277,9 @@ func (a *App) GetSettings() Settings {
 	defaults.Notifications = rec.Notifications
 	defaults.SaveDescription = rec.SaveDescription
 	defaults.SaveThumbnail = rec.SaveThumbnail
+	defaults.WriteSubtitles = rec.WriteSubtitles
+	defaults.SubtitleLangs = rec.SubtitleLangs
+	defaults.EmbedSubtitles = rec.EmbedSubtitles
 	defaults.CookiesFrom = rec.CookiesFrom
 	defaults.CookiesFile = rec.CookiesFile
 	return defaults
@@ -296,6 +302,9 @@ func (a *App) SaveSettings(s Settings) error {
 		Notifications: s.Notifications,
 		SaveDescription: s.SaveDescription,
 		SaveThumbnail: s.SaveThumbnail,
+		WriteSubtitles: s.WriteSubtitles,
+		SubtitleLangs: s.SubtitleLangs,
+		EmbedSubtitles: s.EmbedSubtitles,
 		CookiesFrom:   s.CookiesFrom,
 		CookiesFile:   s.CookiesFile,
 	}
@@ -878,6 +887,15 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	}
 	if settings.SaveThumbnail {
 		args = append(args, "--write-thumbnail")
+	}
+	if settings.WriteSubtitles {
+		args = append(args, "--write-subs")
+		if settings.SubtitleLangs != "" {
+			args = append(args, "--sub-langs", settings.SubtitleLangs)
+		}
+		if settings.EmbedSubtitles {
+			args = append(args, "--embed-subs")
+		}
 	}
 	args = appendCookiesArgs(args, settings)
 

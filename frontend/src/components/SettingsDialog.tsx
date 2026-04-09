@@ -152,6 +152,38 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                     onChange={e => update('saveThumbnail', e.target.checked)}
                 />
             </div>
+            <div className="setting-item setting-item-row">
+                <label className="setting-label">{t('settings.writeSubtitles')}</label>
+                <input
+                    type="checkbox"
+                    className="setting-checkbox"
+                    checked={settings.writeSubtitles || false}
+                    onChange={e => update('writeSubtitles', e.target.checked)}
+                />
+            </div>
+            {settings.writeSubtitles && (
+                <>
+                    <div className="setting-item">
+                        <label className="setting-label">{t('settings.subtitleLangs')}</label>
+                        <input
+                            type="text"
+                            className="setting-input"
+                            value={settings.subtitleLangs || ''}
+                            onChange={e => update('subtitleLangs', e.target.value)}
+                            placeholder="e.g. en,zh-Hans,ja (empty = all)"
+                        />
+                    </div>
+                    <div className="setting-item setting-item-row">
+                        <label className="setting-label">{t('settings.embedSubtitles')}</label>
+                        <input
+                            type="checkbox"
+                            className="setting-checkbox"
+                            checked={settings.embedSubtitles || false}
+                            onChange={e => update('embedSubtitles', e.target.checked)}
+                        />
+                    </div>
+                </>
+            )}
         </>
     )
 

@@ -69,6 +69,9 @@ type Settings struct {
 	Notifications bool   `json:"notifications"`
 	SaveDescription bool `json:"saveDescription"`
 	SaveThumbnail bool   `json:"saveThumbnail"`
+	WriteSubtitles bool  `json:"writeSubtitles"`
+	SubtitleLangs  string `json:"subtitleLangs"`
+	EmbedSubtitles bool  `json:"embedSubtitles"`
 	CookiesFrom   string `json:"cookiesFrom"`   // --cookies-from-browser value (e.g. chrome, firefox, edge)
 	CookiesFile   string `json:"cookiesFile"`   // --cookies file path
 }

@@ -43,6 +43,9 @@ type SettingsRecord struct {
 	Notifications bool   // desktop notifications on completion
 	SaveDescription bool  // --write-description
 	SaveThumbnail bool    // --write-thumbnail
+	WriteSubtitles bool   // --write-subs
+	SubtitleLangs  string // --sub-langs value (e.g. en,zh-Hans)
+	EmbedSubtitles bool   // --embed-subs
 	CookiesFrom   string // --cookies-from-browser value (chrome, firefox, edge, etc.)
 	CookiesFile   string // --cookies file path
 }
