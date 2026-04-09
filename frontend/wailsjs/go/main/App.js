@@ -18,6 +18,10 @@ export function GetDefaultDownloadDir() {
   return window['go']['main']['App']['GetDefaultDownloadDir']();
 }
 
+export function GetDiagnosticInfo() {
+  return window['go']['main']['App']['GetDiagnosticInfo']();
+}
+
 export function GetDownloads() {
   return window['go']['main']['App']['GetDownloads']();
 }

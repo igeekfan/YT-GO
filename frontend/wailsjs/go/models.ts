@@ -1,5 +1,25 @@
 export namespace main {
 	
+	export class DiagnosticInfo {
+	    ytdlpPath: string;
+	    ytdlpVersion: string;
+	    ytdlpFound: boolean;
+	    testOutput: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DiagnosticInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ytdlpPath = source["ytdlpPath"];
+	        this.ytdlpVersion = source["ytdlpVersion"];
+	        this.ytdlpFound = source["ytdlpFound"];
+	        this.testOutput = source["testOutput"];
+	        this.error = source["error"];
+	    }
+	}
 	export class VideoInfo {
 	    url: string;
 	    id: string;

@@ -22,14 +22,14 @@ import (
 
 // App struct
 type App struct {
-	ctx          context.Context
-	i18n         *I18n
-	downloads    map[string]*DownloadTask
-	cancelFns    map[string]context.CancelFunc
-	mu           sync.RWMutex
-	ytdlpPath    string
-	db           *gorm.DB
-	downloadSem  chan struct{} // semaphore for concurrent download limiting
+	ctx         context.Context
+	i18n        *I18n
+	downloads   map[string]*DownloadTask
+	cancelFns   map[string]context.CancelFunc
+	mu          sync.RWMutex
+	ytdlpPath   string
+	db          *gorm.DB
+	downloadSem chan struct{} // semaphore for concurrent download limiting
 }
 
 // NewApp creates a new App application struct
@@ -156,6 +156,61 @@ func (a *App) SaveSettings(s Settings) error {
 		Notifications: s.Notifications,
 	}
 	return a.db.Save(&rec).Error
+}
+
+// DiagnosticInfo contains debug information about the application state
+type DiagnosticInfo struct {
+	YtDlpPath    string `json:"ytdlpPath"`
+	YtDlpVersion string `json:"ytdlpVersion"`
+	YtDlpFound   bool   `json:"ytdlpFound"`
+	TestOutput   string `json:"testOutput"`
+	Error        string `json:"error"`
+}
+
+// GetDiagnosticInfo returns debug information to help troubleshoot issues
+func (a *App) GetDiagnosticInfo() DiagnosticInfo {
+	info := DiagnosticInfo{
+		YtDlpPath:  a.ytdlpPath,
+		YtDlpFound: a.ytdlpPath != "",
+	}
+
+	if a.ytdlpPath == "" {
+		// Try to find it again
+		a.ytdlpPath = a.findYtDlp()
+		info.YtDlpPath = a.ytdlpPath
+		info.YtDlpFound = a.ytdlpPath != ""
+	}
+
+	if a.ytdlpPath != "" {
+		// Get version
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, a.ytdlpPath, "--version").CombinedOutput()
+		if err != nil {
+			info.Error = fmt.Sprintf("version check failed: %v", err)
+		} else {
+			info.YtDlpVersion = strings.TrimSpace(string(out))
+		}
+
+		// Test a simple command
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel2()
+		testOut, err := exec.CommandContext(ctx2, a.ytdlpPath, "--help").CombinedOutput()
+		if err != nil {
+			info.Error = fmt.Sprintf("help command failed: %v", err)
+		} else {
+			// Just check if output contains expected text
+			if strings.Contains(string(testOut), "youtube") || strings.Contains(string(testOut), "Usage:") {
+				info.TestOutput = "yt-dlp is working correctly"
+			} else {
+				info.TestOutput = fmt.Sprintf("unexpected output (first 200 chars): %s", string(testOut)[:min(200, len(testOut))])
+			}
+		}
+	} else {
+		info.Error = "yt-dlp not found in PATH or common installation directories"
+	}
+
+	return info
 }
 
 // SetLang sets the application language
@@ -626,6 +681,20 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	args = append(args, req.URL)
 
 	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
+
+	// Send initial log message to verify event system works
+	wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{
+		"taskId": taskID,
+		"line":   fmt.Sprintf("[YT-GO] Starting download: %s", req.URL),
+	})
+	wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{
+		"taskId": taskID,
+		"line":   fmt.Sprintf("[YT-GO] yt-dlp path: %s", a.ytdlpPath),
+	})
+	wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{
+		"taskId": taskID,
+		"line":   fmt.Sprintf("[YT-GO] Output dir: %s", req.OutputDir),
+	})
 
 	var lastOutputFile string
 	writer := &lineWriter{

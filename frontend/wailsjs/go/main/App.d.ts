@@ -10,6 +10,8 @@ export function ClearCompleted():Promise<void>;
 
 export function GetDefaultDownloadDir():Promise<string>;
 
+export function GetDiagnosticInfo():Promise<main.DiagnosticInfo>;
+
 export function GetDownloads():Promise<Array<main.DownloadTask>>;
 
 export function GetFormats(arg1:string):Promise<main.FormatInfo>;

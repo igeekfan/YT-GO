@@ -1,7 +1,15 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {GetSettings, SaveSettings, SelectFolder} from '../../wailsjs/go/main/App'
+import {GetSettings, SaveSettings, SelectFolder, GetDiagnosticInfo} from '../../wailsjs/go/main/App'
+
+interface DiagnosticInfo {
+    ytdlpPath: string
+    ytdlpVersion: string
+    ytdlpFound: boolean
+    testOutput: string
+    error: string
+}
 
 interface Props {
     open: boolean
@@ -17,12 +25,27 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
     const {t, lang, setLang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
     const [saving, setSaving] = useState(false)
+    const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
+    const [loadingDiag, setLoadingDiag] = useState(false)
 
     useEffect(() => {
         if (open) {
             GetSettings().then(setSettings).catch(console.error)
+            setDiagnostic(null)
         }
     }, [open])
+
+    const handleGetDiagnostic = async () => {
+        setLoadingDiag(true)
+        try {
+            const info = await GetDiagnosticInfo()
+            setDiagnostic(info as DiagnosticInfo)
+        } catch (e) {
+            console.error('Failed to get diagnostic info:', e)
+        } finally {
+            setLoadingDiag(false)
+        }
+    }
 
     if (!open || !settings) return null
 
@@ -163,6 +186,48 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                             checked={settings.notifications}
                             onChange={e => update('notifications', e.target.checked)}
                         />
+                    </div>
+
+                    {/* Diagnostic Info */}
+                    <div className="setting-item">
+                        <label className="setting-label">{t('settings.diagnostic') || '诊断信息'}</label>
+                        <button
+                            className="btn-secondary btn-sm mb-2"
+                            onClick={handleGetDiagnostic}
+                            disabled={loadingDiag}
+                        >
+                            {loadingDiag ? '检查中...' : '检查 yt-dlp 状态'}
+                        </button>
+                        {diagnostic && (
+                            <div className="diagnostic-info">
+                                <div className="diag-item">
+                                    <span className="diag-label">yt-dlp 路径:</span>
+                                    <span className="diag-value">{diagnostic.ytdlpPath || '未找到'}</span>
+                                </div>
+                                <div className="diag-item">
+                                    <span className="diag-label">版本:</span>
+                                    <span className="diag-value">{diagnostic.ytdlpVersion || '-'}</span>
+                                </div>
+                                <div className="diag-item">
+                                    <span className="diag-label">状态:</span>
+                                    <span className={`diag-value ${diagnostic.ytdlpFound ? 'text-green-400' : 'text-red-400'}`}>
+                                        {diagnostic.ytdlpFound ? '✓ 可用' : '✗ 不可用'}
+                                    </span>
+                                </div>
+                                {diagnostic.testOutput && (
+                                    <div className="diag-item">
+                                        <span className="diag-label">测试:</span>
+                                        <span className="diag-value text-green-400">{diagnostic.testOutput}</span>
+                                    </div>
+                                )}
+                                {diagnostic.error && (
+                                    <div className="diag-item">
+                                        <span className="diag-label">错误:</span>
+                                        <span className="diag-value text-red-400">{diagnostic.error}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="dialog-footer">

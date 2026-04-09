@@ -732,3 +732,46 @@ body {
   accent-color: var(--accent);
   cursor: pointer;
 }
+
+/* Diagnostic Info Styles */
+.diagnostic-info {
+  background: var(--card-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.diag-item {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.diag-item:last-child {
+  margin-bottom: 0;
+}
+
+.diag-label {
+  color: var(--text-secondary);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.diag-value {
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.text-green-400 {
+  color: #4ade80;
+}
+
+.text-red-400 {
+  color: #f87171;
+}
+
+.mb-2 {
+  margin-bottom: 8px;
+}
