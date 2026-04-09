@@ -30,6 +30,8 @@ export function OpenFolder(arg1:string):Promise<void>;
 
 export function SaveSettings(arg1:main.Settings):Promise<void>;
 
+export function SelectCookiesFile():Promise<string>;
+
 export function SelectFolder():Promise<string>;
 
 export function SetLang(arg1:string):Promise<void>;

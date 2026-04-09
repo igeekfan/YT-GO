@@ -14,9 +14,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/transform"
 	"gorm.io/gorm"
 )
 
@@ -107,11 +110,38 @@ func (a *App) emitLog(format string, args ...interface{}) {
 	}
 }
 
+func getPreferredJSRuntime() string {
+	nodePath, err := exec.LookPath("node")
+	if err == nil && nodePath != "" {
+		return "node:" + nodePath
+	}
+	return ""
+}
+
 // ytdlpCmd creates an exec.Cmd for yt-dlp with UTF-8 output encoding on Windows.
 func (a *App) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
+	if runtime := getPreferredJSRuntime(); runtime != "" {
+		args = append([]string{"--js-runtimes", runtime}, args...)
+	}
 	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
 	return cmd
+}
+
+// toUTF8 ensures the byte slice is valid UTF-8.
+// If it already is valid UTF-8, returns as-is.
+// Otherwise tries to decode from Windows-1252 (common on Western Windows).
+func toUTF8(b []byte) string {
+	if utf8.Valid(b) {
+		return string(b)
+	}
+	// Try Windows-1252 (superset of ISO-8859-1), which covers most Western yt-dlp output
+	decoded, _, err := transform.Bytes(charmap.Windows1252.NewDecoder(), b)
+	if err == nil {
+		return string(decoded)
+	}
+	// Fallback: replace invalid bytes
+	return strings.ToValidUTF8(string(b), "\ufffd")
 }
 
 // appendCookiesArgs adds --cookies-from-browser or --cookies flags based on settings.
@@ -122,6 +152,68 @@ func appendCookiesArgs(args []string, settings Settings) []string {
 		args = append(args, "--cookies", settings.CookiesFile)
 	}
 	return args
+}
+
+func normalizeYtDlpError(errMsg string, settings Settings) string {
+	errMsg = strings.TrimSpace(errMsg)
+	if errMsg == "" {
+		return errMsg
+	}
+
+	if strings.Contains(errMsg, "Sign in to confirm") || strings.Contains(errMsg, "not a bot") {
+		cookieHint := "当前未配置 Cookies。"
+		if settings.CookiesFrom != "" {
+			cookieHint = fmt.Sprintf("当前使用浏览器 Cookies: %s。", settings.CookiesFrom)
+		} else if settings.CookiesFile != "" {
+			cookieHint = fmt.Sprintf("当前使用 cookies 文件: %s。", settings.CookiesFile)
+		}
+		return fmt.Sprintf("YouTube 拒绝了当前访问，请求被判定为需要登录验证。%s这通常表示 Cookies 已过期、导出不完整、账号未登录 YouTube，或当前代理/IP 风险较高。请重新导出最新的 YouTube cookies.txt，或改用“从浏览器导入 Cookies”。原始错误: %s", cookieHint, errMsg)
+	}
+
+	if strings.Contains(errMsg, "Failed to decrypt with DPAPI") {
+		if settings.CookiesFrom != "" {
+			return fmt.Sprintf("无法读取浏览器 Cookies（DPAPI 解密失败）。当前浏览器来源: %s。请先关闭该浏览器，并确保 YT-GO 不是以管理员身份运行；如果仍失败，请改用导出的 cookies.txt 文件。原始错误: %s", settings.CookiesFrom, errMsg)
+		}
+		return fmt.Sprintf("Cookies 解密失败（DPAPI）。请检查是否以相同 Windows 用户运行，并避免管理员身份运行；必要时改用导出的 cookies.txt 文件。原始错误: %s", errMsg)
+	}
+
+	if strings.Contains(errMsg, "Signature solving failed") ||
+		strings.Contains(errMsg, "n challenge solving failed") ||
+		strings.Contains(errMsg, "Only images are available for download") ||
+		strings.Contains(errMsg, "Requested format is not available") {
+		cookieHint := ""
+		if settings.CookiesFrom != "" {
+			cookieHint = fmt.Sprintf("当前使用浏览器 Cookies: %s。", settings.CookiesFrom)
+		} else if settings.CookiesFile != "" {
+			cookieHint = fmt.Sprintf("当前使用 cookies 文件: %s。", settings.CookiesFile)
+		}
+		return fmt.Sprintf("yt-dlp 已读取到 YouTube 页面，但当前环境无法完成签名/JS challenge 求解，所以只拿到了图片 storyboard，没有拿到真实视频格式。%s请安装 Node.js LTS 并重启应用，或改用具备可用 JS runtime 的 yt-dlp 运行环境。原始错误: %s", cookieHint, errMsg)
+	}
+
+	return errMsg
+}
+
+func getNodeVersion() string {
+	nodePath, err := exec.LookPath("node")
+	if err != nil {
+		return "missing"
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, nodePath, "-v").CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("found at %s but failed to run: %v", nodePath, err)
+	}
+	version := strings.TrimSpace(toUTF8(out))
+	if version == "" {
+		return fmt.Sprintf("found at %s but returned empty version", nodePath)
+	}
+	return fmt.Sprintf("%s (%s)", version, nodePath)
+}
+
+// logCmd logs the full yt-dlp command line for debugging.
+func (a *App) logCmd(tag string, cmd *exec.Cmd) {
+	a.emitLog("[%s] exec: %s", tag, strings.Join(cmd.Args, " "))
 }
 
 // GetSettings returns persisted user settings
@@ -162,6 +254,8 @@ func (a *App) GetSettings() Settings {
 		defaults.MaxConcurrent = rec.MaxConcurrent
 	}
 	defaults.Notifications = rec.Notifications
+	defaults.CookiesFrom = rec.CookiesFrom
+	defaults.CookiesFile = rec.CookiesFile
 	return defaults
 }
 
@@ -180,6 +274,8 @@ func (a *App) SaveSettings(s Settings) error {
 		RateLimit:     s.RateLimit,
 		MaxConcurrent: s.MaxConcurrent,
 		Notifications: s.Notifications,
+		CookiesFrom:   s.CookiesFrom,
+		CookiesFile:   s.CookiesFile,
 	}
 	return a.db.Save(&rec).Error
 }
@@ -227,9 +323,9 @@ func (a *App) GetDiagnosticInfo() DiagnosticInfo {
 		} else {
 			// Just check if output contains expected text
 			if strings.Contains(string(testOut), "youtube") || strings.Contains(string(testOut), "Usage:") {
-				info.TestOutput = "yt-dlp is working correctly"
+				info.TestOutput = fmt.Sprintf("yt-dlp is working correctly; node runtime: %s", getNodeVersion())
 			} else {
-				info.TestOutput = fmt.Sprintf("unexpected output (first 200 chars): %s", string(testOut)[:min(200, len(testOut))])
+				info.TestOutput = fmt.Sprintf("unexpected output (first 200 chars): %s; node runtime: %s", string(testOut)[:min(200, len(testOut))], getNodeVersion())
 			}
 		}
 	} else {
@@ -324,7 +420,7 @@ func (a *App) UpdateYtDlp() (string, error) {
 
 	cmd := a.ytdlpCmd(ctx, "-U")
 	out, err := cmd.CombinedOutput()
-	output := strings.TrimSpace(string(out))
+	output := strings.TrimSpace(toUTF8(out))
 
 	if err != nil {
 		return output, fmt.Errorf("update failed: %w", err)
@@ -341,6 +437,7 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	defer cancel()
 
 	args := []string{
+		"--ignore-config",
 		"--dump-json",
 		"--no-playlist",
 		"--no-warnings",
@@ -355,9 +452,10 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 
 	cmd := a.ytdlpCmd(ctx, args...)
 	a.emitLog("[GetVideoInfo] fetching info for URL: %s", url)
+	a.logCmd("GetVideoInfo", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		errMsg := strings.TrimSpace(string(out))
+		errMsg := normalizeYtDlpError(toUTF8(out), settings)
 		a.emitLog("[GetVideoInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return VideoInfo{}, fmt.Errorf("%s", errMsg)
@@ -366,7 +464,7 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	}
 	var raw map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil {
-		a.emitLog("[GetVideoInfo] JSON parse failed: %v, raw output: %s", err, string(out))
+		a.emitLog("[GetVideoInfo] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
 		return VideoInfo{}, fmt.Errorf("failed to parse video info: %w", err)
 	}
 
@@ -403,6 +501,7 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	defer cancel()
 
 	args := []string{
+		"--ignore-config",
 		"--flat-playlist",
 		"--dump-json",
 		"--no-warnings",
@@ -417,9 +516,10 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 
 	cmd := a.ytdlpCmd(ctx, args...)
 	a.emitLog("[GetPlaylistInfo] fetching playlist for URL: %s", url)
+	a.logCmd("GetPlaylistInfo", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		errMsg := strings.TrimSpace(string(out))
+		errMsg := normalizeYtDlpError(toUTF8(out), settings)
 		a.emitLog("[GetPlaylistInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return PlaylistInfo{}, fmt.Errorf("%s", errMsg)
@@ -428,7 +528,7 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	}
 
 	result := PlaylistInfo{URL: url}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	lines := strings.Split(strings.TrimSpace(toUTF8(out)), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -493,6 +593,7 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 	defer cancel()
 
 	args := []string{
+		"--ignore-config",
 		"--dump-json",
 		"--no-download",
 		"--no-warnings",
@@ -508,9 +609,10 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 
 	cmd := a.ytdlpCmd(ctx, args...)
 	a.emitLog("[GetFormats] fetching formats for URL: %s", url)
+	a.logCmd("GetFormats", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		errMsg := strings.TrimSpace(string(out))
+		errMsg := normalizeYtDlpError(toUTF8(out), settings)
 		a.emitLog("[GetFormats] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return FormatInfo{}, fmt.Errorf("%s", errMsg)
@@ -520,7 +622,7 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil {
-		a.emitLog("[GetFormats] JSON parse failed: %v, raw output: %s", err, string(out))
+		a.emitLog("[GetFormats] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
 		return FormatInfo{}, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
@@ -584,6 +686,21 @@ func (a *App) SelectFolder() string {
 		return ""
 	}
 	return dir
+}
+
+// SelectCookiesFile opens a file picker dialog for selecting a cookies file
+func (a *App) SelectCookiesFile() string {
+	file, err := wailsRuntime.OpenFileDialog(a.ctx, wailsRuntime.OpenDialogOptions{
+		Title: "Select Cookies File",
+		Filters: []wailsRuntime.FileFilter{
+			{DisplayName: "Text Files (*.txt)", Pattern: "*.txt"},
+			{DisplayName: "All Files (*.*)", Pattern: "*.*"},
+		},
+	})
+	if err != nil {
+		return ""
+	}
+	return file
 }
 
 // GetDefaultDownloadDir returns the user Downloads directory
@@ -699,6 +816,7 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	}
 
 	args := qualityArgs(req.Quality)
+	args = append(args, "--ignore-config")
 	args = append(args,
 		"--newline",
 		"--progress",

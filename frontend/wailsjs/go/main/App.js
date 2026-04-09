@@ -58,6 +58,10 @@ export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
+export function SelectCookiesFile() {
+  return window['go']['main']['App']['SelectCookiesFile']();
+}
+
 export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
 }

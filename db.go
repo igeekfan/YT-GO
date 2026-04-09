@@ -40,6 +40,8 @@ type SettingsRecord struct {
 	RateLimit     string // e.g. "1M", "500K"
 	MaxConcurrent int    // max concurrent downloads (0 = unlimited)
 	Notifications bool   // desktop notifications on completion
+	CookiesFrom   string // --cookies-from-browser value (chrome, firefox, edge, etc.)
+	CookiesFile   string // --cookies file path
 }
 
 // openDB opens (or creates) the SQLite database at %APPDATA%/YT-GO/history.db

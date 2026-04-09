@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {GetSettings, SaveSettings, SelectFolder, GetDiagnosticInfo} from '../../wailsjs/go/main/App'
+import {GetSettings, SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo} from '../../wailsjs/go/main/App'
 
 interface DiagnosticInfo {
     ytdlpPath: string
@@ -159,8 +159,8 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                             className="setting-select"
                             value={settings.cookiesFrom || ''}
                             onChange={e => {
-                                update('cookiesFrom', e.target.value)
-                                if (e.target.value) update('cookiesFile', '')
+                                const val = e.target.value
+                                setSettings(prev => prev ? {...prev, cookiesFrom: val, cookiesFile: val ? '' : prev.cookiesFile} : prev)
                             }}
                         >
                             <option value="">{t('settings.cookiesFromNone')}</option>
@@ -177,17 +177,31 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                     {/* Cookies file */}
                     <div className="setting-item">
                         <label className="setting-label">{t('settings.cookiesFile')}</label>
-                        <input
-                            type="text"
-                            className="setting-input"
-                            value={settings.cookiesFile || ''}
-                            onChange={e => {
-                                update('cookiesFile', e.target.value)
-                                if (e.target.value) update('cookiesFrom', '')
-                            }}
-                            placeholder={t('settings.cookiesFilePlaceholder')}
-                            disabled={!!settings.cookiesFrom}
-                        />
+                        <div className="setting-row">
+                            <input
+                                type="text"
+                                className="setting-input flex-1"
+                                value={settings.cookiesFile || ''}
+                                onChange={e => {
+                                    const val = e.target.value
+                                    setSettings(prev => prev ? {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom} : prev)
+                                }}
+                                placeholder={t('settings.cookiesFilePlaceholder')}
+                                disabled={!!settings.cookiesFrom}
+                            />
+                            <button
+                                className="btn-secondary btn-sm"
+                                disabled={!!settings.cookiesFrom}
+                                onClick={async () => {
+                                    const file = await SelectCookiesFile()
+                                    if (file) {
+                                        setSettings(prev => prev ? {...prev, cookiesFile: file, cookiesFrom: ''} : prev)
+                                    }
+                                }}
+                            >
+                                {t('outputDir.browse')}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Rate Limit */}

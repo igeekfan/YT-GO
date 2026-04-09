@@ -25,6 +25,14 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
 }
 
+function getConsoleLogType(line: string): 'error' | 'warning' | 'command' | 'info' {
+    const normalized = line.toLowerCase()
+    if (normalized.includes(' failed:') || normalized.includes('error:')) return 'error'
+    if (normalized.includes('warning:')) return 'warning'
+    if (normalized.includes(' exec: ')) return 'command'
+    return 'info'
+}
+
 function App() {
     const {t, lang, setLang} = useI18n()
     const [theme, setTheme] = useState<'dark' | 'light'>(() =>
@@ -539,7 +547,7 @@ function App() {
                         {showConsole && (
                             <pre className="console-content">
                                 {consoleLogs.map((line, i) => (
-                                    <div key={i} className="log-line">{line}</div>
+                                    <div key={i} className={`log-line log-line-${getConsoleLogType(line)}`}>{line}</div>
                                 ))}
                                 <div ref={consoleEndRef} />
                             </pre>
