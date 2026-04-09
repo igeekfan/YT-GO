@@ -57,6 +57,9 @@
     'action.showLogs': 'Show Logs',
     'action.hideLogs': 'Hide Logs',
 
+    'console.title': 'Console',
+    'console.clear': 'Clear',
+
     'toast.getInfoFail': 'Failed to get video info',
     'toast.downloadStartFail': 'Failed to start download',
     'toast.cancelFail': 'Failed to cancel',

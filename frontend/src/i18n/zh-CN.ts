@@ -57,6 +57,9 @@
     'action.showLogs': '显示日志',
     'action.hideLogs': '隐藏日志',
 
+    'console.title': '控制台',
+    'console.clear': '清除',
+
     'toast.getInfoFail': '获取视频信息失败',
     'toast.downloadStartFail': '启动下载失败',
     'toast.cancelFail': '取消失败',

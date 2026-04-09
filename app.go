@@ -98,6 +98,22 @@ func (a *App) deleteRecords(ids []string) {
 	a.db.Delete(&DownloadRecord{}, ids)
 }
 
+// emitLog sends a log message to the frontend via the "app:log" event.
+func (a *App) emitLog(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Println(msg)
+	if a.ctx != nil {
+		wailsRuntime.EventsEmit(a.ctx, "app:log", msg)
+	}
+}
+
+// ytdlpCmd creates an exec.Cmd for yt-dlp with UTF-8 output encoding on Windows.
+func (a *App) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
+	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
+	return cmd
+}
+
 // GetSettings returns persisted user settings
 func (a *App) GetSettings() Settings {
 	defaults := Settings{
@@ -185,7 +201,7 @@ func (a *App) GetDiagnosticInfo() DiagnosticInfo {
 		// Get version
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		out, err := exec.CommandContext(ctx, a.ytdlpPath, "--version").CombinedOutput()
+		out, err := a.ytdlpCmd(ctx, "--version").CombinedOutput()
 		if err != nil {
 			info.Error = fmt.Sprintf("version check failed: %v", err)
 		} else {
@@ -195,7 +211,7 @@ func (a *App) GetDiagnosticInfo() DiagnosticInfo {
 		// Test a simple command
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel2()
-		testOut, err := exec.CommandContext(ctx2, a.ytdlpPath, "--help").CombinedOutput()
+		testOut, err := a.ytdlpCmd(ctx2, "--help").CombinedOutput()
 		if err != nil {
 			info.Error = fmt.Sprintf("help command failed: %v", err)
 		} else {
@@ -296,7 +312,7 @@ func (a *App) UpdateYtDlp() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, a.ytdlpPath, "-U")
+	cmd := a.ytdlpCmd(ctx, "-U")
 	out, err := cmd.CombinedOutput()
 	output := strings.TrimSpace(string(out))
 
@@ -326,12 +342,12 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	}
 	args = append(args, url)
 
-	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
-	fmt.Printf("[GetVideoInfo] fetching info for URL: %s\n", url)
+	cmd := a.ytdlpCmd(ctx, args...)
+	a.emitLog("[GetVideoInfo] fetching info for URL: %s", url)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := strings.TrimSpace(string(out))
-		fmt.Printf("[GetVideoInfo] failed: err=%v, output=%s\n", err, errMsg)
+		a.emitLog("[GetVideoInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return VideoInfo{}, fmt.Errorf("%s", errMsg)
 		}
@@ -339,7 +355,7 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	}
 	var raw map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil {
-		fmt.Printf("[GetVideoInfo] JSON parse failed: %v, raw output: %s\n", err, string(out))
+		a.emitLog("[GetVideoInfo] JSON parse failed: %v, raw output: %s", err, string(out))
 		return VideoInfo{}, fmt.Errorf("failed to parse video info: %w", err)
 	}
 
@@ -387,12 +403,12 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	}
 	args = append(args, url)
 
-	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
-	fmt.Printf("[GetPlaylistInfo] fetching playlist for URL: %s\n", url)
+	cmd := a.ytdlpCmd(ctx, args...)
+	a.emitLog("[GetPlaylistInfo] fetching playlist for URL: %s", url)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := strings.TrimSpace(string(out))
-		fmt.Printf("[GetPlaylistInfo] failed: err=%v, output=%s\n", err, errMsg)
+		a.emitLog("[GetPlaylistInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return PlaylistInfo{}, fmt.Errorf("%s", errMsg)
 		}
@@ -477,12 +493,12 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 	}
 	args = append(args, url)
 
-	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
-	fmt.Printf("[GetFormats] fetching formats for URL: %s\n", url)
+	cmd := a.ytdlpCmd(ctx, args...)
+	a.emitLog("[GetFormats] fetching formats for URL: %s", url)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := strings.TrimSpace(string(out))
-		fmt.Printf("[GetFormats] failed: err=%v, output=%s\n", err, errMsg)
+		a.emitLog("[GetFormats] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return FormatInfo{}, fmt.Errorf("%s", errMsg)
 		}
@@ -491,7 +507,7 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil {
-		fmt.Printf("[GetFormats] JSON parse failed: %v, raw output: %s\n", err, string(out))
+		a.emitLog("[GetFormats] JSON parse failed: %v, raw output: %s", err, string(out))
 		return FormatInfo{}, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
@@ -688,9 +704,7 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 
 	args = append(args, req.URL)
 
-	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
-
-	// Send initial log message to verify event system works
+	cmd := a.ytdlpCmd(ctx, args...)
 	wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{
 		"taskId": taskID,
 		"line":   fmt.Sprintf("[YT-GO] Starting download: %s", req.URL),

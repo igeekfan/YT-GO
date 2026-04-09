@@ -1,4 +1,4 @@
-﻿import {useState, useEffect, useCallback} from 'react'
+﻿import {useState, useEffect, useCallback, useRef} from 'react'
 import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings} from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings} from './types'
@@ -46,6 +46,9 @@ function App() {
     const [toast, setToast] = useState<string | null>(null)
     const [showSettings, setShowSettings] = useState(false)
     const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+    const [consoleLogs, setConsoleLogs] = useState<string[]>([])
+    const [showConsole, setShowConsole] = useState(false)
+    const consoleEndRef = useRef<HTMLDivElement>(null)
 
     const showToast = useCallback((msg: string) => {
         setToast(msg)
@@ -127,6 +130,25 @@ function App() {
         })
         return () => { if (typeof off === 'function') off() }
     }, [sendNotification, t])
+
+    // Listen for app:log events (console output from backend)
+    useEffect(() => {
+        const off = EventsOn('app:log', (msg: string) => {
+            const timestamp = new Date().toLocaleTimeString()
+            setConsoleLogs(prev => {
+                const next = [...prev, `[${timestamp}] ${msg}`]
+                return next.length > 200 ? next.slice(-200) : next
+            })
+            setShowConsole(true)
+        })
+        return () => { if (typeof off === 'function') off() }
+    }, [])
+
+    useEffect(() => {
+        if (showConsole && consoleEndRef.current) {
+            consoleEndRef.current.scrollIntoView({behavior: 'smooth'})
+        }
+    }, [consoleLogs, showConsole])
 
     const handleGetInfo = async () => {
         if (!url.trim()) return
@@ -495,6 +517,34 @@ function App() {
                         )}
                     </div>
                 </div>
+                )}
+
+                {/* Console logs */}
+                {consoleLogs.length > 0 && (
+                    <div className="console-panel">
+                        <div className="console-header">
+                            <button
+                                className="btn-ghost btn-sm"
+                                onClick={() => setShowConsole(!showConsole)}
+                            >
+                                {showConsole ? '▼' : '▶'} {t('console.title')} ({consoleLogs.length})
+                            </button>
+                            <button
+                                className="btn-ghost btn-sm"
+                                onClick={() => { setConsoleLogs([]); setShowConsole(false) }}
+                            >
+                                {t('console.clear')}
+                            </button>
+                        </div>
+                        {showConsole && (
+                            <pre className="console-content">
+                                {consoleLogs.map((line, i) => (
+                                    <div key={i} className="log-line">{line}</div>
+                                ))}
+                                <div ref={consoleEndRef} />
+                            </pre>
+                        )}
+                    </div>
                 )}
 
                 {/* Downloads list */}

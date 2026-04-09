@@ -572,6 +572,37 @@ body {
   font-weight: 500;
 }
 
+/* Console panel */
+.console-panel {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+.console-content {
+  background: var(--input-bg);
+  padding: 8px 10px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  max-height: 200px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* Download logs */
 .download-logs {
   width: 100%;
