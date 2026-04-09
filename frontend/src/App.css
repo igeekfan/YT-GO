@@ -519,6 +519,41 @@ body {
   gap: 8px;
 }
 
+.downloads-filter-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.downloads-search {
+  flex: 1;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.downloads-search:focus {
+  border-color: var(--accent);
+}
+
+.downloads-search::placeholder {
+  color: var(--text-muted);
+}
+
+.downloads-status-filter {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .section-title {
   font-size: 14px;
   font-weight: 600;

@@ -44,6 +44,11 @@
     'downloads.empty': 'No downloads yet',
     'downloads.clearCompleted': 'Clear Completed',
     'downloads.retryFailed': 'Retry Failed',
+    'downloads.search': 'Search downloads...',
+    'downloads.filterAll': 'All',
+    'downloads.filterDownloading': 'Downloading',
+    'downloads.filterCompleted': 'Completed',
+    'downloads.filterError': 'Failed',
 
     'status.pending': 'Pending',
     'status.downloading': 'Downloading',
@@ -53,6 +58,7 @@
 
     'action.cancel': 'Cancel',
     'action.retry': 'Retry',
+    'action.redownload': 'Re-download',
     'action.open': 'Open File',
     'action.openFolder': 'Open Folder',
     'action.logs': 'Logs',

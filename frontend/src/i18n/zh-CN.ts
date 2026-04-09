@@ -44,6 +44,11 @@
     'downloads.empty': '暂无下载任务',
     'downloads.clearCompleted': '清除已完成',
     'downloads.retryFailed': '重试失败任务',
+    'downloads.search': '搜索下载记录...',
+    'downloads.filterAll': '全部',
+    'downloads.filterDownloading': '下载中',
+    'downloads.filterCompleted': '已完成',
+    'downloads.filterError': '失败',
 
     'status.pending': '等待中',
     'status.downloading': '下载中',
@@ -53,6 +58,7 @@
 
     'action.cancel': '取消',
     'action.retry': '重试',
+    'action.redownload': '重新下载',
     'action.open': '打开文件',
     'action.openFolder': '打开文件夹',
     'action.logs': '日志',

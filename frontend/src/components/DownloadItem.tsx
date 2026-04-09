@@ -8,6 +8,7 @@ interface Props {
     task: DownloadTask
     onCancelled: (id: string) => void
     onRetry: (task: DownloadTask) => void
+    onRedownload: (task: DownloadTask) => void
 }
 
 function formatDuration(seconds: number): string {
@@ -27,7 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
     cancelled: 'bg-gray-500/20 text-gray-400',
 }
 
-function DownloadItem({task, onCancelled, onRetry}: Props) {
+function DownloadItem({task, onCancelled, onRetry, onRedownload}: Props) {
     const {t} = useI18n()
     const [showLogs, setShowLogs] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
@@ -151,6 +152,9 @@ function DownloadItem({task, onCancelled, onRetry}: Props) {
                         </button>
                         <button className="btn-ghost btn-sm" onClick={handleOpenFolder}>
                             {t('action.openFolder')}
+                        </button>
+                        <button className="btn-ghost btn-sm" onClick={() => onRedownload(task)}>
+                            {t('action.redownload')}
                         </button>
                     </>
                 )}

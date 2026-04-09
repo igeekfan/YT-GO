@@ -1,4 +1,5 @@
-﻿import {DownloadTask} from '../types'
+﻿import {useState} from 'react'
+import {DownloadTask} from '../types'
 import {useI18n} from '../i18n/context'
 import DownloadItem from './DownloadItem'
 import {ClearCompleted, StartDownload} from '../../wailsjs/go/main/App'
@@ -8,8 +9,12 @@ interface Props {
     onUpdate: (tasks: DownloadTask[]) => void
 }
 
+type StatusFilter = 'all' | 'downloading' | 'completed' | 'error'
+
 function DownloadList({downloads, onUpdate}: Props) {
     const {t} = useI18n()
+    const [searchQuery, setSearchQuery] = useState('')
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
     const hasCompleted = downloads.some(
         d => d.status === 'completed' || d.status === 'error' || d.status === 'cancelled'
@@ -46,7 +51,22 @@ function DownloadList({downloads, onUpdate}: Props) {
         onUpdate(downloads.filter(d => d.id !== id))
     }
 
-    const sorted = [...downloads].sort(
+    const filtered = downloads.filter(d => {
+        if (statusFilter !== 'all') {
+            if (statusFilter === 'downloading' && d.status !== 'downloading' && d.status !== 'pending') return false
+            if (statusFilter === 'completed' && d.status !== 'completed') return false
+            if (statusFilter === 'error' && d.status !== 'error' && d.status !== 'cancelled') return false
+        }
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase()
+            const title = (d.title || '').toLowerCase()
+            const url = (d.url || '').toLowerCase()
+            if (!title.includes(q) && !url.includes(q)) return false
+        }
+        return true
+    })
+
+    const sorted = [...filtered].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
 
@@ -67,6 +87,27 @@ function DownloadList({downloads, onUpdate}: Props) {
                     )}
                 </div>
             </div>
+            {downloads.length > 0 && (
+                <div className="downloads-filter-row">
+                    <input
+                        type="text"
+                        className="downloads-search"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder={t('downloads.search')}
+                    />
+                    <select
+                        className="downloads-status-filter"
+                        value={statusFilter}
+                        onChange={e => setStatusFilter(e.target.value as StatusFilter)}
+                    >
+                        <option value="all">{t('downloads.filterAll')}</option>
+                        <option value="downloading">{t('downloads.filterDownloading')}</option>
+                        <option value="completed">{t('downloads.filterCompleted')}</option>
+                        <option value="error">{t('downloads.filterError')}</option>
+                    </select>
+                </div>
+            )}
             {sorted.length === 0 ? (
                 <div className="downloads-empty">{t('downloads.empty')}</div>
             ) : (
@@ -77,6 +118,7 @@ function DownloadList({downloads, onUpdate}: Props) {
                             task={task}
                             onCancelled={handleCancelled}
                             onRetry={handleRetryTask}
+                            onRedownload={handleRetryTask}
                         />
                     ))}
                 </div>
