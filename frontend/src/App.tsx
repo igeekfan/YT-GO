@@ -233,11 +233,7 @@ function App() {
         return () => { if (typeof off === 'function') off() }
     }, [])
 
-    useEffect(() => {
-        if (showConsole && consoleEndRef.current) {
-            consoleEndRef.current.scrollIntoView({behavior: 'smooth'})
-        }
-    }, [consoleLogs, showConsole])
+
 
     const hasCustomFormatSelection = !!selectedFormat || !!selectedVideoFormat || !!selectedAudioFormat
     const videoOnlyFormats = formatInfo?.formats.filter(f => f.hasVideo && !f.hasAudio) || []

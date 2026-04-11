@@ -47,11 +47,7 @@ function DownloadItem({task, onCancelled, onRetry, onRedownload}: Props) {
         return () => { if (typeof off === 'function') off() }
     }, [task.id])
 
-    useEffect(() => {
-        if (showLogs && logEndRef.current) {
-            logEndRef.current.scrollIntoView({behavior: 'smooth'})
-        }
-    }, [logs, showLogs])
+
 
     const handleCancel = async () => {
         try {
