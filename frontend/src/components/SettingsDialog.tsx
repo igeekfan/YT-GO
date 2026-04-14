@@ -291,6 +291,8 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                     placeholder="http://127.0.0.1:7890 or socks5://127.0.0.1:1080"
                 />
             </div>
+            
+            {/* Cookies - Option 1: From browser */}
             <div className="setting-item">
                 <label className="setting-label">{t('settings.cookiesFrom')}</label>
                 <select
@@ -311,6 +313,13 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                     <option value="safari">Safari</option>
                 </select>
             </div>
+
+            {/* Divider */}
+            <div className="setting-divider">
+                <span>{t('setup.or')}</span>
+            </div>
+
+            {/* Cookies - Option 2: From file */}
             <div className="setting-item">
                 <label className="setting-label">{t('settings.cookiesFile')}</label>
                 <div className="setting-row">
@@ -338,6 +347,21 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                         {t('outputDir.browse')}
                     </button>
                 </div>
+                {settings.cookiesFrom ? null : (
+                    <div className="setting-hint">
+                        <a 
+                            href={lang === 'zh-CN' 
+                                ? 'https://chrome.google.com/webstore/detail/get-cookiestxt-locally/njkmrnlnpncggmjided5dcpfcbeoemmp' 
+                                : 'https://chrome.google.com/webstore/detail/get-cookiestxt-locally/njkmrnlnpncggmjided5dcpfcbeoemmp'
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="setup-howto-link"
+                        >
+                            {lang === 'zh-CN' ? '获取浏览器扩展 Get cookies.txt LOCALLY' : 'Get browser extension: Get cookies.txt LOCALLY'}
+                        </a>
+                    </div>
+                )}
             </div>
         </>
     )

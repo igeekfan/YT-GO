@@ -119,3 +119,33 @@ See [PLAN.md](PLAN.md) for the detailed development roadmap and future work item
 ## License
 
 MIT
+
+## Disclaimer
+
+By downloading or using this project, you agree to the following terms:
+
+**For Learning & Research Only**
+This project is for personal learning, research, and data management only. Commercial use or any illegal purposes are strictly prohibited.
+
+**Legal Compliance**
+You must comply with all applicable laws including but not limited to: cybersecurity laws, data protection laws, privacy laws, copyright laws, and the platform's Terms of Service and Privacy Policy.
+
+**Respect Copyright & Privacy**
+All downloaded content copyright belongs to the original creators. Without authorization, do not use downloaded content for redistribution, commercial purposes, or any infringing activities. Do not download or share content involving others' privacy.
+
+**No Abuse**
+Do not use this tool for: large-scale data scraping, disrupting platform operations, bypassing security mechanisms, spreading illegal content, or harassing creators.
+
+**Data Security**
+This tool does not collect, upload, or share any user data. Cookies are stored locally only—do not share them publicly.
+
+**Account Risk**
+Using automation tools may violate platform Terms of Service and could result in account suspension. You assume all risks.
+
+**Platform Rules First**
+Platforms reserve the right to adjust APIs and anti-crawling policies. Please respect platform rules, do not send high-frequency requests, and keep download intervals above the default rate limit.
+
+**No Warranty**
+This software is provided "AS IS" without warranties. The author is not liable for any consequences including account suspension, data loss, legal disputes, or losses caused by using this tool.
+
+**If you do not agree to these terms, stop using this project immediately.**

@@ -90,6 +90,7 @@
     'collection.selectAll': 'Select All',
     'collection.selectNone': 'Select None',
 
+    'setup.getExtension': 'Get browser extension: Get cookies.txt LOCALLY',
     'settings.title': 'Settings',
     'settings.tab.download': 'Download',
     'settings.tab.media': 'Media',

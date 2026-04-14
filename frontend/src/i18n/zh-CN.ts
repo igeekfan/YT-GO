@@ -90,6 +90,7 @@
     'collection.selectAll': '全选',
     'collection.selectNone': '全不选',
 
+    'setup.getExtension': '获取浏览器扩展 Get cookies.txt LOCALLY',
     'settings.title': '设置',
     'settings.tab.download': '下载设置',
     'settings.tab.media': '媒体选项',
