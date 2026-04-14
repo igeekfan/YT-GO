@@ -108,53 +108,55 @@ export default function SetupWizard({onComplete}: Props) {
                                 <p className="setup-hint">{t('settings.cookiesFromHint')}</p>
                             </div>
 
-                            {/* Divider with "or" */}
-                            <div className="setup-divider">
-                                <span>{t('setup.or')}</span>
-                            </div>
+                            {/* Divider - only show when neither is selected */}
+                            {!cookiesFrom && !cookiesFile && (
+                                <div className="setup-divider">
+                                    <span>{t('setup.or')}</span>
+                                </div>
+                            )}
 
-                            {/* Option 2: Import from file */}
-                            <div className="setup-field">
-                                <label className="setup-label">{t('settings.cookiesFile')}</label>
-                                <div className="setup-input-group">
-                                    <input
-                                        type="text"
-                                        className="setup-input"
-                                        value={cookiesFile}
-                                        onChange={e => {
-                                            setCookiesFile(e.target.value)
-                                            if (e.target.value) setCookiesFrom('')
-                                        }}
-                                        placeholder={t('settings.cookiesFilePlaceholder')}
-                                        disabled={!!cookiesFrom}
-                                        readOnly
-                                    />
-                                    <button 
-                                        className="btn-secondary" 
-                                        onClick={handleSelectCookiesFile}
-                                        disabled={!!cookiesFrom}
-                                    >
-                                        {t('outputDir.browse')}
-                                    </button>
+                            {/* Option 2: Import from file - hidden when browser is selected */}
+                            {cookiesFrom ? null : (
+                                <div className="setup-field">
+                                    <label className="setup-label">{t('settings.cookiesFile')}</label>
+                                    <div className="setup-input-group">
+                                        <input
+                                            type="text"
+                                            className="setup-input"
+                                            value={cookiesFile}
+                                            onChange={e => {
+                                                setCookiesFile(e.target.value)
+                                                if (e.target.value) setCookiesFrom('')
+                                            }}
+                                            placeholder={t('settings.cookiesFilePlaceholder')}
+                                            readOnly
+                                        />
+                                        <button 
+                                            className="btn-secondary" 
+                                            onClick={handleSelectCookiesFile}
+                                        >
+                                            {t('outputDir.browse')}
+                                        </button>
+                                    </div>
+                                    <p className="setup-hint">{t('settings.cookiesFileHint')}</p>
+                                    
+                                    {/* How to export instructions */}
+                                    <div className="setup-howto">
+                                        <details>
+                                            <summary>{t('setup.howtoTitle')}</summary>
+                                            <div className="setup-howto-content">
+                                                <p>{t('setup.howtoStep1')}:</p>
+                                                <ul>
+                                                    <li><a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/njkmrnlnpncggmjided5dcpfcbeoemmp" target="_blank" rel="noopener">{t('setup.howtoChrome')}</a></li>
+                                                    <li>{t('setup.howtoFirefox')}</li>
+                                                </ul>
+                                                <p>{t('setup.howtoStep2')}</p>
+                                                <p>{t('setup.howtoStep3')}</p>
+                                            </div>
+                                        </details>
+                                    </div>
                                 </div>
-                                <p className="setup-hint">{t('settings.cookiesFileHint')}</p>
-                                
-                                {/* How to export instructions */}
-                                <div className="setup-howto">
-                                    <details>
-                                        <summary>{t('setup.howtoTitle')}</summary>
-                                        <div className="setup-howto-content">
-                                            <p>{t('setup.howtoStep1')}:</p>
-                                            <ul>
-                                                <li><a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/njkmrnlnpncggmjided5dcpfcbeoemmp" target="_blank" rel="noopener">{t('setup.howtoChrome')}</a></li>
-                                                <li>{t('setup.howtoFirefox')}</li>
-                                            </ul>
-                                            <p>{t('setup.howtoStep2')}</p>
-                                            <p>{t('setup.howtoStep3')}</p>
-                                        </div>
-                                    </details>
-                                </div>
-                            </div>
+                            )}
 
                             {/* Proxy */}
                             <div className="setup-divider" style={{marginTop: 24}} />

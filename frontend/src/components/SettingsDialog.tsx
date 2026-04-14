@@ -314,55 +314,51 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                 </select>
             </div>
 
-            {/* Divider */}
-            <div className="setting-divider">
-                <span>{t('setup.or')}</span>
-            </div>
-
-            {/* Cookies - Option 2: From file */}
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.cookiesFile')}</label>
-                <div className="setting-row">
-                    <input
-                        type="text"
-                        className="setting-input flex-1"
-                        value={settings.cookiesFile || ''}
-                        onChange={e => {
-                            const val = e.target.value
-                            setSettings(prev => prev ? {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom} : prev)
-                        }}
-                        placeholder={t('settings.cookiesFilePlaceholder')}
-                        disabled={!!settings.cookiesFrom}
-                    />
-                    <button
-                        className="btn-secondary btn-sm"
-                        disabled={!!settings.cookiesFrom}
-                        onClick={async () => {
-                            const file = await SelectCookiesFile()
-                            if (file) {
-                                setSettings(prev => prev ? {...prev, cookiesFile: file, cookiesFrom: ''} : prev)
-                            }
-                        }}
-                    >
-                        {t('outputDir.browse')}
-                    </button>
+            {/* Divider - only show when neither is selected */}
+            {(!settings.cookiesFrom && !settings.cookiesFile) && (
+                <div className="setting-divider">
+                    <span>{t('setup.or')}</span>
                 </div>
-                {settings.cookiesFrom ? null : (
+            )}
+
+            {/* Cookies - Option 2: From file - hidden when browser is selected */}
+            {settings.cookiesFrom ? null : (
+                <div className="setting-item">
+                    <label className="setting-label">{t('settings.cookiesFile')}</label>
+                    <div className="setting-row">
+                        <input
+                            type="text"
+                            className="setting-input flex-1"
+                            value={settings.cookiesFile || ''}
+                            onChange={e => {
+                                const val = e.target.value
+                                setSettings(prev => prev ? {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom} : prev)
+                            }}
+                            placeholder={t('settings.cookiesFilePlaceholder')}
+                        />
+                        <button
+                            className="btn-secondary btn-sm"
+                            onClick={async () => {
+                                const file = await SelectCookiesFile()
+                                if (file) {
+                                    setSettings(prev => prev ? {...prev, cookiesFile: file, cookiesFrom: ''} : prev)
+                                }
+                            }}
+                        >
+                            {t('outputDir.browse')}
+                        </button>
+                    </div>
                     <div className="setting-hint">
                         <a 
-                            href={lang === 'zh-CN' 
-                                ? 'https://chrome.google.com/webstore/detail/get-cookiestxt-locally/njkmrnlnpncggmjided5dcpfcbeoemmp' 
-                                : 'https://chrome.google.com/webstore/detail/get-cookiestxt-locally/njkmrnlnpncggmjided5dcpfcbeoemmp'
-                            }
+                            href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/njkmrnlnpncggmjided5dcpfcbeoemmp"
                             target="_blank"
-                            rel="noopener noreferrer"
-                            className="setup-howto-link"
+rel="noopener noreferrer"
                         >
-                            {lang === 'zh-CN' ? '获取浏览器扩展 Get cookies.txt LOCALLY' : 'Get browser extension: Get cookies.txt LOCALLY'}
+                            {t('setup.getExtension')}
                         </a>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </>
     )
 
