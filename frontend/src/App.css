@@ -1396,6 +1396,15 @@ body {
   margin: 4px 0;
 }
 
+.setup-howto-content a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.setup-howto-content a:hover {
+  text-decoration: underline;
+}
+
 .setting-divider {
   display: flex;
   align-items: center;
