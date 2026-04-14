@@ -53,6 +53,9 @@ YT-GO 聚焦于桌面端的下载工作流，核心目标是把常用的 yt-dlp 
 ## 常见问题
 
 - 如果 YouTube 提示需要登录验证，请在设置中配置浏览器 Cookies 或 cookies.txt 文件。
+- **Cookies 配置方式**：
+  - **从浏览器导入**：设置 → 网络与认证 → Cookies 来源 → 选择你的浏览器（Chrome、Firefox、Edge 等），无需导出文件。
+  - **cookies.txt 文件**：使用浏览器插件如“Get cookies.txt LOCALLY”（Chrome）或“cookies.txt”（Firefox）导出 YouTube cookies，然后在设置 → 网络与认证 → Cookies 文件 中配置该文件路径。
 - 如果 YouTube 可用格式不完整，请确认本机安装了 Node.js，以便 yt-dlp 使用可用的 JS runtime。
 - 如果未检测到 yt-dlp，请先安装后再点击应用内的“重新检测”。
 

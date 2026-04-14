@@ -53,6 +53,9 @@ YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
 ## Troubleshooting
 
 - If YouTube asks you to sign in, configure browser cookies or a cookies.txt file in Settings.
+- **Cookie options**:
+  - **Browser import**: Go to Settings → Network & Auth → Cookies From → select your browser (Chrome, Firefox, Edge, etc.). No file export needed.
+  - **cookies.txt file**: Use a browser extension like "Get cookies.txt LOCALLY" (Chrome) or "cookies.txt" (Firefox) to export YouTube cookies, then configure the file path in Settings → Network & Auth → Cookies File.
 - If some YouTube formats are missing, ensure Node.js is installed so yt-dlp can use a supported JS runtime.
 - If yt-dlp is missing, install it and click Re-check in the app.
 
