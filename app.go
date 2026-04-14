@@ -344,6 +344,15 @@ func (a *App) SaveSettings(s Settings) error {
 	return a.db.Save(&rec).Error
 }
 
+// ResetSettings clears all settings, useful for testing first-run wizard
+func (a *App) ResetSettings() error {
+	if a.db == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	// Delete the settings record
+	return a.db.Where("id = ?", 1).Delete(&SettingsRecord{}).Error
+}
+
 // DiagnosticInfo contains debug information about the application state
 type DiagnosticInfo struct {
 	YtDlpPath     string `json:"ytdlpPath"`

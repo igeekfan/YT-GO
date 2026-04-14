@@ -42,6 +42,10 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function GetVideoInfo(arg1) {
+  return window['go']['main']['App']['GetVideoInfo'](arg1);
+}
+
 export function IsFirstRun() {
   return window['go']['main']['App']['IsFirstRun']();
 }
@@ -50,16 +54,16 @@ export function NeedsCookieConfig() {
   return window['go']['main']['App']['NeedsCookieConfig']();
 }
 
-export function GetVideoInfo(arg1) {
-  return window['go']['main']['App']['GetVideoInfo'](arg1);
-}
-
 export function OpenFile(arg1) {
   return window['go']['main']['App']['OpenFile'](arg1);
 }
 
 export function OpenFolder(arg1) {
   return window['go']['main']['App']['OpenFolder'](arg1);
+}
+
+export function ResetSettings() {
+  return window['go']['main']['App']['ResetSettings']();
 }
 
 export function SaveSettings(arg1) {

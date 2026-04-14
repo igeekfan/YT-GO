@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {GetSettings, SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp} from '../../wailsjs/go/main/App'
+import {GetSettings, SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, ResetSettings} from '../../wailsjs/go/main/App'
 
 interface DiagnosticInfo {
     ytdlpPath: string
@@ -39,6 +39,7 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
     const [loadingDiag, setLoadingDiag] = useState(false)
     const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
     const [updateResult, setUpdateResult] = useState<string | null>(null)
+    const [isResetting, setIsResetting] = useState(false)
 
     useEffect(() => {
         if (open) {
@@ -73,6 +74,18 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
             setUpdateResult(t('ytdlp.updateFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
             setIsUpdatingYtDlp(false)
+        }
+    }
+
+    const handleResetSettings = async () => {
+        setIsResetting(true)
+        try {
+            await ResetSettings()
+            setUpdateResult(lang === 'zh-CN' ? '设置已重置，下 次启动将显示设置向导' : 'Settings reset. Setup wizard will appear on next launch.')
+        } catch (e: any) {
+            setUpdateResult(e?.message ? `${e.message}` : 'Reset failed')
+        } finally {
+            setIsResetting(false)
         }
     }
 
@@ -431,6 +444,19 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
                     </div>
                 </div>
             )}
+            {/* Reset settings section */}
+            <div className="setting-item">
+                <label className="setting-label">{lang === 'zh-CN' ? '重置设置' : 'Reset Settings'}</label>
+                <div className="tools-btn-row">
+                    <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleResetSettings}
+                        disabled={isResetting}
+                    >
+                        {isResetting ? (lang === 'zh-CN' ? '重置中...' : 'Resetting...') : (lang === 'zh-CN' ? '重置设置' : 'Reset Settings')}
+                    </button>
+                </div>
+            </div>
         </>
     )
 
