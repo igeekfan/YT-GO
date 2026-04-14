@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -24,6 +25,19 @@ import (
 	"golang.org/x/text/transform"
 	"gorm.io/gorm"
 )
+
+//go:embed wails.json
+var wailsJSON string
+
+var WailsInfo struct {
+	Info struct {
+		ProductVersion string `json:"productVersion"`
+	} `json:"info"`
+}
+
+func init() {
+	json.Unmarshal([]byte(wailsJSON), &WailsInfo)
+}
 
 // App struct
 type App struct {
@@ -374,7 +388,7 @@ func (a *App) GetDiagnosticInfo() DiagnosticInfo {
 	info := DiagnosticInfo{
 		YtDlpPath:  a.ytdlpPath,
 		YtDlpFound: a.ytdlpPath != "",
-		AppVersion: AppVersion,
+		AppVersion: WailsInfo.Info.ProductVersion,
 	}
 
 	if a.ytdlpPath == "" {
@@ -1278,7 +1292,7 @@ type UpdateInfo struct {
 }
 
 func (a *App) GetCurrentVersion() string {
-	return AppVersion
+	return WailsInfo.Info.ProductVersion
 }
 
 func compareVersion(v1, v2 string) int {
@@ -1303,7 +1317,7 @@ func compareVersion(v1, v2 string) int {
 }
 
 func (a *App) CheckForUpdate() (UpdateInfo, error) {
-	currentVersion := AppVersion
+	currentVersion := WailsInfo.Info.ProductVersion
 
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
 	resp, err := http.Get(url)

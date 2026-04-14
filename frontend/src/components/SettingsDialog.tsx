@@ -59,7 +59,7 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
         } catch (e: any) {
             setUpdateInfo({
                 hasUpdate: false,
-                currentVersion: '1.0.0',
+                currentVersion: '0.0.1',
                 latestVersion: '0.0.0',
                 releaseName: '',
                 releaseBody: e?.message || 'Failed to check for updates',

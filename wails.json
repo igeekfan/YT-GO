@@ -13,7 +13,7 @@
   "info": {
     "companyName": "igeekfan",
     "productName": "YT-GO",
-    "productVersion": "1.0.0",
+    "productVersion": "0.0.1",
     "copyright": "Copyright © 2026 igeekfan",
     "comments": "A cross-platform YouTube downloader powered by yt-dlp"
   }
