@@ -81,9 +81,9 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
         setIsResetting(true)
         try {
             await ResetSettings()
-            setUpdateResult(lang === 'zh-CN' ? '设置已重置，下 次启动将显示设置向导' : 'Settings reset. Setup wizard will appear on next launch.')
+            setUpdateResult(t('settings.resetSuccess'))
         } catch (e: any) {
-            setUpdateResult(e?.message ? `${e.message}` : 'Reset failed')
+            setUpdateResult(e?.message ? `${e.message}` : t('settings.resetFailed'))
         } finally {
             setIsResetting(false)
         }
@@ -466,14 +466,14 @@ rel="noopener noreferrer"
             )}
             {/* Reset settings section */}
             <div className="setting-item">
-                <label className="setting-label">{lang === 'zh-CN' ? '重置设置' : 'Reset Settings'}</label>
+                <label className="setting-label">{t('settings.reset')}</label>
                 <div className="tools-btn-row">
                     <button
                         className="btn-secondary btn-sm"
                         onClick={handleResetSettings}
                         disabled={isResetting}
                     >
-                        {isResetting ? (lang === 'zh-CN' ? '重置中...' : 'Resetting...') : (lang === 'zh-CN' ? '重置设置' : 'Reset Settings')}
+                        {isResetting ? t('settings.resetting') : t('settings.reset')}
                     </button>
                 </div>
             </div>
@@ -502,7 +502,7 @@ rel="noopener noreferrer"
                     onChange={e => update('language', e.target.value)}
                 >
                     {LANGUAGE_OPTIONS.map(l => (
-                        <option key={l} value={l}>{l === 'zh-CN' ? '中文' : 'English'}</option>
+                        <option key={l} value={l}>{l === 'zh-CN' ? t('settings.langZh') : t('settings.langEn')}</option>
                     ))}
                 </select>
             </div>
