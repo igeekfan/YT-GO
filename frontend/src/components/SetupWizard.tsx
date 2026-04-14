@@ -1,9 +1,9 @@
 import {useState, useEffect} from 'react'
-import {SelectFolder, GetDiagnosticInfo, CheckYtDlp} from '../../wailsjs/go/main/App'
+import {SelectFolder, SelectCookiesFile, CheckYtDlp} from '../../wailsjs/go/main/App'
 import {useI18n} from '../i18n/context'
 
 interface Props {
-    onComplete: (outputDir: string, cookiesFrom: string, proxy: string) => void
+    onComplete: (outputDir: string, cookiesFrom: string, cookiesFile: string, proxy: string) => void
 }
 
 export default function SetupWizard({onComplete}: Props) {
@@ -11,8 +11,8 @@ export default function SetupWizard({onComplete}: Props) {
     const [step, setStep] = useState(1)
     const [outputDir, setOutputDir] = useState('')
     const [cookiesFrom, setCookiesFrom] = useState('')
+    const [cookiesFile, setCookiesFile] = useState('')
     const [proxy, setProxy] = useState('')
-    const [checking, setChecking] = useState(false)
     const [ytdlpOk, setYtdlpOk] = useState(false)
 
     useEffect(() => {
@@ -26,8 +26,13 @@ export default function SetupWizard({onComplete}: Props) {
         if (dir) setOutputDir(dir)
     }
 
+    const handleSelectCookiesFile = async () => {
+        const file = await SelectCookiesFile()
+        if (file) setCookiesFile(file)
+    }
+
     const handleComplete = () => {
-        onComplete(outputDir, cookiesFrom, proxy)
+        onComplete(outputDir, cookiesFrom, cookiesFile, proxy)
     }
 
     const totalSteps = 2
@@ -37,8 +42,10 @@ export default function SetupWizard({onComplete}: Props) {
             <div className="setup-wizard">
                 <div className="setup-wizard-header">
                     <div className="setup-wizard-title">
-                        {step === 1 && (lang === 'zh-CN' ? '设置下载目录' : 'Set Download Directory')}
-                        {step === 2 && (lang === 'zh-CN' ? '配置 Cookies（可选）' : 'Configure Cookies (Optional)')}
+                        {step === 1 
+                            ? t('setup.step1Title')
+                            : t('setup.step2Title')
+                        }
                     </div>
                     <div className="setup-wizard-progress">
                         {step} / {totalSteps}
@@ -49,9 +56,7 @@ export default function SetupWizard({onComplete}: Props) {
                     {step === 1 && (
                         <div className="setup-step">
                             <p className="setup-desc">
-                                {lang === 'zh-CN' 
-                                    ? '请选择视频保存目录'
-                                    : 'Please select where to save downloaded videos'}
+                                {t('setup.selectDir')}
                             </p>
                             <div className="setup-input-group">
                                 <input
@@ -59,7 +64,7 @@ export default function SetupWizard({onComplete}: Props) {
                                     className="setup-input"
                                     value={outputDir}
                                     onChange={e => setOutputDir(e.target.value)}
-                                    placeholder={lang === 'zh-CN' ? '点击右侧浏览按钮选择...' : 'Click Browse to select...'}
+                                    placeholder={t('setup.selectDirPlaceholder')}
                                     readOnly
                                 />
                                 <button className="btn-secondary" onClick={handleSelectFolder}>
@@ -68,7 +73,7 @@ export default function SetupWizard({onComplete}: Props) {
                             </div>
                             {ytdlpOk && (
                                 <div className="setup-ytdlp-ok">
-                                    ✓ yt-dlp {lang === 'zh-CN' ? '已就绪' : 'ready'}
+                                    ✓ {t('setup.ytReady')}
                                 </div>
                             )}
                         </div>
@@ -77,17 +82,19 @@ export default function SetupWizard({onComplete}: Props) {
                     {step === 2 && (
                         <div className="setup-step">
                             <p className="setup-desc">
-                                {lang === 'zh-CN'
-                                    ? 'YouTube 可能需要登录验证。如果下载时遇到问题，请配置 Cookies。'
-                                    : 'YouTube may require sign-in. If downloads fail, configure cookies.'}
+                                {t('setup.cookiesDesc')}
                             </p>
                             
+                            {/* Option 1: Import from browser */}
                             <div className="setup-field">
                                 <label className="setup-label">{t('settings.cookiesFrom')}</label>
                                 <select
                                     className="setup-select"
                                     value={cookiesFrom}
-                                    onChange={e => setCookiesFrom(e.target.value)}
+                                    onChange={e => {
+                                        setCookiesFrom(e.target.value)
+                                        if (e.target.value) setCookiesFile('')
+                                    }}
                                 >
                                     <option value="">{t('settings.cookiesFromNone')}</option>
                                     <option value="chrome">Chrome</option>
@@ -98,15 +105,61 @@ export default function SetupWizard({onComplete}: Props) {
                                     <option value="vivaldi">Vivaldi</option>
                                     <option value="safari">Safari</option>
                                 </select>
-                                <p className="setup-hint">
-                                    {lang === 'zh-CN'
-                                        ? '推荐：从浏览器直接读取 Cookies，无需导出文件'
-                                        : 'Recommended: Read directly from browser, no file export needed'}
-                                </p>
+                                <p className="setup-hint">{t('settings.cookiesFromHint')}</p>
                             </div>
 
+                            {/* Divider with "or" */}
+                            <div className="setup-divider">
+                                <span>{t('setup.or')}</span>
+                            </div>
+
+                            {/* Option 2: Import from file */}
                             <div className="setup-field">
-                                <label className="setup-label">{t('settings.proxy')}</label>
+                                <label className="setup-label">{t('settings.cookiesFile')}</label>
+                                <div className="setup-input-group">
+                                    <input
+                                        type="text"
+                                        className="setup-input"
+                                        value={cookiesFile}
+                                        onChange={e => {
+                                            setCookiesFile(e.target.value)
+                                            if (e.target.value) setCookiesFrom('')
+                                        }}
+                                        placeholder={t('settings.cookiesFilePlaceholder')}
+                                        disabled={!!cookiesFrom}
+                                        readOnly
+                                    />
+                                    <button 
+                                        className="btn-secondary" 
+                                        onClick={handleSelectCookiesFile}
+                                        disabled={!!cookiesFrom}
+                                    >
+                                        {t('outputDir.browse')}
+                                    </button>
+                                </div>
+                                <p className="setup-hint">{t('settings.cookiesFileHint')}</p>
+                                
+                                {/* How to export instructions */}
+                                <div className="setup-howto">
+                                    <details>
+                                        <summary>{t('settings.cookiesFileHowTo')}</summary>
+                                        <div className="setup-howto-content">
+                                            <p>{t('setup.howtoStep1')}:</p>
+                                            <ul>
+                                                <li>{t('setup.howtoChrome')}</li>
+                                                <li>{t('setup.howtoFirefox')}</li>
+                                            </ul>
+                                            <p>{t('setup.howtoStep2')}</p>
+                                            <p>{t('setup.howtoStep3')}</p>
+                                        </div>
+                                    </details>
+                                </div>
+                            </div>
+
+                            {/* Proxy */}
+                            <div className="setup-divider" style={{marginTop: 24}} />
+                            <div className="setup-field">
+                                <label className="setup-label">{t('setup.proxy')}</label>
                                 <input
                                     type="text"
                                     className="setup-input"
@@ -114,11 +167,7 @@ export default function SetupWizard({onComplete}: Props) {
                                     onChange={e => setProxy(e.target.value)}
                                     placeholder="http://127.0.0.1:7890"
                                 />
-                                <p className="setup-hint">
-                                    {lang === 'zh-CN'
-                                        ? '如果无法直接访问 YouTube，请配置代理'
-                                        : 'Configure proxy if you cannot access YouTube directly'}
-                                </p>
+                                <p className="setup-hint">{t('settings.proxyHint')}</p>
                             </div>
                         </div>
                     )}
@@ -127,7 +176,7 @@ export default function SetupWizard({onComplete}: Props) {
                 <div className="setup-wizard-footer">
                     {step > 1 && (
                         <button className="btn-secondary" onClick={() => setStep(step - 1)}>
-                            {lang === 'zh-CN' ? '上一步' : 'Back'}
+                            {t('setup.back')}
                         </button>
                     )}
                     {step < totalSteps ? (
@@ -136,7 +185,7 @@ export default function SetupWizard({onComplete}: Props) {
                             onClick={() => setStep(step + 1)}
                             disabled={step === 1 && !outputDir}
                         >
-                            {lang === 'zh-CN' ? '下一步' : 'Next'}
+                            {t('setup.next')}
                         </button>
                     ) : (
                         <button 
@@ -144,7 +193,7 @@ export default function SetupWizard({onComplete}: Props) {
                             onClick={handleComplete}
                             disabled={!outputDir}
                         >
-                            {lang === 'zh-CN' ? '完成' : 'Done'}
+                            {t('setup.done')}
                         </button>
                     )}
                 </div>

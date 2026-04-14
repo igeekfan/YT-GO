@@ -928,7 +928,7 @@ function App() {
             {/* Setup Wizard */}
             {showSetupWizard && (
                 <SetupWizard
-                    onComplete={async (outputDir: string, cookiesFrom: string, proxy: string) => {
+                    onComplete={async (outputDir: string, cookiesFrom: string, cookiesFile: string, proxy: string) => {
                         const settings: Settings = {
                             outputDir,
                             quality: 'best',
@@ -949,7 +949,7 @@ function App() {
                             mergeOutputFormat: '',
                             audioFormat: '',
                             cookiesFrom,
-                            cookiesFile: '',
+                            cookiesFile,
                         }
                         await SaveSettings(settings)
                         setOutputDir(outputDir)

@@ -1346,6 +1346,56 @@ body {
   margin: 0;
 }
 
+.setup-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.setup-divider::before,
+.setup-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.setup-howto {
+  margin-top: 12px;
+}
+
+.setup-howto summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.setup-howto summary:hover {
+  color: var(--accent-hover);
+}
+
+.setup-howto-content {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--bg-card);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.setup-howto-content ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.setup-howto-content li {
+  margin: 4px 0;
+}
+
 .setup-wizard-footer {
   display: flex;
   justify-content: flex-end;
