@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -136,6 +137,12 @@ func (a *App) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
 	}
 	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
+	// Hide console window on Windows
+	if runtime.GOOS == "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow: true,
+		}
+	}
 	return cmd
 }
 
@@ -510,7 +517,11 @@ func (a *App) CheckYtDlp() YtDlpStatus {
 	if a.ytdlpPath == "" {
 		return YtDlpStatus{Available: false}
 	}
-	out, err := exec.Command(a.ytdlpPath, "--version").Output()
+	cmd := exec.Command(a.ytdlpPath, "--version")
+	if runtime.GOOS == "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	}
+	out, err := cmd.Output()
 	if err != nil {
 		return YtDlpStatus{Available: false}
 	}
