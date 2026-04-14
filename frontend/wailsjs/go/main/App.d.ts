@@ -4,9 +4,13 @@ import {main} from '../models';
 
 export function CancelDownload(arg1:string):Promise<void>;
 
+export function CheckForUpdate():Promise<main.UpdateInfo>;
+
 export function CheckYtDlp():Promise<main.YtDlpStatus>;
 
 export function ClearCompleted():Promise<void>;
+
+export function GetCurrentVersion():Promise<string>;
 
 export function GetDefaultDownloadDir():Promise<string>;
 
@@ -31,6 +35,8 @@ export function NeedsCookieConfig():Promise<boolean>;
 export function OpenFile(arg1:string):Promise<void>;
 
 export function OpenFolder(arg1:string):Promise<void>;
+
+export function OpenReleasePage():Promise<void>;
 
 export function ResetSettings():Promise<void>;
 

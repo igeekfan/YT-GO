@@ -6,12 +6,20 @@ export function CancelDownload(arg1) {
   return window['go']['main']['App']['CancelDownload'](arg1);
 }
 
+export function CheckForUpdate() {
+  return window['go']['main']['App']['CheckForUpdate']();
+}
+
 export function CheckYtDlp() {
   return window['go']['main']['App']['CheckYtDlp']();
 }
 
 export function ClearCompleted() {
   return window['go']['main']['App']['ClearCompleted']();
+}
+
+export function GetCurrentVersion() {
+  return window['go']['main']['App']['GetCurrentVersion']();
 }
 
 export function GetDefaultDownloadDir() {
@@ -60,6 +68,10 @@ export function OpenFile(arg1) {
 
 export function OpenFolder(arg1) {
   return window['go']['main']['App']['OpenFolder'](arg1);
+}
+
+export function OpenReleasePage() {
+  return window['go']['main']['App']['OpenReleasePage']();
 }
 
 export function ResetSettings() {

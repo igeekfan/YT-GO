@@ -1,11 +1,12 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings} from '../wailsjs/go/main/App'
+import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage} from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
 import {useI18n} from './i18n/context'
 import DownloadList from './components/DownloadList'
 import SettingsDialog from './components/SettingsDialog'
 import SetupWizard from './components/SetupWizard'
+import UpdateDialog from './components/UpdateDialog'
 import './App.css'
 
 const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
@@ -117,6 +118,38 @@ function App() {
     const [consoleLogs, setConsoleLogs] = useState<string[]>([])
     const [showConsole, setShowConsole] = useState(false)
     const consoleEndRef = useRef<HTMLDivElement>(null)
+
+    // Update dialog state
+    const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+    const [updateInfo, setUpdateInfo] = useState<{
+        hasUpdate: boolean
+        currentVersion: string
+        latestVersion: string
+        releaseName: string
+        releaseBody: string
+        htmlUrl: string
+        publishedAt: string
+    } | null>(null)
+
+    const handleCheckUpdate = useCallback(async () => {
+        try {
+            const info = await CheckForUpdate()
+            if (info.hasUpdate) {
+                setUpdateInfo(info)
+                setShowUpdateDialog(true)
+            }
+        } catch (e) {
+            console.error('Failed to check for updates:', e)
+        }
+    }, [])
+
+    const handleOpenReleasePage = useCallback(async () => {
+        try {
+            await OpenReleasePage()
+        } catch (e) {
+            console.error('Failed to open release page:', e)
+        }
+    }, [])
 
     // Per-download options (override global settings)
     const [dlOptSaveThumbnail, setDlOptSaveThumbnail] = useState(false)
@@ -252,6 +285,14 @@ function App() {
         })
         return () => { if (typeof off === 'function') off() }
     }, [])
+
+    // Auto check for updates on startup (with delay)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            handleCheckUpdate()
+        }, 3000) // Delay 3 seconds to let app fully load
+        return () => clearTimeout(timer)
+    }, [handleCheckUpdate])
 
 
 
@@ -460,6 +501,13 @@ function App() {
                     )}
                 </div>
                 <div className="header-right">
+                    <button
+                        className="btn-ghost btn-sm"
+                        onClick={() => handleCheckUpdate()}
+                        title="Check for Updates"
+                    >
+                        🔄
+                    </button>
                     <button
                         className="btn-ghost btn-sm"
                         onClick={() => setShowSettings(true)}
@@ -957,6 +1005,14 @@ function App() {
                     }}
                 />
             )}
+
+            {/* Update Dialog */}
+            <UpdateDialog
+                open={showUpdateDialog}
+                updateInfo={updateInfo}
+                onClose={() => setShowUpdateDialog(false)}
+                onOpenReleasePage={handleOpenReleasePage}
+            />
         </div>
     )
 }
