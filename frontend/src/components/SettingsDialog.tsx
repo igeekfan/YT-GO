@@ -405,14 +405,14 @@ rel="noopener noreferrer"
         <>
             {/* App Update */}
             <div className="setting-item">
-                <label className="setting-label">{t('settings.appUpdate') || 'App Update'}</label>
+                <label className="setting-label">{t('settings.appUpdate')}</label>
                 <div className="tools-btn-row">
                     <button
                         className="btn-primary btn-sm"
                         onClick={handleCheckForUpdate}
                         disabled={isCheckingUpdate}
                     >
-                        {isCheckingUpdate ? 'Checking...' : 'Check for Updates'}
+                        {isCheckingUpdate ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
                     </button>
                 </div>
                 {updateInfo && (
@@ -432,12 +432,12 @@ rel="noopener noreferrer"
                                     style={{marginTop: 8}}
                                     onClick={handleOpenReleasePage}
                                 >
-                                    ⬇️ Download Update
+                                    {t('settings.appUpdateDownload')}
                                 </button>
                             </>
                         ) : (
                             <div className="diag-item">
-                                <span className="diag-value text-green-400">✓ You're up to date! (v{updateInfo.currentVersion})</span>
+                                <span className="diag-value text-green-400">✓ {t('settings.appUpdateUpToDate')} (v{updateInfo.currentVersion})</span>
                             </div>
                         )}
                     </div>
