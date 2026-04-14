@@ -1,10 +1,11 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings} from '../wailsjs/go/main/App'
+import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings} from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
 import {useI18n} from './i18n/context'
 import DownloadList from './components/DownloadList'
 import SettingsDialog from './components/SettingsDialog'
+import SetupWizard from './components/SetupWizard'
 import './App.css'
 
 const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
@@ -111,6 +112,7 @@ function App() {
     const [downloads, setDownloads] = useState<DownloadTask[]>([])
     const [toast, setToast] = useState<string | null>(null)
     const [showSettings, setShowSettings] = useState(false)
+    const [showSetupWizard, setShowSetupWizard] = useState(false)
     const [notificationsEnabled, setNotificationsEnabled] = useState(false)
     const [consoleLogs, setConsoleLogs] = useState<string[]>([])
     const [showConsole, setShowConsole] = useState(false)
@@ -168,6 +170,24 @@ function App() {
 
     useEffect(() => {
         CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
+        
+        // Check if first run or needs cookie configuration
+        IsFirstRun().then((firstRun: boolean) => {
+            if (firstRun) {
+                setShowSetupWizard(true)
+                return
+            }
+            // Check if cookies need to be configured
+            NeedsCookieConfig().then((needsCookie: boolean) => {
+                if (needsCookie) {
+                    setShowSetupWizard(true)
+                }
+            }).catch(() => {})
+        }).catch(() => {
+            // If check fails, show wizard anyway
+            setShowSetupWizard(true)
+        })
+        
         GetSettings().then(s => {
             if (s.outputDir) setOutputDir(s.outputDir)
             if (s.quality) setQuality(s.quality)
@@ -904,6 +924,39 @@ function App() {
                     }
                 }}
             />
+
+            {/* Setup Wizard */}
+            {showSetupWizard && (
+                <SetupWizard
+                    onComplete={async (outputDir: string, cookiesFrom: string, proxy: string) => {
+                        const settings: Settings = {
+                            outputDir,
+                            quality: 'best',
+                            language: lang,
+                            theme,
+                            proxy,
+                            rateLimit: '',
+                            maxConcurrent: 3,
+                            notifications: true,
+                            saveDescription: false,
+                            saveThumbnail: false,
+                            writeSubtitles: false,
+                            subtitleLangs: '',
+                            embedSubtitles: false,
+                            embedChapters: false,
+                            sponsorBlock: false,
+                            filenameTemplate: '',
+                            mergeOutputFormat: '',
+                            audioFormat: '',
+                            cookiesFrom,
+                            cookiesFile: '',
+                        }
+                        await SaveSettings(settings)
+                        setOutputDir(outputDir)
+                        setShowSetupWizard(false)
+                    }}
+                />
+            )}
         </div>
     )
 }

@@ -42,6 +42,14 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function IsFirstRun() {
+  return window['go']['main']['App']['IsFirstRun']();
+}
+
+export function NeedsCookieConfig() {
+  return window['go']['main']['App']['NeedsCookieConfig']();
+}
+
 export function GetVideoInfo(arg1) {
   return window['go']['main']['App']['GetVideoInfo'](arg1);
 }

@@ -22,6 +22,10 @@ export function GetPlaylistInfo(arg1:string):Promise<main.PlaylistInfo>;
 
 export function GetSettings():Promise<main.Settings>;
 
+export function IsFirstRun():Promise<boolean>;
+
+export function NeedsCookieConfig():Promise<boolean>;
+
 export function GetVideoInfo(arg1:string):Promise<main.VideoInfo>;
 
 export function OpenFile(arg1:string):Promise<void>;

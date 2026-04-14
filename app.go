@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"bytes"
@@ -18,8 +18,8 @@ import (
 
 	"github.com/google/uuid"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 	"gorm.io/gorm"
 )
@@ -235,24 +235,24 @@ func (a *App) logCmd(tag string, cmd *exec.Cmd) {
 // GetSettings returns persisted user settings
 func (a *App) GetSettings() Settings {
 	defaults := Settings{
-		OutputDir:     a.GetDefaultDownloadDir(),
-		Quality:       "best",
-		Language:      "zh-CN",
-		Theme:         "dark",
-		Proxy:         "",
-		RateLimit:     "",
-		MaxConcurrent: 3,
-		Notifications: true,
-		SaveDescription: false,
-		SaveThumbnail: false,
-		WriteSubtitles: false,
-		SubtitleLangs: "",
-		EmbedSubtitles: false,
-		EmbedChapters: false,
-		SponsorBlock: false,
-		FilenameTemplate: "",
+		OutputDir:         a.GetDefaultDownloadDir(),
+		Quality:           "best",
+		Language:          "zh-CN",
+		Theme:             "dark",
+		Proxy:             "",
+		RateLimit:         "",
+		MaxConcurrent:     3,
+		Notifications:     true,
+		SaveDescription:   false,
+		SaveThumbnail:     false,
+		WriteSubtitles:    false,
+		SubtitleLangs:     "",
+		EmbedSubtitles:    false,
+		EmbedChapters:     false,
+		SponsorBlock:      false,
+		FilenameTemplate:  "",
 		MergeOutputFormat: "",
-		AudioFormat: "",
+		AudioFormat:       "",
 	}
 	if a.db == nil {
 		return defaults
@@ -295,33 +295,51 @@ func (a *App) GetSettings() Settings {
 	return defaults
 }
 
+// IsFirstRun returns true if this is the first time the app is run (no settings saved)
+func (a *App) IsFirstRun() bool {
+	if a.db == nil {
+		return true
+	}
+	var rec SettingsRecord
+	if err := a.db.First(&rec, 1).Error; err != nil {
+		return true
+	}
+	return false
+}
+
+// NeedsCookieConfig returns true if user needs to configure cookies or proxy
+func (a *App) NeedsCookieConfig() bool {
+	s := a.GetSettings()
+	return s.CookiesFrom == "" && s.CookiesFile == "" && s.Proxy == ""
+}
+
 // SaveSettings persists user settings to the database
 func (a *App) SaveSettings(s Settings) error {
 	if a.db == nil {
 		return fmt.Errorf("database not initialized")
 	}
 	rec := SettingsRecord{
-		ID:            1,
-		OutputDir:     s.OutputDir,
-		Quality:       s.Quality,
-		Language:      s.Language,
-		Theme:         s.Theme,
-		Proxy:         s.Proxy,
-		RateLimit:     s.RateLimit,
-		MaxConcurrent: s.MaxConcurrent,
-		Notifications: s.Notifications,
-		SaveDescription: s.SaveDescription,
-		SaveThumbnail: s.SaveThumbnail,
-		WriteSubtitles: s.WriteSubtitles,
-		SubtitleLangs: s.SubtitleLangs,
-		EmbedSubtitles: s.EmbedSubtitles,
-		EmbedChapters: s.EmbedChapters,
-		SponsorBlock: s.SponsorBlock,
-		FilenameTemplate: s.FilenameTemplate,
+		ID:                1,
+		OutputDir:         s.OutputDir,
+		Quality:           s.Quality,
+		Language:          s.Language,
+		Theme:             s.Theme,
+		Proxy:             s.Proxy,
+		RateLimit:         s.RateLimit,
+		MaxConcurrent:     s.MaxConcurrent,
+		Notifications:     s.Notifications,
+		SaveDescription:   s.SaveDescription,
+		SaveThumbnail:     s.SaveThumbnail,
+		WriteSubtitles:    s.WriteSubtitles,
+		SubtitleLangs:     s.SubtitleLangs,
+		EmbedSubtitles:    s.EmbedSubtitles,
+		EmbedChapters:     s.EmbedChapters,
+		SponsorBlock:      s.SponsorBlock,
+		FilenameTemplate:  s.FilenameTemplate,
 		MergeOutputFormat: s.MergeOutputFormat,
-		AudioFormat: s.AudioFormat,
-		CookiesFrom:   s.CookiesFrom,
-		CookiesFile:   s.CookiesFile,
+		AudioFormat:       s.AudioFormat,
+		CookiesFrom:       s.CookiesFrom,
+		CookiesFile:       s.CookiesFile,
 	}
 	return a.db.Save(&rec).Error
 }
@@ -953,10 +971,10 @@ func (lw *lineWriter) Write(p []byte) (int, error) {
 }
 
 var (
-	progressRe = regexp.MustCompile(`\[download\]\s+([\d.]+)%\s+of\s+(\S+)\s+at\s+(\S+)(?:\s+ETA\s+(\S+))?`)
-	destRe1    = regexp.MustCompile(`^\[download\] Destination: (.+)$`)
-	destRe2    = regexp.MustCompile(`Merging formats into "(.+)"`)
-	destRe3    = regexp.MustCompile(`^\[ExtractAudio\] Destination: (.+)$`)
+	progressRe  = regexp.MustCompile(`\[download\]\s+([\d.]+)%\s+of\s+(\S+)\s+at\s+(\S+)(?:\s+ETA\s+(\S+))?`)
+	destRe1     = regexp.MustCompile(`^\[download\] Destination: (.+)$`)
+	destRe2     = regexp.MustCompile(`Merging formats into "(.+)"`)
+	destRe3     = regexp.MustCompile(`^\[ExtractAudio\] Destination: (.+)$`)
 	finalPathRe = regexp.MustCompile(`^\[YT-GO-OUTPUT\](.+)$`)
 )
 
