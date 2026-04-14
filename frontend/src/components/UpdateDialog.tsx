@@ -14,13 +14,14 @@ interface UpdateInfo {
 interface UpdateDialogProps {
     open: boolean
     updateInfo: UpdateInfo | null
+    loading?: boolean
+    error?: string | null
     onClose: () => void
     onOpenReleasePage: () => void
+    onCheckUpdate: () => void
 }
 
-function UpdateDialog({open, updateInfo, onClose, onOpenReleasePage}: UpdateDialogProps) {
-    if (!open || !updateInfo || !updateInfo.hasUpdate) return null
-
+function UpdateDialog({open, updateInfo, loading, error, onClose, onOpenReleasePage, onCheckUpdate}: UpdateDialogProps) {
     const formatDate = (dateStr: string) => {
         if (!dateStr) return ''
         const date = new Date(dateStr)
@@ -32,63 +33,60 @@ function UpdateDialog({open, updateInfo, onClose, onOpenReleasePage}: UpdateDial
         onClose()
     }
 
-    return (
-        <div className="update-dialog-overlay" onClick={onClose}>
-            <div className="update-dialog" onClick={e => e.stopPropagation()}>
-                <div className="update-dialog-header">
-                    <span className="update-icon">🎉</span>
-                    <h2>New Version Available</h2>
+    const handleRetry = () => {
+        onCheckUpdate()
+    }
+
+    if (!open) return null
+
+    // Loading State
+    if (loading) {
+        return (
+            <div className="update-banner loading">
+                <div className="update-spinner"></div>
+                <span>Checking for updates...</span>
+            </div>
+        )
+    }
+
+    // Error State
+    if (error) {
+        return (
+            <div className="update-banner error">
+                <span className="update-banner-icon">⚠️</span>
+                <span className="update-banner-msg">{error}</span>
+                <button className="update-banner-btn" onClick={handleRetry}>Retry</button>
+                <button className="update-banner-btn-close" onClick={onClose}>×</button>
+            </div>
+        )
+    }
+
+    // No Update Available
+    if (updateInfo && !updateInfo.hasUpdate) {
+        return null // Silent - no notification when up to date
+    }
+
+    // Update Available - Banner at top
+    if (updateInfo && updateInfo.hasUpdate) {
+        return (
+            <div className="update-banner available">
+                <div className="update-banner-content">
+                    <span className="update-banner-icon">⬆️</span>
+                    <span className="update-banner-text">
+                        New version <strong>v{updateInfo.latestVersion}</strong> available!
+                    </span>
                 </div>
-                
-                <div className="update-dialog-body">
-                    <div className="update-version-info">
-                        <div className="update-version-row">
-                            <span className="update-label">Current:</span>
-                            <span className="update-value">{updateInfo.currentVersion}</span>
-                        </div>
-                        <div className="update-version-row">
-                            <span className="update-label">Latest:</span>
-                            <span className="update-value update-value-new">{updateInfo.latestVersion}</span>
-                        </div>
-                    </div>
-
-                    {updateInfo.releaseBody && (
-                        <div className="update-release-notes">
-                            <h3>Release Notes:</h3>
-                            <div className="update-notes-content">
-                                {updateInfo.releaseBody.split('\n').map((line, i) => {
-                                    const trimmed = line.trim()
-                                    if (!trimmed) return null
-                                    if (trimmed.startsWith('## ')) {
-                                        return <h4 key={i}>{trimmed.slice(3)}</h4>
-                                    }
-                                    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                                        return <li key={i}>{trimmed.slice(2)}</li>
-                                    }
-                                    return <p key={i}>{trimmed}</p>
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {updateInfo.publishedAt && (
-                        <div className="update-date">
-                            Released: {formatDate(updateInfo.publishedAt)}
-                        </div>
-                    )}
-                </div>
-
-                <div className="update-dialog-footer">
-                    <button className="btn-secondary" onClick={onClose}>
-                        Later
-                    </button>
-                    <button className="btn-primary" onClick={handleDownload}>
-                        Download Update
+                <div className="update-banner-actions">
+                    <button className="update-banner-btn-later" onClick={onClose}>Later</button>
+                    <button className="update-banner-btn-download" onClick={handleDownload}>
+                        ⬇️ Download
                     </button>
                 </div>
             </div>
-        </div>
-    )
+        )
+    }
+
+    return null
 }
 
 export default UpdateDialog

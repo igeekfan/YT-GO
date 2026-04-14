@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {GetSettings, SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, ResetSettings} from '../../wailsjs/go/main/App'
+import {GetSettings, SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, ResetSettings, CheckForUpdate, OpenReleasePage} from '../../wailsjs/go/main/App'
 
 interface DiagnosticInfo {
     ytdlpPath: string
@@ -40,12 +40,51 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
     const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
     const [updateResult, setUpdateResult] = useState<string | null>(null)
     const [isResetting, setIsResetting] = useState(false)
+    const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
+    const [updateInfo, setUpdateInfo] = useState<{
+        hasUpdate: boolean
+        currentVersion: string
+        latestVersion: string
+        releaseName: string
+        releaseBody: string
+        htmlUrl: string
+        publishedAt: string
+    } | null>(null)
+
+    const handleCheckForUpdate = async () => {
+        setIsCheckingUpdate(true)
+        try {
+            const info = await CheckForUpdate()
+            setUpdateInfo(info)
+        } catch (e: any) {
+            setUpdateInfo({
+                hasUpdate: false,
+                currentVersion: '1.0.0',
+                latestVersion: '0.0.0',
+                releaseName: '',
+                releaseBody: e?.message || 'Failed to check for updates',
+                htmlUrl: '',
+                publishedAt: ''
+            })
+        } finally {
+            setIsCheckingUpdate(false)
+        }
+    }
+
+    const handleOpenReleasePage = async () => {
+        try {
+            await OpenReleasePage()
+        } catch (e) {
+            console.error('Failed to open release page:', e)
+        }
+    }
 
     useEffect(() => {
         if (open) {
             GetSettings().then(setSettings).catch(console.error)
             setDiagnostic(null)
             setActiveTab('download')
+            setUpdateInfo(null)
         }
     }, [open])
 
@@ -364,6 +403,46 @@ rel="noopener noreferrer"
 
     const renderToolsTab = () => (
         <>
+            {/* App Update */}
+            <div className="setting-item">
+                <label className="setting-label">{t('settings.appUpdate') || 'App Update'}</label>
+                <div className="tools-btn-row">
+                    <button
+                        className="btn-primary btn-sm"
+                        onClick={handleCheckForUpdate}
+                        disabled={isCheckingUpdate}
+                    >
+                        {isCheckingUpdate ? 'Checking...' : 'Check for Updates'}
+                    </button>
+                </div>
+                {updateInfo && (
+                    <div className="diagnostic-info" style={{marginTop: 12}}>
+                        {updateInfo.hasUpdate ? (
+                            <>
+                                <div className="diag-item">
+                                    <span className="diag-label">Current:</span>
+                                    <span className="diag-value">v{updateInfo.currentVersion}</span>
+                                </div>
+                                <div className="diag-item">
+                                    <span className="diag-label">Latest:</span>
+                                    <span className="diag-value text-green-400">v{updateInfo.latestVersion}</span>
+                                </div>
+                                <button
+                                    className="btn-primary btn-sm"
+                                    style={{marginTop: 8}}
+                                    onClick={handleOpenReleasePage}
+                                >
+                                    ⬇️ Download Update
+                                </button>
+                            </>
+                        ) : (
+                            <div className="diag-item">
+                                <span className="diag-value text-green-400">✓ You're up to date! (v{updateInfo.currentVersion})</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
             {/* App version */}
             {diagnostic && diagnostic.appVersion && (
                 <div className="setting-item setting-item-row">

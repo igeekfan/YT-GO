@@ -130,16 +130,21 @@ function App() {
         htmlUrl: string
         publishedAt: string
     } | null>(null)
+    const [updateLoading, setUpdateLoading] = useState(false)
+    const [updateError, setUpdateError] = useState<string | null>(null)
 
     const handleCheckUpdate = useCallback(async () => {
+        setUpdateLoading(true)
+        setUpdateError(null)
+        setShowUpdateDialog(true)
         try {
             const info = await CheckForUpdate()
-            if (info.hasUpdate) {
-                setUpdateInfo(info)
-                setShowUpdateDialog(true)
-            }
-        } catch (e) {
+            setUpdateInfo(info)
+        } catch (e: any) {
             console.error('Failed to check for updates:', e)
+            setUpdateError(e?.message || 'Failed to connect to update server. Please try again.')
+        } finally {
+            setUpdateLoading(false)
         }
     }, [])
 
@@ -293,6 +298,10 @@ function App() {
         }, 3000) // Delay 3 seconds to let app fully load
         return () => clearTimeout(timer)
     }, [handleCheckUpdate])
+
+    const dismissUpdateBanner = () => {
+        setShowUpdateDialog(false)
+    }
 
 
 
@@ -503,23 +512,9 @@ function App() {
                 <div className="header-right">
                     <button
                         className="btn-ghost btn-sm"
-                        onClick={() => handleCheckUpdate()}
-                        title="Check for Updates"
-                    >
-                        🔄
-                    </button>
-                    <button
-                        className="btn-ghost btn-sm"
-                        onClick={() => setShowSettings(true)}
-                        title={t('settings.title')}
-                    >
-                        ⚙
-                    </button>
-                    <button
-                        className="btn-ghost btn-sm"
                         onClick={() => setLang(lang === 'zh-CN' ? 'en-US' : 'zh-CN')}
                     >
-                        {lang === 'zh-CN' ? t('lang.en') : t('lang.zh')}
+                        {lang === 'zh-CN' ? 'EN' : '中'}
                     </button>
                     <button
                         className="btn-ghost btn-sm"
@@ -527,6 +522,13 @@ function App() {
                         title={theme === 'dark' ? t('app.theme.light') : t('app.theme.dark')}
                     >
                         {theme === 'dark' ? '☀' : '☽'}
+                    </button>
+                    <button
+                        className="btn-ghost btn-sm"
+                        onClick={() => setShowSettings(true)}
+                        title={t('settings.title')}
+                    >
+                        ⚙
                     </button>
                 </div>
             </header>
@@ -1010,8 +1012,11 @@ function App() {
             <UpdateDialog
                 open={showUpdateDialog}
                 updateInfo={updateInfo}
+                loading={updateLoading}
+                error={updateError}
                 onClose={() => setShowUpdateDialog(false)}
                 onOpenReleasePage={handleOpenReleasePage}
+                onCheckUpdate={handleCheckUpdate}
             />
         </div>
     )
