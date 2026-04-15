@@ -1,9 +1,9 @@
-import * as DesktopApp from '../../wailsjs/go/main/App'
+import * as DesktopApp from '../../wailsjs/go/desktop/App'
 
 const RELEASE_PAGE_URL = 'https://github.com/igeekfan/YT-GO/releases'
 
 export const backendMode: 'desktop' | 'web' =
-    typeof window !== 'undefined' && typeof (window as any).go?.main?.App !== 'undefined'
+    typeof window !== 'undefined' && typeof (window as any).go?.desktop?.App !== 'undefined'
         ? 'desktop'
         : 'web'
 

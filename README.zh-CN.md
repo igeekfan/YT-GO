@@ -103,6 +103,29 @@ wails build
 
 构建产物位于 `build/bin/`。
 
+Web 模式启动：
+
+```bash
+cd frontend && npm install && npm run build && cd ..
+go build -tags web -o yt-go-web .
+YTGO_WEB_ADDR=:8080 ./yt-go-web
+```
+
+Web 入口会在同一个进程里同时提供前端静态资源和后端接口：
+
+- `/` 提供 `frontend/dist` 静态页面
+- `/api/*` 提供 JSON API
+- `/api/events` 提供服务端事件流，用于日志和下载状态推送
+
+Docker 使用方式：
+
+```bash
+docker build -t yt-go:local .
+docker run --rm -p 8080:8080 -e YTGO_WEB_ADDR=:8080 yt-go:local
+```
+
+仓库中也已包含 [Dockerfile](Dockerfile) 和 [.github/workflows/docker-publish.yml](.github/workflows/docker-publish.yml)，用于构建并发布 GHCR 镜像。
+
 ## 路线图
 
 详见 [PLAN.md](PLAN.md) 了解详细开发路线图和未来工作项。

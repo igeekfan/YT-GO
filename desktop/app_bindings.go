@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import "YT-GO/internal/core"
 

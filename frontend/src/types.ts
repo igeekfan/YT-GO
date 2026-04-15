@@ -1,12 +1,12 @@
-﻿import {main} from '../wailsjs/go/models'
+﻿import {desktop} from '../wailsjs/go/models'
 
-export type YtDlpStatus = main.YtDlpStatus
-export type VideoInfo = main.VideoInfo
-export type DownloadRequest = main.DownloadRequest
-export type DownloadTask = main.DownloadTask
-export type DownloadOptions = main.DownloadOptions
-export type SubtitleLang = main.SubtitleLang
-export type PlaylistInfo = main.PlaylistInfo
-export type Settings = main.Settings
-export type Format = main.Format
-export type FormatInfo = main.FormatInfo
+export type YtDlpStatus = desktop.YtDlpStatus
+export type VideoInfo = desktop.VideoInfo
+export type DownloadRequest = desktop.DownloadRequest
+export type DownloadTask = desktop.DownloadTask
+export type DownloadOptions = desktop.DownloadOptions
+export type SubtitleLang = desktop.SubtitleLang
+export type PlaylistInfo = desktop.PlaylistInfo
+export type Settings = desktop.Settings
+export type Format = desktop.Format
+export type FormatInfo = desktop.FormatInfo

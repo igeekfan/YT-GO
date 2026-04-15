@@ -1,9 +1,7 @@
-package main
+package desktop
 
 import (
 	"context"
-	_ "embed"
-	"encoding/json"
 	"fmt"
 	"os/exec"
 
@@ -13,41 +11,19 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-//go:embed wails.json
-var wailsJSON string
-
-var WailsInfo struct {
-	Info struct {
-		ProductVersion string `json:"productVersion"`
-	} `json:"info"`
-}
-
-var version = ""
-
-func init() {
-	json.Unmarshal([]byte(wailsJSON), &WailsInfo)
-}
-
-// App struct
 type App struct {
 	ctx     context.Context
 	service *core.Service
 }
 
-// NewApp creates a new App application struct
-func NewApp() *App {
-	return &App{service: core.NewService(currentAppVersion())}
+func NewApp(appVersion string) *App {
+	return &App{service: core.NewService(appVersion)}
 }
 
-func currentAppVersion() string {
-	if version != "" {
-		return version
-	}
-	return WailsInfo.Info.ProductVersion
+func OnStartup(app *App) func(context.Context) {
+	return app.startup
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.service.SetHooks(core.Hooks{
@@ -75,7 +51,6 @@ func (a *App) startup(ctx context.Context) {
 	_ = a.service.Startup()
 }
 
-// emitLog sends a log message to the frontend via the "app:log" event.
 func (a *App) emitLog(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	fmt.Println(msg)

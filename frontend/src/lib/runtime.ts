@@ -1,6 +1,6 @@
 import {EventsOn as DesktopEventsOn} from '../../wailsjs/runtime/runtime'
 
-const isDesktop = typeof window !== 'undefined' && typeof (window as any).go?.main?.App !== 'undefined'
+const isDesktop = typeof window !== 'undefined' && typeof (window as any).go?.desktop?.App !== 'undefined'
 const eventSourceURL = `${(import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')}/api/events`
 
 type Listener = (data: any) => void

@@ -104,6 +104,29 @@ wails build
 
 Build outputs are generated in `build/bin/`.
 
+Web mode:
+
+```bash
+cd frontend && npm install && npm run build && cd ..
+go build -tags web -o yt-go-web .
+YTGO_WEB_ADDR=:8080 ./yt-go-web
+```
+
+The web entry serves the frontend bundle and the HTTP API from the same process:
+
+- `/` serves `frontend/dist`
+- `/api/*` serves JSON APIs
+- `/api/events` streams server-sent events for logs and download updates
+
+Docker:
+
+```bash
+docker build -t yt-go:local .
+docker run --rm -p 8080:8080 -e YTGO_WEB_ADDR=:8080 yt-go:local
+```
+
+The repository also includes [Dockerfile](Dockerfile) and [.github/workflows/docker-publish.yml](.github/workflows/docker-publish.yml) for GHCR image publishing.
+
 ## Roadmap
 
 See [PLAN.md](PLAN.md) for the detailed development roadmap and future work items.

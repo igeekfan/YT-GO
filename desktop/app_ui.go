@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"os/exec"
@@ -9,7 +9,6 @@ import (
 
 const releasePageURL = "https://github.com/igeekfan/YT-GO/releases"
 
-// SelectFolder opens a folder picker dialog.
 func (a *App) SelectFolder() string {
 	dir, err := wailsRuntime.OpenDirectoryDialog(a.ctx, wailsRuntime.OpenDialogOptions{
 		Title: "Select Download Directory",
@@ -20,7 +19,6 @@ func (a *App) SelectFolder() string {
 	return dir
 }
 
-// SelectCookiesFile opens a file picker dialog for selecting a cookies file.
 func (a *App) SelectCookiesFile() string {
 	file, err := wailsRuntime.OpenFileDialog(a.ctx, wailsRuntime.OpenDialogOptions{
 		Title: "Select Cookies File",
@@ -35,7 +33,6 @@ func (a *App) SelectCookiesFile() string {
 	return file
 }
 
-// OpenFolder opens a directory in the system file manager.
 func (a *App) OpenFolder(path string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -49,7 +46,6 @@ func (a *App) OpenFolder(path string) error {
 	return cmd.Start()
 }
 
-// OpenFile opens a file with the system default application.
 func (a *App) OpenFile(path string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
