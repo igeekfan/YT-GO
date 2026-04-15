@@ -1274,7 +1274,10 @@ body {
   border: 1px solid var(--border);
   width: 480px;
   max-width: 90vw;
+  max-height: 90vh;
   padding: 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .setup-wizard-header {
@@ -1297,6 +1300,9 @@ body {
 
 .setup-wizard-content {
   margin-bottom: 24px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .setup-step {
