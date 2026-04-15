@@ -3,29 +3,24 @@
 ## 技术架构
 
 ```
-Go 后端                                 React 前端
-┌──────────────────────────┐            ┌──────────────────────────────┐
-│ types.go                 │            │ App.tsx (主布局)              │
-│ - YtDlpStatus            │            │ ├── URL 输入区                │
-│ - VideoInfo              │  Wails     │ ├── 视频信息预览卡片           │
-│ - DownloadRequest        │ ◄────────► │ ├── 画质 / 目录选择           │
-│ - DownloadTask           │  Bind      │ └── DownloadList.tsx          │
-│                          │            │     └── DownloadItem.tsx      │
-│ app.go                   │            事件总线
-│ - App struct / startup   │            ┌─────────────────┐
-│ app_settings.go          │            │ download:update │
-│ - settings / language    │            │ download:log    │
-│ app_ytdlp.go             │ ──────────►│ app:log         │
-│ - yt-dlp / metadata      │            └─────────────────┘
-│ app_downloads.go         │
-│ - queue / progress / db  │
-│ app_ui.go                │
-│ - file dialogs / openers │
-│ app_diagnostics.go       │
-│ - diagnostics / ffmpeg   │
-│ app_update.go            │
-│ - release check / open   │
-└──────────────────────────┘
+Go 后端                                           React 前端
+┌────────────────────────────────────┐            ┌──────────────────────────────────┐
+│ main.go (!web)                     │            │ App.tsx (主布局)                  │
+│ - Wails desktop 入口               │            │ ├── lib/backend.ts                │
+│ main_web.go (web)                  │            │ │   ├── desktop: Wails Bind       │
+│ - HTTP API + 静态资源入口          │            │ │   └── web: fetch /api/*         │
+│ app.go / app_bindings.go           │            │ ├── lib/runtime.ts                │
+│ - Wails 绑定适配层                 │            │ │   ├── desktop: EventsOn         │
+│ app_ui.go                          │            │ │   └── web: 轮询 / no-op         │
+│ - 桌面文件对话框 / 打开路径        │            │ └── DownloadList / Settings 等   │
+│ internal/core                      │            └──────────────────────────────────┘
+│ - settings / yt-dlp / downloads    │
+│ - diagnostics / update / i18n      │
+│ - 共享业务内核                     │
+│ internal/httpapi                   │
+│ - /api/settings / /api/downloads   │
+│ - /api/video/* / /api/update       │
+└────────────────────────────────────┘
 ```
 
 ---
@@ -38,6 +33,8 @@ Go 后端                                 React 前端
 
 - 启动配置页第一步增加语言选择与明暗主题切换，首次启动即可完成界面偏好设置。
 - Go 后端按职责拆分为 settings / yt-dlp / downloads / ui / diagnostics / update 多文件结构，降低单文件复杂度。
+- 核心业务已下沉到 internal/core，桌面端保留 Wails 绑定适配层，减少入口与业务逻辑耦合。
+- 已增加 internal/httpapi 和 main_web.go，前端可在 desktop / web 两种模式下复用同一套界面。
 
 ## 产品规划原则
 
@@ -83,6 +80,8 @@ Go 后端                                 React 前端
 | P10 | 文档维护 | README 作为产品文档主入口，PLAN 只跟踪未来路线、优先级与里程碑 | ✅ 已完成 |
 | P11 | 启动向导偏好 | 首次启动第一步直接配置下载目录、语言与主题，降低初始化摩擦 | ✅ 已完成 |
 | P12 | 后端结构治理 | 将单体 app.go 按职责拆分，维持现有 Wails 绑定与功能行为不变 | ✅ 已完成 |
+| P13 | 共享核心下沉 | 将下载、设置、诊断、更新等能力收敛到 internal/core，形成桌面/API 共用内核 | ✅ 已完成 |
+| P14 | 双入口兼容层 | 提供 main.go 与 main_web.go 两套入口，并让前端兼容 Wails 与 HTTP API 两种后端 | ✅ 已完成 |
 
 ## 下一阶段候选项
 

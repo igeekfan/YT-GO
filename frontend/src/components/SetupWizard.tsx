@@ -1,5 +1,5 @@
 import {useState, useEffect} from 'react'
-import {SelectFolder, SelectCookiesFile, CheckYtDlp} from '../../wailsjs/go/main/App'
+import {SelectFolder, SelectCookiesFile, CheckYtDlp, backendMode} from '../lib/backend'
 import {useI18n} from '../i18n/context'
 
 interface Props {
@@ -11,6 +11,7 @@ const LANGUAGE_OPTIONS = ['zh-CN', 'en-US'] as const
 
 export default function SetupWizard({onComplete}: Props) {
     const {t, lang, setLang} = useI18n()
+    const canBrowseLocalPaths = backendMode === 'desktop'
     const [step, setStep] = useState(1)
     const [outputDir, setOutputDir] = useState('')
     const [cookiesFrom, setCookiesFrom] = useState('')
@@ -81,9 +82,9 @@ export default function SetupWizard({onComplete}: Props) {
                                     value={outputDir}
                                     onChange={e => setOutputDir(e.target.value)}
                                     placeholder={t('setup.selectDirPlaceholder')}
-                                    readOnly
+                                    readOnly={canBrowseLocalPaths}
                                 />
-                                <button className="btn-secondary" onClick={handleSelectFolder}>
+                                <button className="btn-secondary" onClick={handleSelectFolder} disabled={!canBrowseLocalPaths}>
                                     {t('outputDir.browse')}
                                 </button>
                             </div>
@@ -179,11 +180,12 @@ export default function SetupWizard({onComplete}: Props) {
                                                 if (e.target.value) setCookiesFrom('')
                                             }}
                                             placeholder={t('settings.cookiesFilePlaceholder')}
-                                            readOnly
+                                            readOnly={canBrowseLocalPaths}
                                         />
                                         <button 
                                             className="btn-secondary" 
                                             onClick={handleSelectCookiesFile}
+                                            disabled={!canBrowseLocalPaths}
                                         >
                                             {t('outputDir.browse')}
                                         </button>

@@ -1,8 +1,8 @@
 ﻿import {useState, useEffect, useRef} from 'react'
 import {DownloadTask} from '../types'
 import {useI18n} from '../i18n/context'
-import {OpenFile, OpenFolder, CancelDownload} from '../../wailsjs/go/main/App'
-import {EventsOn} from '../../wailsjs/runtime/runtime'
+import {OpenFile, OpenFolder, CancelDownload} from '../lib/backend'
+import {EventsOn} from '../lib/runtime'
 
 interface Props {
     task: DownloadTask

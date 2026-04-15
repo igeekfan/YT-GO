@@ -32,15 +32,40 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/health", s.handleHealth)
+	s.mux.HandleFunc("/api/lang", s.handleLang)
 	s.mux.HandleFunc("/api/version", s.handleVersion)
 	s.mux.HandleFunc("/api/update", s.handleUpdate)
+	s.mux.HandleFunc("/api/ytdlp/status", s.handleYtDlpStatus)
+	s.mux.HandleFunc("/api/ytdlp/update", s.handleYtDlpUpdate)
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
+	s.mux.HandleFunc("/api/settings/first-run", s.handleFirstRun)
+	s.mux.HandleFunc("/api/settings/needs-cookie", s.handleNeedsCookie)
+	s.mux.HandleFunc("/api/settings/reset", s.handleResetSettings)
 	s.mux.HandleFunc("/api/diagnostics", s.handleDiagnostics)
 	s.mux.HandleFunc("/api/video/info", s.handleVideoInfo)
 	s.mux.HandleFunc("/api/video/formats", s.handleFormats)
 	s.mux.HandleFunc("/api/video/playlist", s.handlePlaylist)
 	s.mux.HandleFunc("/api/downloads", s.handleDownloads)
 	s.mux.HandleFunc("/api/downloads/", s.handleDownloadAction)
+}
+
+func (s *Server) handleLang(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, http.StatusOK, map[string]string{"lang": s.service.GetLang()})
+	case http.MethodPost:
+		var req struct {
+			Lang string `json:"lang"`
+		}
+		if err := decodeJSON(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		s.service.SetLang(req.Lang)
+		writeJSON(w, http.StatusOK, map[string]string{"lang": s.service.GetLang()})
+	default:
+		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost)
+	}
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +97,27 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, info)
 }
 
+func (s *Server) handleYtDlpStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.service.CheckYtDlp())
+}
+
+func (s *Server) handleYtDlpUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w, http.MethodPost)
+		return
+	}
+	output, err := s.service.UpdateYtDlp()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error(), "output": output})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"output": output})
+}
+
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -90,6 +136,34 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost)
 	}
+}
+
+func (s *Server) handleFirstRun(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"firstRun": s.service.IsFirstRun()})
+}
+
+func (s *Server) handleNeedsCookie(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"needsCookieConfig": s.service.NeedsCookieConfig()})
+}
+
+func (s *Server) handleResetSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w, http.MethodPost)
+		return
+	}
+	if err := s.service.ResetSettings(); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
@@ -170,8 +244,11 @@ func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusAccepted, map[string]string{"id": id})
+	case http.MethodDelete:
+		s.service.ClearCompleted()
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	default:
-		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost)
+		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost, http.MethodDelete)
 	}
 }
 

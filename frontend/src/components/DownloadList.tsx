@@ -2,7 +2,7 @@
 import {DownloadTask} from '../types'
 import {useI18n} from '../i18n/context'
 import DownloadItem from './DownloadItem'
-import {ClearCompleted, StartDownload} from '../../wailsjs/go/main/App'
+import {ClearCompleted, StartDownload} from '../lib/backend'
 
 interface Props {
     downloads: DownloadTask[]

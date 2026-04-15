@@ -1,6 +1,6 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage} from '../wailsjs/go/main/App'
-import {EventsOn} from '../wailsjs/runtime/runtime'
+import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, backendMode} from './lib/backend'
+import {EventsOn} from './lib/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
 import {useI18n} from './i18n/context'
 import DownloadList from './components/DownloadList'
@@ -269,6 +269,39 @@ function App() {
             })
         })
         return () => { if (typeof off === 'function') off() }
+    }, [sendNotification, t])
+
+    useEffect(() => {
+        if (backendMode !== 'web') return
+
+        let active = true
+
+        const syncDownloads = async () => {
+            try {
+                const tasks = await GetDownloads()
+                if (!active || !tasks) return
+
+                setDownloads(prev => {
+                    const previous = new Map(prev.map(item => [item.id, item]))
+                    for (const task of tasks) {
+                        const oldTask = previous.get(task.id)
+                        if (oldTask?.status !== 'completed' && task.status === 'completed') {
+                            sendNotification(t('notification.downloadComplete'), task.title || task.url)
+                        }
+                    }
+                    return tasks
+                })
+            } catch {
+            }
+        }
+
+        syncDownloads()
+        const timer = window.setInterval(syncDownloads, 1500)
+
+        return () => {
+            active = false
+            window.clearInterval(timer)
+        }
     }, [sendNotification, t])
 
     useEffect(() => {

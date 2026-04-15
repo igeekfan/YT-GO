@@ -1,7 +1,7 @@
 import {createContext, useContext, useState, useCallback, ReactNode} from 'react'
 import zhCN from './zh-CN'
 import enUS from './en-US'
-import {SetLang} from '../../wailsjs/go/main/App'
+import {SetLang} from '../lib/backend'
 
 type Lang = 'zh-CN' | 'en-US'
 
