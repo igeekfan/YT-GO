@@ -98,6 +98,15 @@ func normalizeYtDlpError(errMsg string, settings Settings) string {
 	if errMsg == "" {
 		return errMsg
 	}
+	if strings.Contains(errMsg, "Fresh cookies") && strings.Contains(errMsg, "Douyin") {
+		cookieHint := "当前未配置抖音 Cookies。"
+		if settings.CookiesFrom != "" {
+			cookieHint = fmt.Sprintf("当前使用浏览器 Cookies: %s。", settings.CookiesFrom)
+		} else if settings.CookiesFile != "" {
+			cookieHint = fmt.Sprintf("当前使用 cookies 文件: %s。", settings.CookiesFile)
+		}
+		return fmt.Sprintf("抖音需要有效的登录 Cookies 才能访问该视频。%s请登录 www.douyin.com 后，使用浏览器扩展导出 cookies.txt 并在设置中配置，或改用\u300c从浏览器导入 Cookies\u300d。原始错误: %s", cookieHint, errMsg)
+	}
 	if strings.Contains(errMsg, "Sign in to confirm") || strings.Contains(errMsg, "not a bot") {
 		cookieHint := "当前未配置 Cookies。"
 		if settings.CookiesFrom != "" {
@@ -368,6 +377,20 @@ func detectCollectionKind(url string) string {
 
 func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 	url := extractURLFromText(rawInput)
+	if isDouyinURL(url) {
+		info, err := s.GetDouyinVideoInfo(url)
+		if err == nil {
+			return PlaylistInfo{
+				URL:    url,
+				Kind:   "playlist",
+				Title:  info.Title,
+				Count:  1,
+				Videos: []VideoInfo{info},
+			}, nil
+		}
+		// Custom Douyin handler failed; fall through to yt-dlp
+		s.emitLog("[GetPlaylistInfo] Douyin custom handler failed (%v), falling back to yt-dlp", err)
+	}
 	if s.ytdlpPath == "" {
 		return PlaylistInfo{}, fmt.Errorf("yt-dlp not found")
 	}
