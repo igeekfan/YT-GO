@@ -72,11 +72,52 @@ export function GetFormats(url: string) {
 }
 
 export function SelectFolder() {
-    return getDesktop(() => DesktopApp.SelectFolder(), async () => '')
+    if (backendMode === 'desktop') {
+        return DesktopApp.SelectFolder()
+    }
+
+    return new Promise<string>((resolve) => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.webkitdirectory = true
+        input.style.display = 'none'
+        document.body.appendChild(input)
+
+        input.onchange = () => {
+            const files = input.files
+            let dir = ''
+            if (files && files.length > 0) {
+                const lastSlash = files[0].webkitRelativePath.lastIndexOf('/')
+                dir = lastSlash > 0 ? files[0].webkitRelativePath.substring(0, lastSlash) : ''
+            }
+            document.body.removeChild(input)
+            resolve(dir)
+        }
+
+        input.click()
+    })
 }
 
 export function SelectCookiesFile() {
-    return getDesktop(() => DesktopApp.SelectCookiesFile(), async () => '')
+    if (backendMode === 'desktop') {
+        return DesktopApp.SelectCookiesFile()
+    }
+
+    return new Promise<string>((resolve) => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.txt,.cookies'
+        input.style.display = 'none'
+        document.body.appendChild(input)
+
+        input.onchange = () => {
+            const file = input.files?.[0]
+            document.body.removeChild(input)
+            resolve(file ? file.name : '')
+        }
+
+        input.click()
+    })
 }
 
 export function StartDownload(request: any) {
