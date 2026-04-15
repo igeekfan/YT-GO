@@ -2,103 +2,65 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-YT-GO 是一个跨平台桌面 YouTube 下载工具，基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 驱动。粘贴链接、选择画质、指定保存目录，一键下载，无需命令行。
+YT-GO 是一款跨平台桌面视频下载工具，基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 驱动。粘贴链接、选择画质，一键下载，无需命令行。
 
-## 项目概览
+## 支持平台
 
-YT-GO 聚焦于桌面端的下载工作流，核心目标是把常用的 yt-dlp 能力收敛到一个直接可用的图形界面里：
+YT-GO 继承 **yt-dlp 支持的全部平台**（1800+ 站点），包括：
 
-- 下载前先获取视频、播放列表或频道视频列表元信息
-- 支持预设画质、单格式选择、视频+音频组合格式选择
-- 在一个任务列表里同时管理多个下载任务
-- 将代理、Cookies、限速、通知、并发等实用设置本地持久化
+- **视频**：YouTube、TikTok、抖音、Bilibili、Twitter/X、Instagram、Facebook、Vimeo、Dailymotion 等
+- **音乐**：Spotify、SoundCloud、Apple Music、YouTube Music 等
+- **直播**：Twitch、YouTube Live 等
 
-## 功能概览
+## 功能特性
 
-- 一键获取 YouTube 视频、播放列表和频道视频列表元信息
-- 通用站点支持：兼容 yt-dlp 支持的任意网站（Bilibili、Twitter/X 等）
-- 下载前展示视频标题、上传者、时长、平台和缩略图
-- 自动识别播放列表或频道视频列表，并支持批量加入下载任务
-- 播放列表条目选择器：支持全选/全不选和逐条勾选
-- 预设画质支持：最佳画质、1080p、720p、480p、360p、仅音频（MP3）
-- 获取格式后支持两种精细选择方式：
-	- 单格式选择，带类型标签 [V+A]、[V]、[A]、分辨率、帧率、编码和文件大小
-	- 视频轨 + 音频轨组合选择
-	- 智能格式排序：按类型、分辨率、码率排序
-- 支持配置最大并发数并同时下载多个任务
-- 下载记录搜索与按状态筛选（全部、下载中、已完成、失败）
-- 支持单任务删除、单任务重试、重新下载已完成任务和批量重试失败任务
-- 取消中的任务会自动从任务列表中移除
-- 实时展示日志、进度、速度、预计剩余时间和输出路径
-- 字幕下载：支持配置字幕语言和可选嵌入视频
-- 章节信息写入与 SponsorBlock 标记
-- 可选同时保存视频描述文件与缩略图文件
-- 自定义文件名模板、输出容器格式（MP4/MKV/WebM）、音频格式（MP3/M4A/Opus/FLAC/WAV）
-- 下载完成后可直接打开文件或所在文件夹
-- 使用 SQLite 持久化下载历史记录
-- 设置分为五个标签页：下载设置、媒体选项、网络与认证、工具与维护、外观与语言
-- 工具中心：yt-dlp 更新、FFmpeg 检测、Node.js 运行时状态和完整诊断
-- 应用内检测 yt-dlp 版本并支持更新
-- 自动从系统 PATH 或应用程序目录检测 yt-dlp
-- 支持中英文界面切换
-
-## 最近完成的重构与演进
-
-以下内容原先散落在开发计划中，现统一沉淀到 README，作为当前产品状态与结构演进的正式说明：
-
-- 启动向导第一步已支持下载目录、语言与明暗主题初始化，首次启动即可完成基础偏好设置。
-- 设置中心已按任务场景拆分为五个标签页：下载设置、媒体选项、网络与认证、工具与维护、外观与语言。
-- 格式体验已补齐格式探测、排序、推荐与音视频组合选择，主流程可直接覆盖常见下载场景。
-- 字幕、章节、SponsorBlock、描述文件、缩略图、输出容器、音频格式、文件名模板等增强项已接入。
-- 播放列表与频道列表已支持批量选择、批量入队，下载历史已支持搜索、筛选、重试、重新下载与单条删除。
-- 通用站点模式已落地，不再局限于 YouTube 链接，可复用 yt-dlp 已支持的站点能力。
-- 工具中心已集成 yt-dlp 更新、FFmpeg 检测、Node.js 运行时状态与诊断信息。
-- 前端已兼容桌面模式与 Web 模式两套后端接入方式，可复用同一套界面逻辑。
-
-## 当前架构状态
-
-项目已从早期单体结构演进为共享核心 + 多入口适配的形态：
-
-- Go 后端按 settings、yt-dlp、downloads、diagnostics、update 等职责拆分，降低单文件复杂度。
-- 核心业务能力已下沉到 internal/core，桌面端保留 Wails 绑定适配层，Web 端通过 internal/httpapi 暴露接口。
-- main.go 与 main_web.go 分别承担桌面端和 Web 端入口，前端通过统一后端适配层切换运行环境。
-- README 负责描述已完成能力与当前产品状态，PLAN 仅继续维护未来路线和阶段计划。
+- 一键获取视频、播放列表、频道链接的元信息
+- 展示标题、上传者、时长、平台和缩略图
+- **预设画质**：最佳、1080p、720p、480p、360p、仅音频（MP3）
+- 格式探测，支持单格式或视频+音频组合选择
+- 播放列表和频道批量下载，支持条目选择
+- 支持配置并发数同时下载多个任务
+- 下载历史：搜索、筛选、重试、重新下载
+- 实时进度、速度、预计剩余时间
+- 字幕下载：语言选择和可选嵌入视频
+- 章节信息写入和 SponsorBlock 标记
+- 附随文件：缩略图和描述导出
+- 代理、Cookies、自定义文件名、容器格式支持
+- 持久化设置：输出目录、下载选项、外观主题
+- 内置 yt-dlp 和 FFmpeg 检测，一键更新
+- 中英文界面
 
 ## 使用方式
 
-1. 粘贴视频链接、播放列表链接，或支持的频道视频列表链接。
-2. 点击"获取信息"。
-3. 如有需要，检测格式并选择单格式或视频+音频组合格式。
-4. 选择保存目录。
-5. 开始下载，或将识别出的整个集合批量加入下载任务。
+1. 粘贴视频、播放列表或支持的链接。
+2. 点击 **获取信息**。
+3. 选择画质预设或指定格式。
+4. 设置保存目录。
+5. 点击 **下载**。
 
-## 常见问题
+## Cookie 导出（抖音/TikTok 必需）
 
-- 如果 YouTube 提示需要登录验证，请在设置中配置浏览器 Cookies 或 cookies.txt 文件。
-- **Cookies 配置方式**：
-  - **从浏览器导入**：设置 → 网络与认证 → Cookies 来源 → 选择你的浏览器（Chrome、Firefox、Edge 等），无需导出文件。
-  - **cookies.txt 文件**：使用浏览器插件如“Get cookies.txt LOCALLY”（Chrome）或“cookies.txt”（Firefox）导出 YouTube cookies，然后在设置 → 网络与认证 → Cookies 文件 中配置该文件路径。
-- 如果 YouTube 可用格式不完整，请确认本机安装了 Node.js，以便 yt-dlp 使用可用的 JS runtime。
-- 如果未检测到 yt-dlp，请先安装后再点击应用内的“重新检测”。
+1. 安装浏览器扩展 [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/fcnalolhneacngmkjfgnmalmefjancoh)
+2. 打开 douyin.com 并登录，随意播放一个视频
+3. 点击扩展图标 → 导出为 Netscape 格式（如 `E:\cookies.txt`）
+4. 在设置 → 网络与认证 中配置路径
 
 ## 前置要求
 
-需要安装 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 并确保其在系统 `PATH` 中可用，或将其放置在 YT-GO 可执行文件的同一目录下。
+需安装 [yt-dlp](https://github.com/yt-dlp/yt-dlp)：
 
 ```bash
-# 通过 pip 安装
+# via pip
 pip install yt-dlp
 
-# Windows 通过 winget 安装
+# Windows
 winget install yt-dlp
 
-# macOS 通过 Homebrew 安装
+# macOS
 brew install yt-dlp
 ```
 
 ## 下载
-
-可在 [Releases](https://github.com/igeekfan/YT-GO/releases) 页面获取对应平台版本。
 
 | 平台 | 安装包 | 便携版 |
 |------|--------|--------|
@@ -106,82 +68,42 @@ brew install yt-dlp
 | macOS | `YT-GO_{version}_mac_arm64.dmg` / `YT-GO_{version}_mac_intel.dmg` | - |
 | Linux | `YT-GO_{version}_linux_amd64.deb` | `YT-GO_{version}_linux_amd64.AppImage` |
 
-## 运行
+从 [Releases](https://github.com/igeekfan/YT-GO/releases) 获取最新版本。
 
-### 桌面应用
-
-从 [Releases](https://github.com/igeekfan/YT-GO/releases) 下载，或源码构建：
+## 开发
 
 ```bash
-# 构建前端
-cd frontend && npm install && npm run build && cd ..
+wails dev
+```
 
-# 构建桌面应用
+## 构建
+
+```bash
+# 桌面应用
 wails build
-```
 
-运行 `build/bin/` 下的二进制文件。
-
-### Web 服务器
-
-```bash
-# 构建前端
-cd frontend && npm install && npm run build && cd ..
-
-# 运行 Web 服务器（二进制输出到 build/bin/）
+# Web 服务器
 go build -tags web -o build/bin/yt-go-web .
-build/bin/yt-go-web
 ```
 
-默认监听 `:8080`，访问 http://localhost:8080
-
-自定义端口：
-```bash
-YTGO_WEB_ADDR=:9000 build/bin/yt-go-web
-```
-
-### Docker
+## Docker
 
 ```bash
 docker build -t yt-go:local .
 docker run --rm -p 8080:8080 yt-go:local
 ```
 
-## 开发
+## 常见问题
 
-前置环境：Go 1.23+、Node.js 18+、[Wails CLI](https://wails.io/docs/gettingstarted/installation)
-
-开发模式：
-
-```bash
-wails dev
-```
-
-构建：
-
-```bash
-cd frontend && npm install && npm run build && cd ..
-wails build
-```
-
-构建产物位于 `build/bin/`。
-
-## 发布
-
-## 路线图
-
-README 记录已完成能力与当前形态，后续阶段规划见 [PLAN.md](PLAN.md)。
+- **格式不全**：确保已安装 Node.js，以便 yt-dlp 使用 JS 运行时。
+- **未检测到 yt-dlp**：将其放置在应用目录，或点击工具中的"重新检测"。
 
 ## 技术栈
 
-- [Wails v2](https://wails.io) — Go + React 桌面框架
-- Go
-- React + TypeScript
-- Vite
-- Tailwind CSS + shadcn/ui
+- [Wails v2](https://wails.io) — Go + React 桌面
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) — 视频下载后端
 
-## License
+## 许可证
 
 MIT
 
@@ -223,4 +145,4 @@ MIT
 
 | <a href="images/zh-CN/setting-download.png"><img src="images/zh-CN/setting-download.png" width="200"/></a> | <a href="images/zh-CN/setting-network.png"><img src="images/zh-CN/setting-network.png" width="200"/></a> | <a href="images/zh-CN/light.png"><img src="images/zh-CN/light.png" width="200"/></a> |
 |:---:|:---:|:---:|
-| 下载设置 | 网络设置 | 浅色主题 |
+| 下载设置 | 网络设置 | 浅色主题

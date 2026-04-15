@@ -81,6 +81,10 @@ function sortFormats(formats: FormatInfo['formats'][number][]): FormatInfo['form
     })
 }
 
+function findFormatByID(formats: FormatInfo['formats'], formatId: string): FormatInfo['formats'][number] | undefined {
+    return formats.find(format => format.formatId === formatId)
+}
+
 function getConsoleLogType(line: string): 'error' | 'warning' | 'command' | 'info' {
     const normalized = line.toLowerCase()
     if (normalized.includes(' failed:') || normalized.includes('error:')) return 'error'
@@ -376,11 +380,16 @@ function App() {
         .sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0))
 
     const resolveDownloadQuality = () => {
-        if (formatMode === 'single' && selectedFormat) return `f:${selectedFormat}`
+        if (formatMode === 'single' && selectedFormat && formatInfo) {
+            const format = findFormatByID(formatInfo.formats, selectedFormat)
+            if (format?.hasAudio && !format.hasVideo) return `fa:${selectedFormat}`
+            if (format?.hasVideo && !format.hasAudio) return `fv:${selectedFormat}`
+            return `f:${selectedFormat}`
+        }
         if (formatMode === 'combine') {
             if (selectedVideoFormat && selectedAudioFormat) return `f:${selectedVideoFormat}+${selectedAudioFormat}`
-            if (selectedVideoFormat) return `f:${selectedVideoFormat}`
-            if (selectedAudioFormat) return `f:${selectedAudioFormat}`
+            if (selectedVideoFormat) return `fv:${selectedVideoFormat}`
+            if (selectedAudioFormat) return `fa:${selectedAudioFormat}`
         }
         return quality
     }
@@ -476,8 +485,8 @@ function App() {
                 showToast(t('format.combineUnavailable'))
                 return
             }
-            if (!selectedVideoFormat || !selectedAudioFormat) {
-                showToast(t('toast.selectBothTracks'))
+            if (!selectedVideoFormat && !selectedAudioFormat) {
+                showToast(t('toast.selectAnyTrack'))
                 return
             }
         }
@@ -508,8 +517,8 @@ function App() {
                 showToast(t('format.combineUnavailable'))
                 return
             }
-            if (!selectedVideoFormat || !selectedAudioFormat) {
-                showToast(t('toast.selectBothTracks'))
+            if (!selectedVideoFormat && !selectedAudioFormat) {
+                showToast(t('toast.selectAnyTrack'))
                 return
             }
         }
@@ -783,6 +792,7 @@ function App() {
                                     </option>
                                 ))}
                             </select>
+                            <span className="option-hint">{t('quality.hint')}</span>
                         </div>
                         <div className="option-group flex-1">
                             <label className="option-label">{t('outputDir.label')}</label>

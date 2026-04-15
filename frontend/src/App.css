@@ -371,6 +371,12 @@ body {
   font-weight: 500;
 }
 
+.option-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .select-input {
   background: var(--input-bg);
   border: 1px solid var(--border);

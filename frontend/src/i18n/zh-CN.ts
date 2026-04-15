@@ -24,7 +24,8 @@
     'video.uploader': '频道',
     'video.platform': '平台',
 
-    'quality.label': '画质',
+    'quality.label': '预设画质',
+    'quality.hint': '未手动选择格式时使用；格式列表中的选择优先级更高。',
     'quality.best': '最佳画质',
     'quality.1080p': '1080p',
     'quality.720p': '720p',
@@ -200,6 +201,7 @@
     'format.combineUnavailable': '当前返回的格式里没有可拆分的独立视频轨和音频轨，请改用单格式或预设画质。',
     'toast.getFormatsFail': '获取格式列表失败',
     'toast.selectBothTracks': '组合格式需要同时选择视频轨和音频轨',
+    'toast.selectAnyTrack': '请至少选择一个视频轨或音频轨',
 
     'downloadOpt.title': '下载选项',
     'downloadOpt.saveThumbnail': '保存缩略图',

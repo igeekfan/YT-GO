@@ -89,7 +89,9 @@ func TestShouldApplyMergeOutputFormat(t *testing.T) {
 		want    bool
 	}{
 		{name: "preset quality", quality: "best", want: true},
-		{name: "single custom format", quality: "f:137", want: true},
+		{name: "single custom format", quality: "f:137", want: false},
+		{name: "single custom video track", quality: "fv:137", want: false},
+		{name: "single custom audio track", quality: "fa:140", want: false},
 		{name: "combined custom formats", quality: "f:137+140", want: false},
 	}
 

@@ -139,7 +139,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 	if settings.MergeOutputFormat != "" && shouldApplyMergeOutputFormat(req.Quality) {
 		args = append(args, "--merge-output-format", settings.MergeOutputFormat)
 	}
-	if settings.AudioFormat != "" && req.Quality == "audio" {
+	if settings.AudioFormat != "" && requiresAudioExtraction(req.Quality) {
 		args = append(args, "--audio-format", settings.AudioFormat)
 	}
 	optSaveDescription := settings.SaveDescription
@@ -195,7 +195,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 	}
 	args = appendCookiesArgs(args, settings)
 	args = append(args, req.URL)
-	cmd := s.ytdlpCmd(ctx, args...)
+	cmd := s.ytdlpMediaCmd(ctx, args...)
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Starting download: %s", req.URL))
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] yt-dlp path: %s", s.ytdlpPath))
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Output dir: %s", req.OutputDir))
@@ -272,11 +272,18 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 }
 
 func shouldApplyMergeOutputFormat(quality string) bool {
+	if strings.HasPrefix(quality, "fa:") || strings.HasPrefix(quality, "fv:") || strings.HasPrefix(quality, "f:") {
+		return false
+	}
 	if !strings.HasPrefix(quality, "f:") {
 		return true
 	}
 	customFormat := strings.TrimSpace(strings.TrimPrefix(quality, "f:"))
 	return customFormat == "" || !strings.Contains(customFormat, "+")
+}
+
+func requiresAudioExtraction(quality string) bool {
+	return quality == "audio" || strings.HasPrefix(quality, "fa:")
 }
 
 func (s *Service) CancelDownload(taskID string) error {

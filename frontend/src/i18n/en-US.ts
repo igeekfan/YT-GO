@@ -24,7 +24,8 @@
     'video.uploader': 'Channel',
     'video.platform': 'Platform',
 
-    'quality.label': 'Quality',
+    'quality.label': 'Preset Quality',
+    'quality.hint': 'Used when you do not manually select a format; explicit format choices take priority.',
     'quality.best': 'Best Quality',
     'quality.1080p': '1080p',
     'quality.720p': '720p',
@@ -200,6 +201,7 @@
     'format.combineUnavailable': 'No separate video and audio tracks were returned for this item. Use single format or a preset quality instead.',
     'toast.getFormatsFail': 'Failed to get format list',
     'toast.selectBothTracks': 'Combined format requires both a video track and an audio track',
+    'toast.selectAnyTrack': 'Select at least one video or audio track',
 
     'downloadOpt.title': 'Download Options',
     'downloadOpt.saveThumbnail': 'Save thumbnail',

@@ -20,6 +20,10 @@ import (
 )
 
 func getPreferredJSRuntime() string {
+	denoPath, err := exec.LookPath("deno")
+	if err == nil && denoPath != "" {
+		return "deno:" + denoPath
+	}
 	nodePath, err := exec.LookPath("node")
 	if err == nil && nodePath != "" {
 		return "node:" + nodePath
@@ -28,15 +32,19 @@ func getPreferredJSRuntime() string {
 }
 
 func (s *Service) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
-	if jsRuntime := getPreferredJSRuntime(); jsRuntime != "" {
-		args = append([]string{"--js-runtimes", jsRuntime}, args...)
-	}
 	cmd := exec.CommandContext(ctx, s.ytdlpPath, args...)
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
 	if s.hooks.HideCommand != nil {
 		s.hooks.HideCommand(cmd)
 	}
 	return cmd
+}
+
+func (s *Service) ytdlpMediaCmd(ctx context.Context, args ...string) *exec.Cmd {
+	if jsRuntime := getPreferredJSRuntime(); jsRuntime != "" {
+		args = append([]string{"--js-runtimes", jsRuntime}, args...)
+	}
+	return s.ytdlpCmd(ctx, args...)
 }
 
 func toUTF8(b []byte) string {
@@ -91,12 +99,24 @@ func normalizeYtDlpError(errMsg string, settings Settings) string {
 		} else if settings.CookiesFile != "" {
 			cookieHint = fmt.Sprintf("当前使用 cookies 文件: %s。", settings.CookiesFile)
 		}
-		return fmt.Sprintf("yt-dlp 已读取到 YouTube 页面，但当前环境无法完成签名/JS challenge 求解，所以只拿到了图片 storyboard，没有拿到真实视频格式。%s请安装 Node.js LTS 并重启应用，或改用具备可用 JS runtime 的 yt-dlp 运行环境。原始错误: %s", cookieHint, errMsg)
+		return fmt.Sprintf("yt-dlp 已读取到 YouTube 页面，但当前环境无法完成签名/JS challenge 求解，所以只拿到了图片 storyboard，没有拿到真实视频格式。%s请安装 Deno（推荐）或 Node.js LTS 并重启应用，或改用具备可用 JS runtime 的 yt-dlp 运行环境。原始错误: %s", cookieHint, errMsg)
 	}
 	return errMsg
 }
 
 func getNodeVersion() string {
+	denoPath, err := exec.LookPath("deno")
+	if err == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		out, runErr := exec.CommandContext(ctx, denoPath, "--version").CombinedOutput()
+		if runErr == nil {
+			firstLine := strings.TrimSpace(strings.SplitN(toUTF8(out), "\n", 2)[0])
+			if firstLine != "" {
+				return fmt.Sprintf("%s (%s)", firstLine, denoPath)
+			}
+		}
+	}
 	nodePath, err := exec.LookPath("node")
 	if err != nil {
 		return "missing"
@@ -208,7 +228,7 @@ func (s *Service) GetVideoInfo(url string) (VideoInfo, error) {
 	}
 	args = appendCookiesArgs(args, settings)
 	args = append(args, url)
-	cmd := s.ytdlpCmd(ctx, args...)
+	cmd := s.ytdlpMediaCmd(ctx, args...)
 	s.emitLog("[GetVideoInfo] fetching info for URL: %s", url)
 	s.logCmd("GetVideoInfo", cmd)
 	out, err := cmd.CombinedOutput()
@@ -320,7 +340,7 @@ func (s *Service) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	}
 	args = appendCookiesArgs(args, settings)
 	args = append(args, url)
-	cmd := s.ytdlpCmd(ctx, args...)
+	cmd := s.ytdlpMediaCmd(ctx, args...)
 	s.emitLog("[GetPlaylistInfo] fetching playlist for URL: %s", url)
 	s.logCmd("GetPlaylistInfo", cmd)
 	out, err := cmd.CombinedOutput()
@@ -411,7 +431,7 @@ func (s *Service) GetFormats(url string) (FormatInfo, error) {
 	}
 	args = appendCookiesArgs(args, settings)
 	args = append(args, url)
-	cmd := s.ytdlpCmd(ctx, args...)
+	cmd := s.ytdlpMediaCmd(ctx, args...)
 	s.emitLog("[GetFormats] fetching formats for URL: %s", url)
 	s.logCmd("GetFormats", cmd)
 	out, err := cmd.CombinedOutput()
@@ -477,6 +497,12 @@ func (s *Service) GetFormats(url string) (FormatInfo, error) {
 }
 
 func qualityArgs(quality string) []string {
+	if len(quality) > 3 && quality[:3] == "fa:" {
+		return []string{"-f", quality[3:], "-x"}
+	}
+	if len(quality) > 3 && quality[:3] == "fv:" {
+		return []string{"-f", quality[3:]}
+	}
 	if len(quality) > 2 && quality[:2] == "f:" {
 		return []string{"-f", quality[2:]}
 	}
