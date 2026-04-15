@@ -978,11 +978,11 @@ function App() {
             {/* Setup Wizard */}
             {showSetupWizard && (
                 <SetupWizard
-                    onComplete={async (outputDir: string, cookiesFrom: string, cookiesFile: string, proxy: string) => {
+                    onComplete={async (outputDir: string, cookiesFrom: string, cookiesFile: string, proxy: string, language: 'zh-CN' | 'en-US', theme: 'dark' | 'light') => {
                         const settings: Settings = {
                             outputDir,
                             quality: 'best',
-                            language: lang,
+                            language,
                             theme,
                             proxy,
                             rateLimit: '',
@@ -1003,6 +1003,8 @@ function App() {
                         }
                         await SaveSettings(settings)
                         setOutputDir(outputDir)
+                        setTheme(theme)
+                        setLang(language)
                         setShowSetupWizard(false)
                     }}
                 />

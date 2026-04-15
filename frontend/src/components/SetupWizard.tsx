@@ -3,23 +3,39 @@ import {SelectFolder, SelectCookiesFile, CheckYtDlp} from '../../wailsjs/go/main
 import {useI18n} from '../i18n/context'
 
 interface Props {
-    onComplete: (outputDir: string, cookiesFrom: string, cookiesFile: string, proxy: string) => void
+    onComplete: (outputDir: string, cookiesFrom: string, cookiesFile: string, proxy: string, language: 'zh-CN' | 'en-US', theme: 'dark' | 'light') => void
 }
 
+const THEME_OPTIONS = ['dark', 'light'] as const
+const LANGUAGE_OPTIONS = ['zh-CN', 'en-US'] as const
+
 export default function SetupWizard({onComplete}: Props) {
-    const {t, lang} = useI18n()
+    const {t, lang, setLang} = useI18n()
     const [step, setStep] = useState(1)
     const [outputDir, setOutputDir] = useState('')
     const [cookiesFrom, setCookiesFrom] = useState('')
     const [cookiesFile, setCookiesFile] = useState('')
     const [proxy, setProxy] = useState('')
     const [ytdlpOk, setYtdlpOk] = useState(false)
+    const [language, setLanguage] = useState<'zh-CN' | 'en-US'>(lang)
+    const [theme, setTheme] = useState<'dark' | 'light'>(() =>
+        (localStorage.getItem('YT-GOto-theme') as 'dark' | 'light') || 'dark'
+    )
 
     useEffect(() => {
         CheckYtDlp().then(status => {
             setYtdlpOk(status.available)
         }).catch(() => {})
     }, [])
+
+    useEffect(() => {
+        setLanguage(lang)
+    }, [lang])
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme)
+        localStorage.setItem('YT-GOto-theme', theme)
+    }, [theme])
 
     const handleSelectFolder = async () => {
         const dir = await SelectFolder()
@@ -32,7 +48,7 @@ export default function SetupWizard({onComplete}: Props) {
     }
 
     const handleComplete = () => {
-        onComplete(outputDir, cookiesFrom, cookiesFile, proxy)
+        onComplete(outputDir, cookiesFrom, cookiesFile, proxy, language, theme)
     }
 
     const totalSteps = 2
@@ -70,6 +86,40 @@ export default function SetupWizard({onComplete}: Props) {
                                 <button className="btn-secondary" onClick={handleSelectFolder}>
                                     {t('outputDir.browse')}
                                 </button>
+                            </div>
+                            <div className="setup-field">
+                                <label className="setup-label">{t('settings.language')}</label>
+                                <select
+                                    className="setup-select"
+                                    value={language}
+                                    onChange={e => {
+                                        const nextLang = e.target.value as 'zh-CN' | 'en-US'
+                                        setLanguage(nextLang)
+                                        setLang(nextLang)
+                                    }}
+                                >
+                                    {LANGUAGE_OPTIONS.map(item => (
+                                        <option key={item} value={item}>
+                                            {item === 'zh-CN' ? t('settings.langZh') : t('settings.langEn')}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="setup-hint">{t('setup.languageDesc')}</p>
+                            </div>
+                            <div className="setup-field">
+                                <label className="setup-label">{t('settings.theme')}</label>
+                                <select
+                                    className="setup-select"
+                                    value={theme}
+                                    onChange={e => setTheme(e.target.value as 'dark' | 'light')}
+                                >
+                                    {THEME_OPTIONS.map(item => (
+                                        <option key={item} value={item}>
+                                            {t(`app.theme.${item}` as any)}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="setup-hint">{t('setup.themeDesc')}</p>
                             </div>
                             {ytdlpOk && (
                                 <div className="setup-ytdlp-ok">
