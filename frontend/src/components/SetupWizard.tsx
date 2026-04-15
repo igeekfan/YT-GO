@@ -199,7 +199,7 @@ export default function SetupWizard({onComplete}: Props) {
                                             <div className="setup-howto-content">
                                                 <p>{t('setup.howtoStep1')}:</p>
                                                 <ul>
-                                                    <li><a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/njkmrnlnpncggmjided5dcpfcbeoemmp" target="_blank" rel="noopener">{t('setup.howtoChrome')}</a></li>
+                                                    <li><a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener">{t('setup.howtoChrome')}</a></li>
                                                     <li>{t('setup.howtoFirefox')}</li>
                                                 </ul>
                                                 <p>{t('setup.howtoStep2')}</p>

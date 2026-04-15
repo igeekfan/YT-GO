@@ -397,7 +397,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
             {settings.cookiesFrom ? null : (
                 <div className="setting-item">
                     <label className="setting-label">{t('settings.cookiesFile')}</label>
-                    <div className="setting-row">
+<div className="setting-row">
                         <input
                             type="text"
                             className="setting-input flex-1"
@@ -419,12 +419,11 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                         >
                             {t('outputDir.browse')}
                         </button>
-                    </div>
-                    <div className="setting-hint">
                         <a 
-                            href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/njkmrnlnpncggmjided5dcpfcbeoemmp"
+                            className="setting-hint-link"
+                            href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc"
                             target="_blank"
-rel="noopener noreferrer"
+ rel="noopener noreferrer"
                         >
                             {t('setup.getExtension')}
                         </a>
