@@ -84,6 +84,47 @@ brew install yt-dlp
 | macOS | `YT-GO_{version}_mac_arm64.dmg` / `YT-GO_{version}_mac_intel.dmg` | - |
 | Linux | `YT-GO_{version}_linux_amd64.deb` | `YT-GO_{version}_linux_amd64.AppImage` |
 
+## 运行
+
+### 桌面应用
+
+从 [Releases](https://github.com/igeekfan/YT-GO/releases) 下载，或源码构建：
+
+```bash
+# 构建前端
+cd frontend && npm install && npm run build && cd ..
+
+# 构建桌面应用
+wails build
+```
+
+运行 `build/bin/` 下的二进制文件。
+
+### Web 服务器
+
+```bash
+# 构建前端
+cd frontend && npm install && npm run build && cd ..
+
+# 运行 Web 服务器（二进制输出到 build/bin/）
+go build -tags web -o build/bin/yt-go-web .
+build/bin/yt-go-web
+```
+
+默认监听 `:8080`，访问 http://localhost:8080
+
+自定义端口：
+```bash
+YTGO_WEB_ADDR=:9000 build/bin/yt-go-web
+```
+
+### Docker
+
+```bash
+docker build -t yt-go:local .
+docker run --rm -p 8080:8080 yt-go:local
+```
+
 ## 开发
 
 前置环境：Go 1.23+、Node.js 18+、[Wails CLI](https://wails.io/docs/gettingstarted/installation)
@@ -103,28 +144,7 @@ wails build
 
 构建产物位于 `build/bin/`。
 
-Web 模式启动：
-
-```bash
-cd frontend && npm install && npm run build && cd ..
-go build -tags web -o yt-go-web .
-YTGO_WEB_ADDR=:8080 ./yt-go-web
-```
-
-Web 入口会在同一个进程里同时提供前端静态资源和后端接口：
-
-- `/` 提供 `frontend/dist` 静态页面
-- `/api/*` 提供 JSON API
-- `/api/events` 提供服务端事件流，用于日志和下载状态推送
-
-Docker 使用方式：
-
-```bash
-docker build -t yt-go:local .
-docker run --rm -p 8080:8080 -e YTGO_WEB_ADDR=:8080 yt-go:local
-```
-
-仓库中也已包含 [Dockerfile](Dockerfile) 和 [.github/workflows/docker-publish.yml](.github/workflows/docker-publish.yml)，用于构建并发布 GHCR 镜像。
+## 发布
 
 ## 路线图
 

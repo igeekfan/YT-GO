@@ -85,6 +85,47 @@ Download the latest release from the [Releases](https://github.com/igeekfan/YT-G
 | macOS | `YT-GO_{version}_mac_arm64.dmg` / `YT-GO_{version}_mac_intel.dmg` | - |
 | Linux | `YT-GO_{version}_linux_amd64.deb` | `YT-GO_{version}_linux_amd64.AppImage` |
 
+## Run
+
+### Desktop App
+
+Download from [Releases](https://github.com/igeekfan/YT-GO/releases), or build from source:
+
+```bash
+# Build frontend
+cd frontend && npm install && npm run build && cd ..
+
+# Build desktop app
+wails build
+```
+
+Run the built binary from `build/bin/`.
+
+### Web Server
+
+```bash
+# Build frontend
+cd frontend && npm install && npm run build && cd ..
+
+# Run web server (binary output to build/bin/)
+go build -tags web -o build/bin/yt-go-web .
+build/bin/yt-go-web
+```
+
+The web server listens on `:8080` by default. Access at http://localhost:8080
+
+Custom port:
+```bash
+YTGO_WEB_ADDR=:9000 build/bin/yt-go-web
+```
+
+### Docker
+
+```bash
+docker build -t yt-go:local .
+docker run --rm -p 8080:8080 yt-go:local
+```
+
 ## Development
 
 Requirements: Go 1.23+, Node.js 18+, and [Wails CLI](https://wails.io/docs/gettingstarted/installation)
@@ -104,25 +145,13 @@ wails build
 
 Build outputs are generated in `build/bin/`.
 
-Web mode:
-
-```bash
-cd frontend && npm install && npm run build && cd ..
-go build -tags web -o yt-go-web .
-YTGO_WEB_ADDR=:8080 ./yt-go-web
-```
-
-The web entry serves the frontend bundle and the HTTP API from the same process:
-
-- `/` serves `frontend/dist`
-- `/api/*` serves JSON APIs
-- `/api/events` streams server-sent events for logs and download updates
+## Publish
 
 Docker:
 
 ```bash
 docker build -t yt-go:local .
-docker run --rm -p 8080:8080 -e YTGO_WEB_ADDR=:8080 yt-go:local
+docker run --rm -p 8080:8080 yt-go:local
 ```
 
 The repository also includes [Dockerfile](Dockerfile) and [.github/workflows/docker-publish.yml](.github/workflows/docker-publish.yml) for GHCR image publishing.
