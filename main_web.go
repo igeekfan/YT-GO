@@ -11,6 +11,7 @@ import (
 
 	"YT-GO/internal/core"
 	"YT-GO/internal/httpapi"
+	"YT-GO/internal/platform"
 )
 
 func main() {
@@ -22,7 +23,7 @@ func main() {
 		DownloadLog: func(taskID string, line string) {
 			log.Printf("[%s] %s", taskID, line)
 		},
-		HideCommand: hideCmdWindow,
+		HideCommand: platform.HideCmdWindow,
 	})
 
 	if err := service.Startup(); err != nil {

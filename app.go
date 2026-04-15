@@ -8,6 +8,7 @@ import (
 	"os/exec"
 
 	"YT-GO/internal/core"
+	"YT-GO/internal/platform"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -59,7 +60,7 @@ func (a *App) startup(ctx context.Context) {
 			wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": line})
 		},
 		HideCommand: func(cmd *exec.Cmd) {
-			hideCmdWindow(cmd)
+			platform.HideCmdWindow(cmd)
 		},
 	})
 	_ = a.service.Startup()

@@ -1,13 +1,13 @@
 //go:build windows
 
-package main
+package platform
 
 import (
 	"os/exec"
 	"syscall"
 )
 
-func hideCmdWindow(cmd *exec.Cmd) {
+func HideCmdWindow(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow: true,
 	}
