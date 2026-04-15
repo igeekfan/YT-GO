@@ -45,6 +45,15 @@
   --console-error-text: #ffafaf;
   --console-error-bg: rgba(255, 99, 99, 0.12);
   --console-error-border: #ff6363;
+  --status-success-text: #b8f7cf;
+  --status-success-bg: rgba(34, 197, 94, 0.16);
+  --status-success-border: rgba(74, 222, 128, 0.32);
+  --status-danger-text: #ffc0c0;
+  --status-danger-bg: rgba(239, 68, 68, 0.16);
+  --status-danger-border: rgba(248, 113, 113, 0.3);
+  --status-loading-text: #d9e9ff;
+  --status-loading-bg: rgba(85, 179, 255, 0.16);
+  --status-loading-border: rgba(85, 179, 255, 0.32);
   --ring: rgba(85, 179, 255, 0.4);
   --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 20px 50px rgba(0, 0, 0, 0.32);
@@ -89,6 +98,15 @@
   --console-error-text: #be3f3f;
   --console-error-bg: rgba(255, 99, 99, 0.12);
   --console-error-border: #ef5555;
+  --status-success-text: #166534;
+  --status-success-bg: rgba(34, 197, 94, 0.12);
+  --status-success-border: rgba(22, 101, 52, 0.16);
+  --status-danger-text: #991b1b;
+  --status-danger-bg: rgba(239, 68, 68, 0.11);
+  --status-danger-border: rgba(153, 27, 27, 0.14);
+  --status-loading-text: #1d4ed8;
+  --status-loading-bg: rgba(59, 130, 246, 0.12);
+  --status-loading-border: rgba(29, 78, 216, 0.14);
   --ring: rgba(45, 141, 226, 0.28);
   --shadow-lg: 0 30px 80px rgba(27, 39, 63, 0.16);
   --shadow-md: 0 18px 42px rgba(27, 39, 63, 0.12);
@@ -1558,6 +1576,183 @@ body {
   display: flex;
   gap: 8px;
   margin-bottom: 4px;
+}
+
+.dep-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.dep-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), transparent 48%),
+    linear-gradient(135deg, rgba(85, 179, 255, 0.06), transparent 38%, rgba(255, 99, 99, 0.05) 100%),
+    var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+}
+
+.dep-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, rgba(255,255,255,0.08), transparent 26%, transparent 74%, rgba(255,255,255,0.04));
+  opacity: 0.6;
+}
+
+.dep-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dep-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dep-card-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dep-card-title {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.dep-card-subtitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dep-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 30px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.dep-badge-ready {
+  color: var(--status-success-text);
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
+}
+
+.dep-badge-missing {
+  color: var(--status-danger-text);
+  background: var(--status-danger-bg);
+  border-color: var(--status-danger-border);
+}
+
+.dep-badge-loading {
+  color: var(--status-loading-text);
+  background: var(--status-loading-bg);
+  border-color: var(--status-loading-border);
+}
+
+.dep-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.dep-meta-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dep-meta-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dep-meta-value {
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.dep-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dep-card-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dep-card-note-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dep-card-note-value {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dep-card-callout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px dashed var(--border-strong);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dep-card-callout-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 /* ===== Playlist Selector ===== */

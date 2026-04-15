@@ -239,6 +239,60 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
         setSettings({...settings, [key]: value})
     }
 
+    const renderDependencyCard = ({
+        title,
+        status,
+        tone,
+        rows,
+        actions,
+        note,
+        guide,
+    }: {
+        title: string
+        status: string
+        tone: 'ready' | 'missing' | 'loading'
+        rows?: Array<{label: string; value?: string}>
+        actions?: JSX.Element
+        note?: string | null
+        guide?: JSX.Element | null
+    }) => {
+        const visibleRows = (rows || []).filter(row => row.value)
+
+        return (
+            <div className="dep-card">
+                <div className="dep-card-header">
+                    <div className="dep-card-heading">
+                        <div className="dep-card-title">{title}</div>
+                        <div className="dep-card-subtitle">{t('settings.diagStatus')}</div>
+                    </div>
+                    <span className={`dep-badge dep-badge-${tone}`}>{status}</span>
+                </div>
+
+                {visibleRows.length > 0 && (
+                    <div className="dep-card-grid">
+                        {visibleRows.map(row => (
+                            <div key={`${title}-${row.label}`} className="dep-meta-card">
+                                <span className="dep-meta-label">{row.label}</span>
+                                <span className="dep-meta-value">{row.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {actions && <div className="dep-card-actions">{actions}</div>}
+
+                {note && (
+                    <div className="dep-card-note">
+                        <span className="dep-card-note-label">Output</span>
+                        <span className="dep-card-note-value">{note}</span>
+                    </div>
+                )}
+
+                {guide}
+            </div>
+        )
+    }
+
     const renderDownloadTab = () => (
         <>
             <div className="setting-item">
@@ -499,135 +553,80 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                 </div>
             </div>
 
-            {/* yt-dlp */}
-            <div className="setting-item">
-                <label className="setting-label">yt-dlp</label>
-                {(!depStatus && !loadingDeps) ? null : (
-                    <div className="diagnostic-info">
-                        {loadingDeps && !depStatus ? (
-                            <div className="diag-item"><span className="diag-value">{t('dep.checking')}</span></div>
-                        ) : depStatus && (
-                            <>
-                                <div className="diag-item">
-                                    <span className="diag-label">{t('settings.diagStatus')}:</span>
-                                    <span className={`diag-value diag-status ${depStatus.ytdlp.found ? 'text-green-400' : 'text-red-400'}`}>
-                                        {depStatus.ytdlp.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`}
-                                    </span>
-                                </div>
-                                {depStatus.ytdlp.version && (
-                                    <div className="diag-item">
-                                        <span className="diag-label">{t('settings.diagVersion')}:</span>
-                                        <span className="diag-value">{depStatus.ytdlp.version}</span>
-                                    </div>
-                                )}
-                                {depStatus.ytdlp.path && (
-                                    <div className="diag-item">
-                                        <span className="diag-label">{t('settings.diagPath')}:</span>
-                                        <span className="diag-value">{depStatus.ytdlp.path}</span>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                )}
-                <div className="tools-btn-row" style={{marginTop: 8}}>
-                    <button
-                        className="btn-secondary btn-sm"
-                        onClick={handleUpdateYtDlp}
-                        disabled={isUpdatingYtDlp}
-                    >
-                        {isUpdatingYtDlp ? t('settings.ytdlpUpdating') : t('settings.ytdlpUpdate')}
-                    </button>
-                </div>
-                {updateResult && (
-                    <div className="diagnostic-info" style={{marginTop: 8}}>
-                        <div className="diag-item"><span className="diag-value">{updateResult}</span></div>
-                    </div>
-                )}
-            </div>
+            <div className="dep-panel">
+                {renderDependencyCard({
+                    title: 'yt-dlp',
+                    status: !depStatus
+                        ? t('dep.checking')
+                        : loadingDeps && !depStatus
+                        ? t('dep.checking')
+                        : depStatus?.ytdlp.found
+                            ? `✓ ${t('dep.found')}`
+                            : `✗ ${t('dep.notFound')}`,
+                    tone: !depStatus ? 'loading' : depStatus?.ytdlp.found ? 'ready' : 'missing',
+                    rows: [
+                        {label: t('settings.diagVersion'), value: depStatus?.ytdlp.version},
+                        {label: t('settings.diagPath'), value: depStatus?.ytdlp.path},
+                    ],
+                    actions: (
+                        <button
+                            className="btn-secondary btn-sm"
+                            onClick={handleUpdateYtDlp}
+                            disabled={isUpdatingYtDlp}
+                        >
+                            {isUpdatingYtDlp ? t('settings.ytdlpUpdating') : t('settings.ytdlpUpdate')}
+                        </button>
+                    ),
+                    note: updateResult,
+                })}
 
-            {/* FFmpeg */}
-            <div className="setting-item">
-                <label className="setting-label">FFmpeg</label>
-                {depStatus && (
-                    <div className="diagnostic-info">
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.diagStatus')}:</span>
-                            <span className={`diag-value diag-status ${depStatus.ffmpeg.found ? 'text-green-400' : 'text-red-400'}`}>
-                                {depStatus.ffmpeg.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`}
-                            </span>
+                {renderDependencyCard({
+                    title: 'FFmpeg',
+                    status: !depStatus ? t('dep.checking') : depStatus.ffmpeg.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`,
+                    tone: !depStatus ? 'loading' : depStatus.ffmpeg.found ? 'ready' : 'missing',
+                    rows: [
+                        {label: t('settings.diagVersion'), value: depStatus?.ffmpeg.version},
+                        {label: t('settings.diagPath'), value: depStatus?.ffmpeg.path},
+                    ],
+                    guide: depStatus && !depStatus.ffmpeg.found ? (
+                        <div className="dep-card-callout">
+                            <div className="dep-card-callout-title">{t('dep.ffmpegInstallGuide')}</div>
+                            <code className="install-code">{t('dep.ffmpegWindows')}</code>
+                            <code className="install-code">{t('dep.ffmpegMac')}</code>
                         </div>
-                        {depStatus.ffmpeg.version && (
-                            <div className="diag-item">
-                                <span className="diag-label">{t('settings.diagVersion')}:</span>
-                                <span className="diag-value">{depStatus.ffmpeg.version}</span>
-                            </div>
-                        )}
-                        {depStatus.ffmpeg.path && (
-                            <div className="diag-item">
-                                <span className="diag-label">{t('settings.diagPath')}:</span>
-                                <span className="diag-value">{depStatus.ffmpeg.path}</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-                {depStatus && !depStatus.ffmpeg.found && (
-                    <div className="diagnostic-info dep-install-guide" style={{marginTop: 8}}>
-                        <div className="diag-item"><span className="diag-label">{t('dep.ffmpegInstallGuide')}:</span></div>
-                        <div className="diag-item"><code className="install-code">{t('dep.ffmpegWindows')}</code></div>
-                        <div className="diag-item"><code className="install-code">{t('dep.ffmpegMac')}</code></div>
-                    </div>
-                )}
-            </div>
+                    ) : null,
+                })}
 
-            {/* Deno / Node JS runtime */}
-            <div className="setting-item">
-                <label className="setting-label">{t('dep.jsRuntime')} (Deno / Node)</label>
-                {depStatus && (
-                    <div className="diagnostic-info">
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.diagStatus')}:</span>
-                            <span className={`diag-value diag-status ${depStatus.jsRuntime.found ? 'text-green-400' : 'text-red-400'}`}>
-                                {depStatus.jsRuntime.found
-                                    ? `✓ ${depStatus.jsRuntimeName || 'deno/node'} ${t('dep.found')}`
-                                    : `✗ ${t('dep.notFound')}`}
-                            </span>
+                {renderDependencyCard({
+                    title: `${t('dep.jsRuntime')} (Deno / Node)`,
+                    status: !depStatus
+                        ? t('dep.checking')
+                        : depStatus.jsRuntime.found
+                        ? `✓ ${depStatus.jsRuntimeName || 'deno/node'} ${t('dep.found')}`
+                        : `✗ ${t('dep.notFound')}`,
+                    tone: !depStatus ? 'loading' : depStatus.jsRuntime.found ? 'ready' : 'missing',
+                    rows: [
+                        {label: t('settings.diagVersion'), value: depStatus?.jsRuntime.version},
+                        {label: t('settings.diagPath'), value: depStatus?.jsRuntime.path},
+                    ],
+                    actions: (
+                        <button
+                            className="btn-secondary btn-sm"
+                            onClick={handleUpdateDeno}
+                            disabled={isUpdatingDeno}
+                        >
+                            {isUpdatingDeno ? t('dep.denoUpdating') : t('dep.denoManage')}
+                        </button>
+                    ),
+                    note: denoUpdateResult,
+                    guide: depStatus && !depStatus.jsRuntime.found ? (
+                        <div className="dep-card-callout">
+                            <div className="dep-card-callout-title">{t('dep.denoInstallGuide')}</div>
+                            <code className="install-code">{t('dep.denoWindows')}</code>
+                            <code className="install-code">{t('dep.denoMac')}</code>
                         </div>
-                        {depStatus.jsRuntime.version && (
-                            <div className="diag-item">
-                                <span className="diag-label">{t('settings.diagVersion')}:</span>
-                                <span className="diag-value">{depStatus.jsRuntime.version}</span>
-                            </div>
-                        )}
-                        {depStatus.jsRuntime.path && (
-                            <div className="diag-item">
-                                <span className="diag-label">{t('settings.diagPath')}:</span>
-                                <span className="diag-value">{depStatus.jsRuntime.path}</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-                <div className="tools-btn-row" style={{marginTop: 8}}>
-                    <button
-                        className="btn-secondary btn-sm"
-                        onClick={handleUpdateDeno}
-                        disabled={isUpdatingDeno}
-                    >
-                        {isUpdatingDeno ? t('dep.denoUpdating') : t('dep.denoManage')}
-                    </button>
-                </div>
-                {denoUpdateResult && (
-                    <div className="diagnostic-info" style={{marginTop: 8}}>
-                        <div className="diag-item"><span className="diag-value">{denoUpdateResult}</span></div>
-                    </div>
-                )}
-                {depStatus && !depStatus.jsRuntime.found && (
-                    <div className="diagnostic-info dep-install-guide" style={{marginTop: 8}}>
-                        <div className="diag-item"><span className="diag-label">{t('dep.denoInstallGuide')}:</span></div>
-                        <div className="diag-item"><code className="install-code">{t('dep.denoWindows')}</code></div>
-                        <div className="diag-item"><code className="install-code">{t('dep.denoMac')}</code></div>
-                    </div>
-                )}
+                    ) : null,
+                })}
             </div>
         </>
     )
