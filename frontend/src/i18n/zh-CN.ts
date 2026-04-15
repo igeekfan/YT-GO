@@ -196,7 +196,9 @@
     'format.selectAudio': '选择音频格式',
     'format.usePreset': '使用预设画质',
     'format.bestQuality': '🏆 最佳画质',
+    'format.combineUnavailable': '当前返回的格式里没有可拆分的独立视频轨和音频轨，请改用单格式或预设画质。',
     'toast.getFormatsFail': '获取格式列表失败',
+    'toast.selectBothTracks': '组合格式需要同时选择视频轨和音频轨',
 
     'downloadOpt.title': '下载选项',
     'downloadOpt.saveThumbnail': '保存缩略图',

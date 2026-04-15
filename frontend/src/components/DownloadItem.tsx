@@ -66,10 +66,8 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
     }
 
     const handleOpenFolder = () => {
-        const dir = task.outputPath
-            ? task.outputPath.substring(0, Math.max(task.outputPath.lastIndexOf('/'), task.outputPath.lastIndexOf('\\')))
-            : task.outputDir
-        if (dir) OpenFolder(dir).catch(console.error)
+        const target = task.outputPath || task.outputDir
+        if (target) OpenFolder(target).catch(console.error)
     }
 
     const handleRemove = async () => {

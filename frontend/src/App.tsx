@@ -341,14 +341,15 @@ function App() {
     const videoOnlyFormats = formatInfo?.formats.filter(f => f.hasVideo && !f.hasAudio) || []
     const audioOnlyFormats = formatInfo?.formats.filter(f => f.hasAudio && !f.hasVideo) || []
     const collectionKind = playlistInfo?.kind === 'channel' ? 'channel' : 'playlist'
-    const combineVideoFormats = (videoOnlyFormats.length > 0 ? videoOnlyFormats : formatInfo?.formats.filter(f => f.hasVideo) || [])
+    const hasSeparateTrackFormats = videoOnlyFormats.length > 0 && audioOnlyFormats.length > 0
+    const combineVideoFormats = videoOnlyFormats
         .sort((a, b) => {
             const aH = parseResolutionHeight(a.resolution || '')
             const bH = parseResolutionHeight(b.resolution || '')
             if (aH !== bH) return bH - aH
             return (b.filesize || 0) - (a.filesize || 0)
         })
-    const combineAudioFormats = (audioOnlyFormats.length > 0 ? audioOnlyFormats : formatInfo?.formats.filter(f => f.hasAudio) || [])
+    const combineAudioFormats = audioOnlyFormats
         .sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0))
 
     const resolveDownloadQuality = () => {
@@ -447,6 +448,16 @@ function App() {
             showToast(t('download.noDir'))
             return
         }
+        if (formatMode === 'combine') {
+            if (!hasSeparateTrackFormats) {
+                showToast(t('format.combineUnavailable'))
+                return
+            }
+            if (!selectedVideoFormat || !selectedAudioFormat) {
+                showToast(t('toast.selectBothTracks'))
+                return
+            }
+        }
         setIsStarting(true)
         try {
             const downloadQuality = resolveDownloadQuality()
@@ -475,6 +486,16 @@ function App() {
         if (!playlistInfo || !outputDir) {
             if (!outputDir) showToast(t('download.noDir'))
             return
+        }
+        if (formatMode === 'combine') {
+            if (!hasSeparateTrackFormats) {
+                showToast(t('format.combineUnavailable'))
+                return
+            }
+            if (!selectedVideoFormat || !selectedAudioFormat) {
+                showToast(t('toast.selectBothTracks'))
+                return
+            }
         }
         setIsStarting(true)
         try {
@@ -736,9 +757,27 @@ function App() {
                                 ))}
                             </select>
                         </div>
-                        {videoInfo && formatInfo && (
-                            <div className="option-group">
-                                <label className="option-label">{t('format.label')}</label>
+                        <div className="option-group flex-1">
+                            <label className="option-label">{t('outputDir.label')}</label>
+                            <div className="dir-row">
+                                <input
+                                    className="dir-input"
+                                    type="text"
+                                    value={outputDir}
+                                    onChange={e => setOutputDir(e.target.value)}
+                                    placeholder={t('outputDir.placeholder')}
+                                />
+                                <button className="btn-secondary" onClick={handleSelectFolder}>
+                                    {t('outputDir.browse')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {videoInfo && (
+                        <div className="format-section">
+                            <label className="option-label">{t('format.label')}</label>
+                            {formatInfo ? (
                                 <div className="format-list-container">
                                     <div className="format-list-header">
                                         <select
@@ -774,7 +813,7 @@ function App() {
                                                         setSelectedAudioFormat('')
                                                     }}
                                                 />
-                                                {t('format.usePreset')}
+                                                <span className="format-item-text">{t('format.usePreset')}</span>
                                             </label>
                                             {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio))
                                                 .map(f => (
@@ -789,23 +828,23 @@ function App() {
                                                                 setSelectedAudioFormat('')
                                                             }}
                                                         />
-                                                        {formatOptionLabel(f)}
+                                                        <span className="format-item-text">{formatOptionLabel(f)}</span>
                                                     </label>
                                                 ))}
                                         </div>
-                                    ) : (
+                                    ) : hasSeparateTrackFormats ? (
                                         <div className="format-combine-grid">
                                             <div className="format-combine-group">
                                                 <span className="format-sub-label">{t('format.video')}</span>
                                                 <div className="format-list">
                                                     <label className={`format-list-item${!selectedVideoFormat ? ' selected' : ''}`}>
                                                         <input type="radio" name="format-video" checked={!selectedVideoFormat} onChange={() => setSelectedVideoFormat('')} />
-                                                        {t('format.selectVideo')}
+                                                        <span className="format-item-text">{t('format.selectVideo')}</span>
                                                     </label>
                                                     {combineVideoFormats.map(f => (
                                                         <label key={f.formatId} className={`format-list-item${selectedVideoFormat === f.formatId ? ' selected' : ''}`}>
                                                             <input type="radio" name="format-video" checked={selectedVideoFormat === f.formatId} onChange={() => setSelectedVideoFormat(f.formatId)} />
-                                                            {formatOptionLabel(f)}
+                                                            <span className="format-item-text">{formatOptionLabel(f)}</span>
                                                         </label>
                                                     ))}
                                                 </div>
@@ -815,24 +854,22 @@ function App() {
                                                 <div className="format-list">
                                                     <label className={`format-list-item${!selectedAudioFormat ? ' selected' : ''}`}>
                                                         <input type="radio" name="format-audio" checked={!selectedAudioFormat} onChange={() => setSelectedAudioFormat('')} />
-                                                        {t('format.selectAudio')}
+                                                        <span className="format-item-text">{t('format.selectAudio')}</span>
                                                     </label>
                                                     {combineAudioFormats.map(f => (
                                                         <label key={f.formatId} className={`format-list-item${selectedAudioFormat === f.formatId ? ' selected' : ''}`}>
                                                             <input type="radio" name="format-audio" checked={selectedAudioFormat === f.formatId} onChange={() => setSelectedAudioFormat(f.formatId)} />
-                                                            {formatOptionLabel(f)}
+                                                            <span className="format-item-text">{formatOptionLabel(f)}</span>
                                                         </label>
                                                     ))}
                                                 </div>
                                             </div>
                                         </div>
+                                    ) : (
+                                        <div className="format-empty-hint">{t('format.combineUnavailable')}</div>
                                     )}
                                 </div>
-                            </div>
-                        )}
-                        {videoInfo && !formatInfo && (
-                            <div className="option-group">
-                                <label className="option-label">{t('format.label')}</label>
+                            ) : (
                                 <div className="format-row">
                                     {isGettingFormats ? (
                                         <span className="format-loading">{t('format.loading')}</span>
@@ -846,24 +883,9 @@ function App() {
                                         </button>
                                     )}
                                 </div>
-                            </div>
-                        )}
-                        <div className="option-group flex-1">
-                            <label className="option-label">{t('outputDir.label')}</label>
-                            <div className="dir-row">
-                                <input
-                                    className="dir-input"
-                                    type="text"
-                                    value={outputDir}
-                                    onChange={e => setOutputDir(e.target.value)}
-                                    placeholder={t('outputDir.placeholder')}
-                                />
-                                <button className="btn-secondary" onClick={handleSelectFolder}>
-                                    {t('outputDir.browse')}
-                                </button>
-                            </div>
+                            )}
                         </div>
-                    </div>
+                    )}
 
                     {/* Per-download options panel (shown after video info is fetched) */}
                     {videoInfo && (

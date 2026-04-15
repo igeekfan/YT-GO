@@ -1,7 +1,9 @@
 package desktop
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -34,23 +36,39 @@ func (a *App) SelectCookiesFile() string {
 }
 
 func (a *App) OpenFolder(path string) error {
+	path = filepath.Clean(path)
+	fileInfo, err := os.Stat(path)
+	isFile := err == nil && !fileInfo.IsDir()
+	openPath := path
+	if runtime.GOOS != "windows" && isFile {
+		openPath = filepath.Dir(path)
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("explorer", path)
+		if isFile {
+			cmd = exec.Command("explorer", "/select,", path)
+		} else {
+			cmd = exec.Command("explorer", path)
+		}
 	case "darwin":
-		cmd = exec.Command("open", path)
+		if isFile {
+			cmd = exec.Command("open", "-R", path)
+		} else {
+			cmd = exec.Command("open", openPath)
+		}
 	default:
-		cmd = exec.Command("xdg-open", path)
+		cmd = exec.Command("xdg-open", openPath)
 	}
 	return cmd.Start()
 }
 
 func (a *App) OpenFile(path string) error {
+	path = filepath.Clean(path)
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", path)
+		cmd = exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", path)
 	case "darwin":
 		cmd = exec.Command("open", path)
 	default:

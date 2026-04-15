@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -120,6 +121,9 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 	}
 	args := qualityArgs(req.Quality)
 	args = append(args, "--ignore-config")
+	if runtime.GOOS == "windows" {
+		args = append(args, "--windows-filenames")
+	}
 	settings := s.GetSettings()
 	outputTemplate := "%(title)s.%(ext)s"
 	if settings.FilenameTemplate != "" {
@@ -132,7 +136,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
-	if settings.MergeOutputFormat != "" {
+	if settings.MergeOutputFormat != "" && shouldApplyMergeOutputFormat(req.Quality) {
 		args = append(args, "--merge-output-format", settings.MergeOutputFormat)
 	}
 	if settings.AudioFormat != "" && req.Quality == "audio" {
@@ -265,6 +269,14 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 		s.emitDownloadUpdate(finalTask)
 		go s.upsertRecord(finalTask)
 	}
+}
+
+func shouldApplyMergeOutputFormat(quality string) bool {
+	if !strings.HasPrefix(quality, "f:") {
+		return true
+	}
+	customFormat := strings.TrimSpace(strings.TrimPrefix(quality, "f:"))
+	return customFormat == "" || !strings.Contains(customFormat, "+")
 }
 
 func (s *Service) CancelDownload(taskID string) error {

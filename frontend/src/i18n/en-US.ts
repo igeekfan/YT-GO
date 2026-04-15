@@ -196,7 +196,9 @@
     'format.selectAudio': 'Select audio format',
     'format.usePreset': 'Use preset quality',
     'format.bestQuality': '🏆 Best Quality',
+    'format.combineUnavailable': 'No separate video and audio tracks were returned for this item. Use single format or a preset quality instead.',
     'toast.getFormatsFail': 'Failed to get format list',
+    'toast.selectBothTracks': 'Combined format requires both a video track and an audio track',
 
     'downloadOpt.title': 'Download Options',
     'downloadOpt.saveThumbnail': 'Save thumbnail',

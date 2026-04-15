@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -229,9 +232,7 @@ func (s *Service) GetVideoInfo(url string) (VideoInfo, error) {
 	if v, ok := raw["id"].(string); ok {
 		info.ID = v
 	}
-	if v, ok := raw["thumbnail"].(string); ok {
-		info.Thumbnail = v
-	}
+	info.Thumbnail = extractThumbnailURL(raw)
 	if v, ok := raw["duration"].(float64); ok {
 		info.Duration = v
 	}
@@ -247,6 +248,9 @@ func (s *Service) GetVideoInfo(url string) (VideoInfo, error) {
 	}
 	if v, ok := raw["webpage_url"].(string); ok && v != "" {
 		info.URL = v
+	}
+	if fallback := s.resolveVideoThumbnailFallback(info, raw); fallback != "" {
+		info.Thumbnail = fallback
 	}
 	info.Subtitles = extractSubtitleLangs(raw)
 	return info, nil
@@ -373,9 +377,7 @@ func (s *Service) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 			if v, ok := entryMap["id"].(string); ok {
 				info.ID = v
 			}
-			if v, ok := entryMap["thumbnail"].(string); ok {
-				info.Thumbnail = v
-			}
+			info.Thumbnail = extractThumbnailURL(entryMap)
 			if v, ok := entryMap["duration"].(float64); ok {
 				info.Duration = v
 			}
@@ -492,4 +494,143 @@ func qualityArgs(quality string) []string {
 	default:
 		return []string{"-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"}
 	}
+}
+
+func extractThumbnailURL(raw map[string]interface{}) string {
+	for _, key := range []string{"thumbnail", "pic", "cover"} {
+		if value, ok := raw[key].(string); ok {
+			if normalized := normalizeThumbnailURL(value); normalized != "" {
+				if isPlaceholderThumbnailURL(normalized) {
+					continue
+				}
+				return normalized
+			}
+		}
+	}
+	thumbnails, ok := raw["thumbnails"].([]interface{})
+	if !ok {
+		return ""
+	}
+	for index := len(thumbnails) - 1; index >= 0; index-- {
+		thumbMap, ok := thumbnails[index].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for _, key := range []string{"url", "src"} {
+			if value, ok := thumbMap[key].(string); ok {
+				if normalized := normalizeThumbnailURL(value); normalized != "" {
+					if isPlaceholderThumbnailURL(normalized) {
+						continue
+					}
+					return normalized
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func normalizeThumbnailURL(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+	if strings.HasPrefix(value, "//") {
+		return "https:" + value
+	}
+	return value
+}
+
+func isPlaceholderThumbnailURL(raw string) bool {
+	lower := strings.ToLower(strings.TrimSpace(raw))
+	return lower == "" || strings.Contains(lower, "/transparent.png")
+}
+
+func (s *Service) resolveVideoThumbnailFallback(info VideoInfo, raw map[string]interface{}) string {
+	if info.Thumbnail != "" && !isPlaceholderThumbnailURL(info.Thumbnail) {
+		return ""
+	}
+	if !isBilibiliVideo(info, raw) {
+		return ""
+	}
+	bvid := extractBilibiliBVID(info, raw)
+	if bvid == "" {
+		return ""
+	}
+	thumbnail, err := s.fetchBilibiliThumbnail(bvid)
+	if err != nil {
+		s.emitLog("[GetVideoInfo] bilibili thumbnail fallback failed: %v", err)
+		return ""
+	}
+	return thumbnail
+}
+
+func isBilibiliVideo(info VideoInfo, raw map[string]interface{}) bool {
+	platform := strings.ToLower(info.Platform)
+	videoURL := strings.ToLower(info.URL)
+	if strings.Contains(platform, "bilibili") || strings.Contains(videoURL, "bilibili.com") {
+		return true
+	}
+	if extractor, ok := raw["extractor_key"].(string); ok && strings.Contains(strings.ToLower(extractor), "bilibili") {
+		return true
+	}
+	return false
+}
+
+func extractBilibiliBVID(info VideoInfo, raw map[string]interface{}) string {
+	if id := strings.TrimSpace(info.ID); strings.HasPrefix(strings.ToUpper(id), "BV") {
+		return id
+	}
+	for _, key := range []string{"bvid", "display_id"} {
+		if value, ok := raw[key].(string); ok {
+			value = strings.TrimSpace(value)
+			if strings.HasPrefix(strings.ToUpper(value), "BV") {
+				return value
+			}
+		}
+	}
+	match := regexp.MustCompile(`(?i)BV[0-9A-Za-z]+`).FindString(info.URL)
+	return strings.TrimSpace(match)
+}
+
+func (s *Service) fetchBilibiliThumbnail(bvid string) (string, error) {
+	settings := s.GetSettings()
+	transport := &http.Transport{Proxy: http.ProxyFromEnvironment}
+	if settings.Proxy != "" {
+		proxyURL, err := url.Parse(settings.Proxy)
+		if err != nil {
+			return "", fmt.Errorf("invalid proxy for bilibili thumbnail: %w", err)
+		}
+		transport.Proxy = http.ProxyURL(proxyURL)
+	}
+	client := &http.Client{Timeout: 10 * time.Second, Transport: transport}
+	endpoint := "https://api.bilibili.com/x/web-interface/view?bvid=" + url.QueryEscape(bvid)
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+	req.Header.Set("Referer", "https://www.bilibili.com/video/"+bvid)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("status %d", resp.StatusCode)
+	}
+	var payload struct {
+		Code int `json:"code"`
+		Data struct {
+			Pic string `json:"pic"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return "", err
+	}
+	thumbnail := normalizeThumbnailURL(payload.Data.Pic)
+	if payload.Code != 0 || thumbnail == "" || isPlaceholderThumbnailURL(thumbnail) {
+		return "", fmt.Errorf("empty thumbnail in bilibili api")
+	}
+	return thumbnail, nil
 }

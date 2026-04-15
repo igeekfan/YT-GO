@@ -385,6 +385,12 @@ body {
   gap: 6px;
 }
 
+.format-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .format-list-header {
   display: flex;
   align-items: center;
@@ -401,13 +407,20 @@ body {
 
 .format-list-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   padding: 6px 10px;
   cursor: pointer;
   font-size: 12px;
+  line-height: 1.45;
   transition: background 0.15s;
   border-bottom: 1px solid var(--border);
+}
+
+.format-item-text {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
 }
 
 .format-list-item:last-child {
@@ -591,12 +604,22 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .format-sub-label {
   font-size: 11px;
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+.format-empty-hint {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
 }
 
 .format-loading {
