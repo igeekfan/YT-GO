@@ -10,6 +10,8 @@ export function CheckYtDlp():Promise<desktop.YtDlpStatus>;
 
 export function ClearCompleted():Promise<void>;
 
+export function GetAboutInfo():Promise<desktop.AboutInfo>;
+
 export function GetCurrentVersion():Promise<string>;
 
 export function GetDefaultDownloadDir():Promise<string>;

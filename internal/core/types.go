@@ -130,6 +130,14 @@ type DiagnosticInfo struct {
 	Error         string `json:"error"`
 }
 
+type AboutInfo struct {
+	AppVersion    string `json:"appVersion"`
+	SystemVersion string `json:"systemVersion"`
+	GithubRepo    string `json:"githubRepo"`
+	GithubURL     string `json:"githubUrl"`
+	AuthorEmail   string `json:"authorEmail"`
+}
+
 type UpdateInfo struct {
 	HasUpdate      bool   `json:"hasUpdate"`
 	CurrentVersion string `json:"currentVersion"`

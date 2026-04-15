@@ -85,6 +85,8 @@ func fromCoreDownloadTasks(in []*core.DownloadTask) []*DownloadTask {
 
 func fromCoreDiagnosticInfo(in core.DiagnosticInfo) DiagnosticInfo { return DiagnosticInfo(in) }
 
+func fromCoreAboutInfo(in core.AboutInfo) AboutInfo { return AboutInfo(in) }
+
 func fromCoreUpdateInfo(in core.UpdateInfo) UpdateInfo { return UpdateInfo(in) }
 
 func (a *App) GetSettings() Settings         { return fromCoreSettings(a.service.GetSettings()) }
@@ -119,6 +121,7 @@ func (a *App) ClearCompleted()                    { a.service.ClearCompleted() }
 func (a *App) GetDiagnosticInfo() DiagnosticInfo {
 	return fromCoreDiagnosticInfo(a.service.GetDiagnosticInfo())
 }
+func (a *App) GetAboutInfo() AboutInfo   { return fromCoreAboutInfo(a.service.GetAboutInfo()) }
 func (a *App) GetCurrentVersion() string { return a.service.GetCurrentVersion() }
 func (a *App) CheckForUpdate() (UpdateInfo, error) {
 	info, err := a.service.CheckForUpdate()

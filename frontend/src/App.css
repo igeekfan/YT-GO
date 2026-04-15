@@ -1127,6 +1127,20 @@ body {
   word-break: break-all;
 }
 
+.diag-link {
+  color: var(--accent);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.diag-link:hover {
+  text-decoration: underline;
+}
+
+.about-info .diag-label {
+  min-width: 92px;
+}
+
 .text-green-400 {
   color: #4ade80;
 }

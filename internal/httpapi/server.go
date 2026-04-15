@@ -40,6 +40,7 @@ func (s *Server) registerRoutes() {
 	s.mux.Handle("/api/events", s.hub)
 	s.mux.HandleFunc("/api/health", s.handleHealth)
 	s.mux.HandleFunc("/api/lang", s.handleLang)
+	s.mux.HandleFunc("/api/about", s.handleAbout)
 	s.mux.HandleFunc("/api/version", s.handleVersion)
 	s.mux.HandleFunc("/api/update", s.handleUpdate)
 	s.mux.HandleFunc("/api/ytdlp/status", s.handleYtDlpStatus)
@@ -81,6 +82,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.service.GetAboutInfo())
 }
 
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {

@@ -1,5 +1,25 @@
 export namespace desktop {
 	
+	export class AboutInfo {
+	    appVersion: string;
+	    systemVersion: string;
+	    githubRepo: string;
+	    githubUrl: string;
+	    authorEmail: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AboutInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.appVersion = source["appVersion"];
+	        this.systemVersion = source["systemVersion"];
+	        this.githubRepo = source["githubRepo"];
+	        this.githubUrl = source["githubUrl"];
+	        this.authorEmail = source["authorEmail"];
+	    }
+	}
 	export class DiagnosticInfo {
 	    ytdlpPath: string;
 	    ytdlpVersion: string;

@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {GetSettings, SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, ResetSettings, CheckForUpdate, OpenReleasePage} from '../lib/backend'
+import {SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo} from '../lib/backend'
 
 interface DiagnosticInfo {
     ytdlpPath: string
@@ -16,10 +16,21 @@ interface DiagnosticInfo {
     error: string
 }
 
+interface AboutInfo {
+    appVersion: string
+    systemVersion: string
+    githubRepo: string
+    githubUrl: string
+    authorEmail: string
+}
+
 interface Props {
     open: boolean
+    initialSettings: Settings | null
     onClose: () => void
     onSaved: (settings: Settings) => void
+    onThemePreview: (theme: 'dark' | 'light') => void
+    onLanguagePreview: (lang: 'zh-CN' | 'en-US') => void
 }
 
 const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
@@ -30,12 +41,13 @@ type SettingsTab = 'download' | 'media' | 'network' | 'tools' | 'appearance'
 
 const TAB_KEYS: SettingsTab[] = ['download', 'media', 'network', 'tools', 'appearance']
 
-function SettingsDialog({open, onClose, onSaved}: Props) {
+function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
     const [saving, setSaving] = useState(false)
     const [activeTab, setActiveTab] = useState<SettingsTab>('download')
     const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
+    const [aboutInfo, setAboutInfo] = useState<AboutInfo | null>(null)
     const [loadingDiag, setLoadingDiag] = useState(false)
     const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
     const [updateResult, setUpdateResult] = useState<string | null>(null)
@@ -81,12 +93,23 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
 
     useEffect(() => {
         if (open) {
-            GetSettings().then(setSettings).catch(console.error)
+            setSettings(initialSettings)
             setDiagnostic(null)
             setActiveTab('download')
             setUpdateInfo(null)
+            GetAboutInfo().then(setAboutInfo).catch(console.error)
         }
-    }, [open])
+    }, [open, initialSettings])
+
+    useEffect(() => {
+        if (!open || !settings?.theme) return
+        onThemePreview(settings.theme as 'dark' | 'light')
+    }, [open, settings?.theme, onThemePreview])
+
+    useEffect(() => {
+        if (!open || !settings?.language) return
+        onLanguagePreview(settings.language as 'zh-CN' | 'en-US')
+    }, [open, settings?.language, onLanguagePreview])
 
     const handleGetDiagnostic = async () => {
         setLoadingDiag(true)
@@ -129,6 +152,16 @@ function SettingsDialog({open, onClose, onSaved}: Props) {
     }
 
     if (!open || !settings) return null
+
+    const handleDismiss = () => {
+        if (initialSettings?.theme) {
+            onThemePreview(initialSettings.theme as 'dark' | 'light')
+        }
+        if (initialSettings?.language) {
+            onLanguagePreview(initialSettings.language as 'zh-CN' | 'en-US')
+        }
+        onClose()
+    }
 
     const handleSave = async () => {
         if (!settings) return
@@ -556,6 +589,33 @@ rel="noopener noreferrer"
                     </button>
                 </div>
             </div>
+            {aboutInfo && (
+                <div className="setting-item">
+                    <label className="setting-label">{t('settings.about')}</label>
+                    <div className="diagnostic-info about-info">
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.appVersion')}:</span>
+                            <span className="diag-value">v{aboutInfo.appVersion}</span>
+                        </div>
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.systemVersion')}:</span>
+                            <span className="diag-value">{aboutInfo.systemVersion}</span>
+                        </div>
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.github')}:</span>
+                            <a className="diag-link" href={aboutInfo.githubUrl} target="_blank" rel="noopener noreferrer">
+                                {aboutInfo.githubRepo}
+                            </a>
+                        </div>
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.authorEmail')}:</span>
+                            <a className="diag-link" href={`mailto:${aboutInfo.authorEmail}`}>
+                                {aboutInfo.authorEmail}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     )
 
@@ -606,11 +666,11 @@ rel="noopener noreferrer"
     }
 
     return (
-        <div className="dialog-overlay" onClick={onClose}>
+        <div className="dialog-overlay" onClick={handleDismiss}>
             <div className="dialog-content settings-dialog" onClick={e => e.stopPropagation()}>
                 <div className="dialog-header">
                     <h2>{t('settings.title')}</h2>
-                    <button className="btn-ghost btn-sm" onClick={onClose}>✕</button>
+                    <button className="btn-ghost btn-sm" onClick={handleDismiss}>✕</button>
                 </div>
                 <div className="settings-tabs">
                     {TAB_KEYS.map(tab => (
@@ -627,7 +687,7 @@ rel="noopener noreferrer"
                     {tabContent[activeTab]()}
                 </div>
                 <div className="dialog-footer">
-                    <button className="btn-secondary" onClick={onClose}>{t('action.cancel')}</button>
+                    <button className="btn-secondary" onClick={handleDismiss}>{t('action.cancel')}</button>
                     <button className="btn-primary" onClick={handleSave} disabled={saving}>
                         {saving ? t('settings.saving') : t('settings.save')}
                     </button>

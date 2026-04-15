@@ -182,6 +182,29 @@ export function ResetSettings() {
     )
 }
 
+export function GetCurrentVersion() {
+    return getDesktop(
+        () => DesktopApp.GetCurrentVersion(),
+        async () => {
+            const result = await apiFetch<{version: string}>('/api/version')
+            return result.version
+        }
+    )
+}
+
+export function GetAboutInfo() {
+    return getDesktop(
+        async () => {
+            const fn = (window as any)?.go?.desktop?.App?.GetAboutInfo
+            if (typeof fn !== 'function') {
+                throw new Error('GetAboutInfo is not available')
+            }
+            return await fn()
+        },
+        () => apiFetch('/api/about')
+    )
+}
+
 export function CheckForUpdate() {
     return getDesktop(() => DesktopApp.CheckForUpdate(), () => apiFetch('/api/update'))
 }

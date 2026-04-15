@@ -18,6 +18,10 @@ export function ClearCompleted() {
   return window['go']['desktop']['App']['ClearCompleted']();
 }
 
+export function GetAboutInfo() {
+  return window['go']['desktop']['App']['GetAboutInfo']();
+}
+
 export function GetCurrentVersion() {
   return window['go']['desktop']['App']['GetCurrentVersion']();
 }

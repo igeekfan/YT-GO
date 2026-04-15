@@ -111,6 +111,7 @@ function App() {
     const [isStarting, setIsStarting] = useState(false)
     const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
     const [downloads, setDownloads] = useState<DownloadTask[]>([])
+    const [currentSettings, setCurrentSettings] = useState<Settings | null>(null)
     const [toast, setToast] = useState<string | null>(null)
     const [showSettings, setShowSettings] = useState(false)
     const [showSetupWizard, setShowSetupWizard] = useState(false)
@@ -170,6 +171,15 @@ function App() {
         setTimeout(() => setToast(null), 3000)
     }, [])
 
+    const applySettingsToUI = useCallback((settings: Settings) => {
+        setCurrentSettings(settings)
+        if (settings.outputDir) setOutputDir(settings.outputDir)
+        if (settings.quality) setQuality(settings.quality)
+        if (settings.theme) setTheme(settings.theme as 'dark' | 'light')
+        if (settings.language) setLang(settings.language as any)
+        setNotificationsEnabled(settings.notifications || false)
+    }, [setLang])
+
     // Request notification permission and send completion notification
     const sendNotification = useCallback((title: string, body: string) => {
         if (!notificationsEnabled) return
@@ -227,11 +237,7 @@ function App() {
         })
         
         GetSettings().then(s => {
-            if (s.outputDir) setOutputDir(s.outputDir)
-            if (s.quality) setQuality(s.quality)
-            if (s.theme) setTheme(s.theme as 'dark' | 'light')
-            if (s.language) setLang(s.language as any)
-            setNotificationsEnabled(s.notifications || false)
+            applySettingsToUI(s)
             // Initialize per-download options from global settings
             setDlOptSaveThumbnail(s.saveThumbnail || false)
             setDlOptSaveDescription(s.saveDescription || false)
@@ -245,7 +251,33 @@ function App() {
             }
         }).catch(() => {})
         GetDownloads().then(tasks => { if (tasks) setDownloads(tasks) }).catch(() => {})
-    }, [])
+    }, [applySettingsToUI, setLang])
+
+    const handleQuickLanguageToggle = async () => {
+        const nextLanguage = lang === 'zh-CN' ? 'en-US' : 'zh-CN'
+        setLang(nextLanguage)
+        setCurrentSettings(prev => prev ? {...prev, language: nextLanguage} : prev)
+        if (currentSettings) {
+            try {
+                await SaveSettings({...currentSettings, language: nextLanguage})
+            } catch (e) {
+                console.error('Failed to persist language:', e)
+            }
+        }
+    }
+
+    const handleQuickThemeToggle = async () => {
+        const nextTheme = theme === 'dark' ? 'light' : 'dark'
+        setTheme(nextTheme)
+        setCurrentSettings(prev => prev ? {...prev, theme: nextTheme} : prev)
+        if (currentSettings) {
+            try {
+                await SaveSettings({...currentSettings, theme: nextTheme})
+            } catch (e) {
+                console.error('Failed to persist theme:', e)
+            }
+        }
+    }
 
     // Listen for download updates and send notifications
     useEffect(() => {
@@ -512,13 +544,13 @@ function App() {
                 <div className="header-right">
                     <button
                         className="btn-ghost btn-sm"
-                        onClick={() => setLang(lang === 'zh-CN' ? 'en-US' : 'zh-CN')}
+                        onClick={handleQuickLanguageToggle}
                     >
                         {lang === 'zh-CN' ? 'EN' : '中'}
                     </button>
                     <button
                         className="btn-ghost btn-sm"
-                        onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+                        onClick={handleQuickThemeToggle}
                         title={theme === 'dark' ? t('app.theme.light') : t('app.theme.dark')}
                     >
                         {theme === 'dark' ? '☀' : '☽'}
@@ -961,18 +993,17 @@ function App() {
             {/* Settings Dialog */}
             <SettingsDialog
                 open={showSettings}
+                initialSettings={currentSettings}
                 onClose={() => setShowSettings(false)}
                 onSaved={(s) => {
-                    setOutputDir(s.outputDir)
-                    setQuality(s.quality)
-                    setTheme(s.theme as 'dark' | 'light')
-                    setLang(s.language as any)
-                    setNotificationsEnabled(s.notifications || false)
+                    applySettingsToUI(s)
                     // Request notification permission if newly enabled
                     if (s.notifications && 'Notification' in window && Notification.permission === 'default') {
                         Notification.requestPermission()
                     }
                 }}
+                onThemePreview={setTheme}
+                onLanguagePreview={setLang}
             />
 
             {/* Setup Wizard */}
@@ -1002,6 +1033,7 @@ function App() {
                             cookiesFile,
                         }
                         await SaveSettings(settings)
+                        setCurrentSettings(settings)
                         setOutputDir(outputDir)
                         setTheme(theme)
                         setLang(language)
