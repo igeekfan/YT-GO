@@ -11,6 +11,7 @@ import (
 type Server struct {
 	service *core.Service
 	mux     *http.ServeMux
+	hub     *EventHub
 }
 
 type URLRequest struct {
@@ -21,6 +22,7 @@ func New(service *core.Service) *Server {
 	server := &Server{
 		service: service,
 		mux:     http.NewServeMux(),
+		hub:     NewEventHub(),
 	}
 	server.registerRoutes()
 	return server
@@ -30,7 +32,12 @@ func (s *Server) Handler() http.Handler {
 	return s.mux
 }
 
+func (s *Server) Hub() *EventHub {
+	return s.hub
+}
+
 func (s *Server) registerRoutes() {
+	s.mux.Handle("/api/events", s.hub)
 	s.mux.HandleFunc("/api/health", s.handleHealth)
 	s.mux.HandleFunc("/api/lang", s.handleLang)
 	s.mux.HandleFunc("/api/version", s.handleVersion)

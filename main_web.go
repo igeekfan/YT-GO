@@ -15,13 +15,24 @@ import (
 )
 
 func main() {
-	service := core.NewService(WailsInfo.Info.ProductVersion)
+	service := core.NewService(currentAppVersion())
+	apiServer := httpapi.New(service)
 	service.SetHooks(core.Hooks{
 		AppLog: func(msg string) {
 			log.Println(msg)
+			apiServer.Hub().Emit("app:log", msg)
+		},
+		DownloadUpdate: func(task *core.DownloadTask) {
+			if task != nil {
+				apiServer.Hub().Emit("download:update", task)
+			}
+		},
+		DownloadRemove: func(taskID string) {
+			apiServer.Hub().Emit("download:remove", taskID)
 		},
 		DownloadLog: func(taskID string, line string) {
 			log.Printf("[%s] %s", taskID, line)
+			apiServer.Hub().Emit("download:log", map[string]string{"taskId": taskID, "line": line})
 		},
 		HideCommand: platform.HideCmdWindow,
 	})
@@ -30,7 +41,6 @@ func main() {
 		log.Printf("service startup failed: %v", err)
 	}
 
-	apiServer := httpapi.New(service)
 	addr := os.Getenv("YTGO_WEB_ADDR")
 	if addr == "" {
 		addr = ":8080"
