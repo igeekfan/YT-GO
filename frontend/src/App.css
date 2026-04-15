@@ -80,6 +80,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-primary);
 }
 
@@ -1156,6 +1157,7 @@ body {
 /* ===== Settings Tabs ===== */
 .settings-dialog {
   max-width: 560px;
+  max-height: 90vh;
 }
 
 .settings-tabs {
