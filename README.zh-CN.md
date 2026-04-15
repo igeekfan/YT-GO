@@ -45,7 +45,7 @@ YT-GO 聚焦于桌面端的下载工作流，核心目标是把常用的 yt-dlp 
 ## 使用方式
 
 1. 粘贴视频链接、播放列表链接，或支持的频道视频列表链接。
-2. 点击“获取信息”。
+2. 点击"获取信息"。
 3. 如有需要，检测格式并选择单格式或视频+音频组合格式。
 4. 选择保存目录。
 5. 开始下载，或将识别出的整个集合批量加入下载任务。
@@ -149,3 +149,13 @@ MIT
 本项目以"现状"提供，不附带任何明示或暗示的保证。作者不对以下情况承担任何责任：因使用本工具导致的账号封禁、数据丢失、法律纠纷、经济损失，或因平台 API 变更导致工具失效等。
 
 **若您不同意上述任何条款，请立即停止使用并删除本项目。**
+
+## 图片集
+
+| <a href="images/zh-CN/start-1.png"><img src="images/zh-CN/start-1.png" width="200"/></a> | <a href="images/zh-CN/start-2.png"><img src="images/zh-CN/start-2.png" width="200"/></a> | <a href="images/zh-CN/getinfo.png"><img src="images/zh-CN/getinfo.png" width="200"/></a> |
+|:---:|:---:|:---:|
+| 主界面 | 播放列表选择 | 获取信息 |
+
+| <a href="images/zh-CN/setting-download.png"><img src="images/zh-CN/setting-download.png" width="200"/></a> | <a href="images/zh-CN/setting-network.png"><img src="images/zh-CN/setting-network.png" width="200"/></a> | <a href="images/zh-CN/light.png"><img src="images/zh-CN/light.png" width="200"/></a> |
+|:---:|:---:|:---:|
+| 下载设置 | 网络设置 | 浅色主题 |
