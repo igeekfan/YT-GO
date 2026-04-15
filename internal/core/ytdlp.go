@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -19,6 +20,21 @@ import (
 	"golang.org/x/text/transform"
 )
 
+const (
+	minimumDenoMajor = 2
+	minimumNodeMajor = 20
+)
+
+type runtimeProbe struct {
+	Name      string
+	Path      string
+	Version   string
+	Supported bool
+	Found     bool
+	Reason    string
+	Arg       string
+}
+
 func isNodeVersionSufficient(nodePath string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -26,30 +42,149 @@ func isNodeVersionSufficient(nodePath string) bool {
 	if err != nil {
 		return false
 	}
-	version := strings.TrimPrefix(strings.TrimSpace(toUTF8(out)), "v")
-	if dot := strings.Index(version, "."); dot > 0 {
-		version = version[:dot]
+	major, ok := parseRuntimeMajorVersion(strings.TrimSpace(toUTF8(out)))
+	return ok && major >= minimumNodeMajor
+}
+
+type jsRuntimeSelection struct {
+	Arg     string
+	Name    string
+	Version string
+	Path    string
+	Found   bool
+	Reason  string
+}
+
+func extractSemanticVersion(version string) string {
+	trimmed := strings.TrimSpace(version)
+	if trimmed == "" {
+		return ""
+	}
+	start := -1
+	for index, char := range trimmed {
+		if char >= '0' && char <= '9' {
+			start = index
+			break
+		}
+	}
+	if start < 0 {
+		return ""
+	}
+	end := start
+	for end < len(trimmed) {
+		char := trimmed[end]
+		if (char < '0' || char > '9') && char != '.' {
+			break
+		}
+		end++
+	}
+	return trimmed[start:end]
+}
+
+func parseRuntimeMajorVersion(version string) (int, bool) {
+	trimmed := extractSemanticVersion(version)
+	if dot := strings.Index(trimmed, "."); dot > 0 {
+		trimmed = trimmed[:dot]
 	}
 	major := 0
-	for _, c := range version {
+	if trimmed == "" {
+		return 0, false
+	}
+	for _, c := range trimmed {
 		if c < '0' || c > '9' {
-			return false
+			return 0, false
 		}
 		major = major*10 + int(c-'0')
 	}
-	return major >= 12
+	return major, true
+}
+
+func probeDenoRuntime() runtimeProbe {
+	probe := runtimeProbe{Name: "deno"}
+	denoPath, err := exec.LookPath("deno")
+	if err != nil || denoPath == "" {
+		return probe
+	}
+	probe.Found = true
+	probe.Path = denoPath
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	out, runErr := exec.CommandContext(ctx, denoPath, "--version").CombinedOutput()
+	if runErr != nil {
+		probe.Reason = fmt.Sprintf("当前检测到 Deno 路径 %s，但无法正常执行。", denoPath)
+		return probe
+	}
+	firstLine := strings.TrimSpace(strings.SplitN(toUTF8(out), "\n", 2)[0])
+	probe.Version = firstLine
+	if major, ok := parseRuntimeMajorVersion(firstLine); ok && major >= minimumDenoMajor {
+		probe.Supported = true
+		probe.Arg = "deno:" + denoPath
+		return probe
+	}
+	detectedVersion := extractSemanticVersion(firstLine)
+	if detectedVersion == "" {
+		detectedVersion = firstLine
+	}
+	probe.Reason = fmt.Sprintf("当前检测到 Deno %s，但版本过低，yt-dlp EJS 至少需要 Deno %d.0.0。", detectedVersion, minimumDenoMajor)
+	return probe
+}
+
+func probeNodeRuntime() runtimeProbe {
+	probe := runtimeProbe{Name: "node"}
+	nodePath, err := exec.LookPath("node")
+	if err != nil || nodePath == "" {
+		return probe
+	}
+	probe.Found = true
+	probe.Path = nodePath
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	out, runErr := exec.CommandContext(ctx, nodePath, "-v").CombinedOutput()
+	if runErr != nil {
+		probe.Reason = fmt.Sprintf("当前检测到 Node.js 路径 %s，但无法正常执行。", nodePath)
+		return probe
+	}
+	version := strings.TrimSpace(toUTF8(out))
+	probe.Version = version
+	if major, ok := parseRuntimeMajorVersion(version); ok && major >= minimumNodeMajor {
+		probe.Supported = true
+		probe.Arg = "node:" + nodePath
+		return probe
+	}
+	detectedVersion := extractSemanticVersion(version)
+	if detectedVersion == "" {
+		detectedVersion = version
+	}
+	probe.Reason = fmt.Sprintf("当前检测到 Node.js %s，但版本过低，yt-dlp EJS 至少需要 Node.js %d.0.0。", detectedVersion, minimumNodeMajor)
+	return probe
+}
+
+func detectPreferredJSRuntime() jsRuntimeSelection {
+	denoProbe := probeDenoRuntime()
+	if denoProbe.Supported {
+		return jsRuntimeSelection{Arg: denoProbe.Arg, Name: denoProbe.Name, Version: denoProbe.Version, Path: denoProbe.Path, Found: true}
+	}
+
+	nodeProbe := probeNodeRuntime()
+	if nodeProbe.Supported {
+		return jsRuntimeSelection{Arg: nodeProbe.Arg, Name: nodeProbe.Name, Version: nodeProbe.Version, Path: nodeProbe.Path, Found: true}
+	}
+
+	var reasons []string
+	if denoProbe.Reason != "" {
+		reasons = append(reasons, denoProbe.Reason)
+	}
+	if nodeProbe.Reason != "" {
+		reasons = append(reasons, nodeProbe.Reason)
+	}
+	if len(reasons) == 0 {
+		reasons = append(reasons, "当前未检测到可用的 Deno 或 Node.js。")
+	}
+	return jsRuntimeSelection{Reason: strings.Join(reasons, " ")}
 }
 
 func getPreferredJSRuntime() string {
-	denoPath, err := exec.LookPath("deno")
-	if err == nil && denoPath != "" {
-		return "deno:" + denoPath
-	}
-	nodePath, err := exec.LookPath("node")
-	if err == nil && nodePath != "" && isNodeVersionSufficient(nodePath) {
-		return "node:" + nodePath
-	}
-	return ""
+	return detectPreferredJSRuntime().Arg
 }
 
 func (s *Service) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
@@ -93,6 +228,54 @@ func appendCookiesArgs(args []string, settings Settings) []string {
 	return args
 }
 
+func describeCookieSource(settings Settings) string {
+	if settings.CookiesFrom != "" {
+		return fmt.Sprintf("当前使用浏览器 Cookies: %s。", settings.CookiesFrom)
+	}
+	if settings.CookiesFile != "" {
+		return fmt.Sprintf("当前使用 cookies 文件: %s。", settings.CookiesFile)
+	}
+	return ""
+}
+
+func isYouTubeURL(rawURL string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return host == "youtube.com" || host == "www.youtube.com" || strings.HasSuffix(host, ".youtube.com") || host == "youtu.be" || host == "www.youtu.be" || host == "youtube-nocookie.com" || strings.HasSuffix(host, ".youtube-nocookie.com")
+}
+
+func ensureYouTubeJSRuntime(rawURL string, settings Settings) error {
+	if !isYouTubeURL(rawURL) {
+		return nil
+	}
+	selection := detectPreferredJSRuntime()
+	if selection.Found {
+		return nil
+	}
+	cookieHint := describeCookieSource(settings)
+	reason := selection.Reason
+	if reason == "" {
+		reason = "当前缺少可用的 JS runtime。"
+	}
+	return fmt.Errorf("当前链接属于 YouTube，yt-dlp 需要可用的 JS runtime 才能完成签名/JS challenge 求解。%s%s请升级到 Deno >= %d.0.0（推荐）或 Node.js >= %d.0.0，并在安装后完全重启应用再重试。", cookieHint, reason, minimumDenoMajor, minimumNodeMajor)
+}
+
+func buildChallengeFailureHint(settings Settings) string {
+	cookieHint := describeCookieSource(settings)
+	selection := detectPreferredJSRuntime()
+	if selection.Found {
+		runtimeLabel := selection.Name
+		if selection.Version != "" {
+			runtimeLabel = fmt.Sprintf("%s %s", selection.Name, selection.Version)
+		}
+		return fmt.Sprintf("yt-dlp 已读取到 YouTube 页面，但当前环境仍未完成签名/JS challenge 求解，所以只拿到了图片 storyboard，没有拿到真实视频格式。%s当前已检测到可用的 %s。请先更新 yt-dlp 到最新版本；如果仍失败，再按 yt-dlp 的 EJS 指南检查 challenge solver 组件来源。", cookieHint, runtimeLabel)
+	}
+	return fmt.Sprintf("yt-dlp 已读取到 YouTube 页面，但当前环境无法完成签名/JS challenge 求解，所以只拿到了图片 storyboard，没有拿到真实视频格式。%s%s请升级到 Deno >= %d.0.0（推荐）或 Node.js >= %d.0.0，并在安装后重启应用。", cookieHint, selection.Reason, minimumDenoMajor, minimumNodeMajor)
+}
+
 func normalizeYtDlpError(errMsg string, settings Settings) string {
 	errMsg = strings.TrimSpace(errMsg)
 	if errMsg == "" {
@@ -100,19 +283,15 @@ func normalizeYtDlpError(errMsg string, settings Settings) string {
 	}
 	if strings.Contains(errMsg, "Fresh cookies") && strings.Contains(errMsg, "Douyin") {
 		cookieHint := "当前未配置抖音 Cookies。"
-		if settings.CookiesFrom != "" {
-			cookieHint = fmt.Sprintf("当前使用浏览器 Cookies: %s。", settings.CookiesFrom)
-		} else if settings.CookiesFile != "" {
-			cookieHint = fmt.Sprintf("当前使用 cookies 文件: %s。", settings.CookiesFile)
+		if hint := describeCookieSource(settings); hint != "" {
+			cookieHint = hint
 		}
 		return fmt.Sprintf("抖音需要有效的登录 Cookies 才能访问该视频。%s请登录 www.douyin.com 后，使用浏览器扩展导出 cookies.txt 并在设置中配置，或改用\u300c从浏览器导入 Cookies\u300d。原始错误: %s", cookieHint, errMsg)
 	}
 	if strings.Contains(errMsg, "Sign in to confirm") || strings.Contains(errMsg, "not a bot") {
 		cookieHint := "当前未配置 Cookies。"
-		if settings.CookiesFrom != "" {
-			cookieHint = fmt.Sprintf("当前使用浏览器 Cookies: %s。", settings.CookiesFrom)
-		} else if settings.CookiesFile != "" {
-			cookieHint = fmt.Sprintf("当前使用 cookies 文件: %s。", settings.CookiesFile)
+		if hint := describeCookieSource(settings); hint != "" {
+			cookieHint = hint
 		}
 		return fmt.Sprintf("YouTube 拒绝了当前访问，请求被判定为需要登录验证。%s这通常表示 Cookies 已过期、导出不完整、账号未登录 YouTube，或当前代理/IP 风险较高。请重新导出最新的 YouTube cookies.txt，或改用“从浏览器导入 Cookies”。原始错误: %s", cookieHint, errMsg)
 	}
@@ -123,29 +302,22 @@ func normalizeYtDlpError(errMsg string, settings Settings) string {
 		return fmt.Sprintf("Cookies 解密失败（DPAPI）。请检查是否以相同 Windows 用户运行，并避免管理员身份运行；必要时改用导出的 cookies.txt 文件。原始错误: %s", errMsg)
 	}
 	if strings.Contains(errMsg, "Signature solving failed") || strings.Contains(errMsg, "n challenge solving failed") || strings.Contains(errMsg, "Only images are available for download") || strings.Contains(errMsg, "Requested format is not available") {
-		cookieHint := ""
-		if settings.CookiesFrom != "" {
-			cookieHint = fmt.Sprintf("当前使用浏览器 Cookies: %s。", settings.CookiesFrom)
-		} else if settings.CookiesFile != "" {
-			cookieHint = fmt.Sprintf("当前使用 cookies 文件: %s。", settings.CookiesFile)
-		}
-		return fmt.Sprintf("yt-dlp 已读取到 YouTube 页面，但当前环境无法完成签名/JS challenge 求解，所以只拿到了图片 storyboard，没有拿到真实视频格式。%s请安装 Deno（推荐）或 Node.js LTS 并重启应用，或改用具备可用 JS runtime 的 yt-dlp 运行环境。原始错误: %s", cookieHint, errMsg)
+		return fmt.Sprintf("%s 原始错误: %s", buildChallengeFailureHint(settings), errMsg)
 	}
 	return errMsg
 }
 
 func getNodeVersion() string {
-	denoPath, err := exec.LookPath("deno")
-	if err == nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		out, runErr := exec.CommandContext(ctx, denoPath, "--version").CombinedOutput()
-		if runErr == nil {
-			firstLine := strings.TrimSpace(strings.SplitN(toUTF8(out), "\n", 2)[0])
-			if firstLine != "" {
-				return fmt.Sprintf("%s (%s)", firstLine, denoPath)
-			}
+	denoProbe := probeDenoRuntime()
+	if denoProbe.Found {
+		version := denoProbe.Version
+		if version == "" {
+			version = "deno"
 		}
+		if denoProbe.Supported {
+			return fmt.Sprintf("%s (%s)", version, denoProbe.Path)
+		}
+		return fmt.Sprintf("%s (%s, unsupported: need >= %d.0.0)", version, denoProbe.Path, minimumDenoMajor)
 	}
 	nodePath, err := exec.LookPath("node")
 	if err != nil {
@@ -160,6 +332,9 @@ func getNodeVersion() string {
 	version := strings.TrimSpace(toUTF8(out))
 	if version == "" {
 		return fmt.Sprintf("found at %s but returned empty version", nodePath)
+	}
+	if major, ok := parseRuntimeMajorVersion(version); !ok || major < minimumNodeMajor {
+		return fmt.Sprintf("%s (%s, unsupported: need >= %d.0.0)", version, nodePath, minimumNodeMajor)
 	}
 	return fmt.Sprintf("%s (%s)", version, nodePath)
 }
@@ -259,6 +434,55 @@ func (s *Service) UpdateYtDlp() (string, error) {
 	return output, nil
 }
 
+func (s *Service) UpdateDeno() (string, error) {
+	denoProbe := probeDenoRuntime()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	var cmd *exec.Cmd
+	var action string
+	if denoProbe.Found && denoProbe.Path != "" {
+		action = "upgrade"
+		cmd = exec.CommandContext(ctx, denoProbe.Path, "upgrade")
+	} else {
+		action = "install"
+		switch runtime.GOOS {
+		case "windows":
+			cmd = exec.CommandContext(ctx, "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "irm https://deno.land/install.ps1 | iex")
+		case "darwin", "linux":
+			cmd = exec.CommandContext(ctx, "sh", "-c", "curl -fsSL https://deno.land/install.sh | sh")
+		default:
+			return "", fmt.Errorf("automatic Deno installation is not supported on %s", runtime.GOOS)
+		}
+	}
+
+	cmd.Env = append(os.Environ(), "DENO_INSTALL_PROMPT=0")
+	if s.hooks.HideCommand != nil {
+		s.hooks.HideCommand(cmd)
+	}
+	if action == "upgrade" {
+		s.emitLog("[UpdateDeno] upgrading Deno from: %s", denoProbe.Path)
+	} else {
+		s.emitLog("[UpdateDeno] installing Deno for OS: %s", runtime.GOOS)
+	}
+	out, err := cmd.CombinedOutput()
+	output := strings.TrimSpace(toUTF8(out))
+	if output == "" {
+		if action == "upgrade" {
+			output = fmt.Sprintf("Deno %s finished. Please restart the app to refresh runtime detection.", action)
+		} else {
+			output = "Deno installation finished. Please restart the app to refresh runtime detection."
+		}
+	}
+	if err != nil {
+		return output, fmt.Errorf("deno %s failed: %w", action, err)
+	}
+	if !strings.Contains(strings.ToLower(output), "restart") {
+		output = output + "\n\nPlease restart the app to refresh runtime detection."
+	}
+	return output, nil
+}
+
 func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
 	url := extractURLFromText(rawInput)
 	if isDouyinURL(url) {
@@ -267,10 +491,14 @@ func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
 	if s.ytdlpPath == "" {
 		return VideoInfo{}, fmt.Errorf("yt-dlp not found")
 	}
+	settings := s.GetSettings()
+	if err := ensureYouTubeJSRuntime(url, settings); err != nil {
+		s.emitLog("[GetVideoInfo] preflight failed: %v", err)
+		return VideoInfo{}, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	args := []string{"--ignore-config", "--dump-json", "--no-playlist", "--no-warnings"}
-	settings := s.GetSettings()
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
@@ -394,10 +622,14 @@ func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 	if s.ytdlpPath == "" {
 		return PlaylistInfo{}, fmt.Errorf("yt-dlp not found")
 	}
+	settings := s.GetSettings()
+	if err := ensureYouTubeJSRuntime(url, settings); err != nil {
+		s.emitLog("[GetPlaylistInfo] preflight failed: %v", err)
+		return PlaylistInfo{}, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	args := []string{"--ignore-config", "--flat-playlist", "--dump-single-json", "--no-warnings"}
-	settings := s.GetSettings()
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
@@ -486,10 +718,14 @@ func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {
 	if s.ytdlpPath == "" {
 		return FormatInfo{}, fmt.Errorf("yt-dlp not found")
 	}
+	settings := s.GetSettings()
+	if err := ensureYouTubeJSRuntime(url, settings); err != nil {
+		s.emitLog("[GetFormats] preflight failed: %v", err)
+		return FormatInfo{}, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	args := []string{"--ignore-config", "--dump-json", "--no-download", "--no-warnings", "--no-playlist"}
-	settings := s.GetSettings()
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}

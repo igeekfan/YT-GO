@@ -93,6 +93,26 @@ function getConsoleLogType(line: string): 'error' | 'warning' | 'command' | 'inf
     return 'info'
 }
 
+function shouldTryPlaylistFallback(error: unknown): boolean {
+    const message = String((error as any)?.message || error || '').toLowerCase()
+    if (!message) return true
+
+    const nonFallbackSignals = [
+        'js runtime',
+        '请安装 deno',
+        'node.js lts',
+        'sign in to confirm',
+        'not a bot',
+        'dpapi',
+        'cookies',
+        'storyboard',
+        'youtube 拒绝了当前访问',
+        '抖音需要有效的登录 cookies',
+    ]
+
+    return !nonFallbackSignals.some(signal => message.includes(signal))
+}
+
 function App() {
     const {t, lang, setLang} = useI18n()
     const [theme, setTheme] = useState<'dark' | 'light'>(() =>
@@ -439,6 +459,7 @@ function App() {
     const handleGetInfo = async () => {
         if (!url.trim()) return
         setIsGettingInfo(true)
+        setIsGettingFormats(false)
         setVideoInfo(null)
         setPlaylistInfo(null)
         setFormatInfo(null)
@@ -452,14 +473,22 @@ function App() {
         try {
             const info = await GetVideoInfo(url.trim())
             setVideoInfo(info)
+            setFormatExpanded(true)
             // Auto-fetch available formats after getting video info
+            setIsGettingFormats(true)
             try {
                 const formats = await GetFormats(url.trim())
                 setFormatInfo(formats)
             } catch {
                 // Ignore format fetch errors - user can still use presets
+            } finally {
+                setIsGettingFormats(false)
             }
         } catch (e: any) {
+            if (!shouldTryPlaylistFallback(e)) {
+                showToast(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
+                return
+            }
             // Try as playlist if single video fetch fails or URL looks like a playlist
             try {
                 const plist = await GetPlaylistInfo(url.trim())
@@ -480,6 +509,7 @@ function App() {
     const handleGetFormats = async () => {
         if (!url.trim()) return
         setIsGettingFormats(true)
+        setFormatExpanded(true)
         try {
             const info = await GetFormats(url.trim())
             setFormatInfo(info)

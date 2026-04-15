@@ -227,7 +227,11 @@
     'dep.refresh': 'Refresh',
     'dep.installGuide': 'Install Guide',
     'dep.update': 'Update',
-    'dep.denoInstallGuide': 'Install Deno (recommended)',
+    'dep.denoInstallGuide': 'Install or Upgrade Deno (recommended)',
+    'dep.denoManage': 'Install / Upgrade Deno',
+    'dep.denoUpdating': 'Installing / Upgrading Deno...',
+    'dep.denoUpdateSuccess': 'Deno maintenance finished. Restart the app and refresh detection.',
+    'dep.denoUpdateFail': 'Deno maintenance failed',
     'dep.denoWindows': 'Windows (PowerShell): irm https://deno.land/install.ps1 | iex',
     'dep.denoMac': 'macOS / Linux: curl -fsSL https://deno.land/install.sh | sh',
     'dep.ffmpegInstallGuide': 'Install FFmpeg',
@@ -238,8 +242,8 @@
     'settings.tab.tools.short': 'Tools',
 
     'setup.denoReady': 'Deno is ready',
-    'setup.denoNotFound': 'Install Deno (recommended)',
-    'setup.denoDesc': 'Deno is used by yt-dlp to parse YouTube formats. Installing it improves reliability.',
+    'setup.denoNotFound': 'Install or upgrade Deno (recommended)',
+    'setup.denoDesc': 'Deno is used by yt-dlp to solve YouTube JavaScript challenges. Keep it updated, then restart the app.',
 }
 
 export default enUS

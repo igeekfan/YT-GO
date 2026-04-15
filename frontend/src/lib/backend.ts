@@ -50,6 +50,22 @@ export function UpdateYtDlp() {
     )
 }
 
+export function UpdateDeno() {
+    return getDesktop(
+        async () => {
+            const fn = (window as any)?.go?.desktop?.App?.UpdateDeno
+            if (typeof fn !== 'function') {
+                throw new Error('UpdateDeno is not available')
+            }
+            return await fn()
+        },
+        async () => {
+            const result = await apiFetch<{output: string}>('/api/diagnostics/deno/update', {method: 'POST'})
+            return result.output || ''
+        }
+    )
+}
+
 export function GetVideoInfo(url: string) {
     return getDesktop(
         () => DesktopApp.GetVideoInfo(url),

@@ -2,10 +2,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 20px;
-    border-radius: 10px;
+    padding: 14px 18px;
+    border-radius: 18px;
     animation: slideDown 0.3s ease;
     gap: 16px;
+    border: 1px solid var(--border);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-md);
 }
 
 @keyframes slideDown {
@@ -15,15 +18,14 @@
 
 /* Loading State */
 .update-banner.loading {
-    background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(168, 85, 247, 0.15));
-    border: 1px solid rgba(124, 58, 237, 0.3);
+    background: linear-gradient(135deg, rgba(85, 179, 255, 0.12), rgba(255, 255, 255, 0.03));
 }
 
 .update-banner.loading .update-spinner {
     width: 18px;
     height: 18px;
-    border: 2px solid rgba(124, 58, 237, 0.3);
-    border-top-color: #7c3aed;
+    border: 2px solid rgba(85, 179, 255, 0.2);
+    border-top-color: var(--accent-blue);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -39,8 +41,7 @@
 
 /* Error State */
 .update-banner.error {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(248, 113, 113, 0.15));
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: linear-gradient(135deg, rgba(255, 99, 99, 0.12), rgba(255, 255, 255, 0.03));
 }
 
 .update-banner.error .update-banner-icon {
@@ -55,8 +56,7 @@
 
 /* Available Update */
 .update-banner.available {
-    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
-    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+    background: linear-gradient(135deg, rgba(255, 99, 99, 0.18), rgba(85, 179, 255, 0.16));
 }
 
 .update-banner.available .update-banner-content {
@@ -70,7 +70,7 @@
 }
 
 .update-banner.available .update-banner-text {
-    color: white;
+    color: var(--text-primary);
     font-size: 14px;
 }
 
@@ -86,13 +86,13 @@
 }
 
 .update-banner-btn-download {
-    background: white;
-    color: #7c3aed;
-    border: none;
-    padding: 6px 14px;
-    border-radius: 6px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, white 12%), var(--accent));
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 8px 14px;
+    border-radius: 999px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
@@ -101,43 +101,43 @@
 }
 
 .update-banner-btn-download:hover {
-    transform: scale(1.05);
-    box-shadow: 0 2px 10px rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+    filter: brightness(1.04);
 }
 
 .update-banner-btn-later {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border: none;
-    padding: 6px 14px;
-    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 999px;
     font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .update-banner-btn-later:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: var(--bg-hover);
 }
 
 .update-banner-btn {
-    background: #7c3aed;
+    background: var(--accent-blue);
     color: white;
     border: none;
-    padding: 6px 14px;
-    border-radius: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
     font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .update-banner-btn:hover {
-    background: #6d28d9;
+    filter: brightness(1.06);
 }
 
 .update-banner-btn-close {
     background: transparent;
-    color: #a1a1aa;
+    color: var(--text-muted);
     border: none;
     font-size: 18px;
     cursor: pointer;
@@ -146,7 +146,7 @@
 }
 
 .update-banner-btn-close:hover {
-    color: white;
+    color: var(--text-primary);
 }
 
 /* Responsive */

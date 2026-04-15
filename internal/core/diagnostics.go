@@ -65,34 +65,28 @@ func (s *Service) GetDepStatus() DepStatus {
 	ffPath, ffVersion, ffFound := detectFFmpeg()
 	status.FFmpeg = DepItem{Found: ffFound, Version: ffVersion, Path: ffPath}
 
-	// JS runtime: try deno first, then node
-	denoPath, err := exec.LookPath("deno")
-	if err == nil && denoPath != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		out, runErr := exec.CommandContext(ctx, denoPath, "--version").CombinedOutput()
-		ver := ""
-		if runErr == nil {
-			firstLine := strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0])
-			if strings.HasPrefix(firstLine, "deno ") {
-				ver = strings.TrimPrefix(firstLine, "deno ")
-			} else {
-				ver = firstLine
-			}
+	denoProbe := probeDenoRuntime()
+	if denoProbe.Found {
+		version := denoProbe.Version
+		if version == "" {
+			version = denoProbe.Reason
 		}
-		status.JSRuntime = DepItem{Found: true, Version: ver, Path: denoPath}
+		if !denoProbe.Supported && version != "" {
+			version = fmt.Sprintf("%s (need >= %d.0.0)", version, minimumDenoMajor)
+		}
+		status.JSRuntime = DepItem{Found: denoProbe.Supported, Version: version, Path: denoProbe.Path}
 		status.JSRuntimeName = "deno"
 	} else {
-		nodePath, nodeErr := exec.LookPath("node")
-		if nodeErr == nil && nodePath != "" && isNodeVersionSufficient(nodePath) {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			out, runErr := exec.CommandContext(ctx, nodePath, "-v").CombinedOutput()
-			ver := ""
-			if runErr == nil {
-				ver = strings.TrimPrefix(strings.TrimSpace(string(out)), "v")
+		nodeProbe := probeNodeRuntime()
+		if nodeProbe.Found {
+			version := nodeProbe.Version
+			if version == "" {
+				version = nodeProbe.Reason
 			}
-			status.JSRuntime = DepItem{Found: true, Version: ver, Path: nodePath}
+			if !nodeProbe.Supported && version != "" {
+				version = fmt.Sprintf("%s (need >= %d.0.0)", version, minimumNodeMajor)
+			}
+			status.JSRuntime = DepItem{Found: nodeProbe.Supported, Version: version, Path: nodeProbe.Path}
 			status.JSRuntimeName = "node"
 		}
 	}

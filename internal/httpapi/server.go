@@ -50,6 +50,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/settings/needs-cookie", s.handleNeedsCookie)
 	s.mux.HandleFunc("/api/settings/reset", s.handleResetSettings)
 	s.mux.HandleFunc("/api/diagnostics", s.handleDiagnostics)
+	s.mux.HandleFunc("/api/diagnostics/deno/update", s.handleDenoUpdate)
 	s.mux.HandleFunc("/api/video/info", s.handleVideoInfo)
 	s.mux.HandleFunc("/api/video/formats", s.handleFormats)
 	s.mux.HandleFunc("/api/video/playlist", s.handlePlaylist)
@@ -188,6 +189,19 @@ func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.service.GetDiagnosticInfo())
+}
+
+func (s *Server) handleDenoUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w, http.MethodPost)
+		return
+	}
+	output, err := s.service.UpdateDeno()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error(), "output": output})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"output": output})
 }
 
 func (s *Server) handleVideoInfo(w http.ResponseWriter, r *http.Request) {

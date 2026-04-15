@@ -110,6 +110,10 @@ export function StartDownload(arg1) {
   return window['go']['desktop']['App']['StartDownload'](arg1);
 }
 
+export function UpdateDeno() {
+  return window['go']['desktop']['App']['UpdateDeno']();
+}
+
 export function UpdateYtDlp() {
   return window['go']['desktop']['App']['UpdateYtDlp']();
 }

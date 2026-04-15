@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus} from '../lib/backend'
+import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus} from '../lib/backend'
 
 interface DiagnosticInfo {
     ytdlpPath: string
@@ -64,6 +64,8 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     const [loadingDiag, setLoadingDiag] = useState(false)
     const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
     const [updateResult, setUpdateResult] = useState<string | null>(null)
+    const [isUpdatingDeno, setIsUpdatingDeno] = useState(false)
+    const [denoUpdateResult, setDenoUpdateResult] = useState<string | null>(null)
     const [isResetting, setIsResetting] = useState(false)
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
     const [depStatus, setDepStatus] = useState<DepStatus | null>(null)
@@ -173,11 +175,26 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
         }
     }
 
+    const handleUpdateDeno = async () => {
+        setIsUpdatingDeno(true)
+        setDenoUpdateResult(null)
+        try {
+            const result = await UpdateDeno()
+            setDenoUpdateResult(result || t('dep.denoUpdateSuccess'))
+            const status = await GetDepStatus()
+            setDepStatus(status as DepStatus)
+        } catch (e: any) {
+            setDenoUpdateResult(t('dep.denoUpdateFail') + (e?.message ? `: ${e.message}` : ''))
+        } finally {
+            setIsUpdatingDeno(false)
+        }
+    }
+
     const handleResetSettings = async () => {
         setIsResetting(true)
         try {
             await ResetSettings()
-            setUpdateResult(t('settings.resetSuccess'))
+            setUpdateResult(t('settings.resetSuccess') + ' ' + (lang === 'zh-CN' ? '请重启应用使设置生效' : 'Please restart the app for changes to take effect'))
         } catch (e: any) {
             setUpdateResult(e?.message ? `${e.message}` : t('settings.resetFailed'))
         } finally {
@@ -493,7 +510,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                             <>
                                 <div className="diag-item">
                                     <span className="diag-label">{t('settings.diagStatus')}:</span>
-                                    <span className={`diag-value ${depStatus.ytdlp.found ? 'text-green-400' : 'text-red-400'}`}>
+                                    <span className={`diag-value diag-status ${depStatus.ytdlp.found ? 'text-green-400' : 'text-red-400'}`}>
                                         {depStatus.ytdlp.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`}
                                     </span>
                                 </div>
@@ -536,7 +553,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                     <div className="diagnostic-info">
                         <div className="diag-item">
                             <span className="diag-label">{t('settings.diagStatus')}:</span>
-                            <span className={`diag-value ${depStatus.ffmpeg.found ? 'text-green-400' : 'text-red-400'}`}>
+                            <span className={`diag-value diag-status ${depStatus.ffmpeg.found ? 'text-green-400' : 'text-red-400'}`}>
                                 {depStatus.ffmpeg.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`}
                             </span>
                         </div>
@@ -570,7 +587,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                     <div className="diagnostic-info">
                         <div className="diag-item">
                             <span className="diag-label">{t('settings.diagStatus')}:</span>
-                            <span className={`diag-value ${depStatus.jsRuntime.found ? 'text-green-400' : 'text-red-400'}`}>
+                            <span className={`diag-value diag-status ${depStatus.jsRuntime.found ? 'text-green-400' : 'text-red-400'}`}>
                                 {depStatus.jsRuntime.found
                                     ? `✓ ${depStatus.jsRuntimeName || 'deno/node'} ${t('dep.found')}`
                                     : `✗ ${t('dep.notFound')}`}
@@ -588,6 +605,20 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                                 <span className="diag-value">{depStatus.jsRuntime.path}</span>
                             </div>
                         )}
+                    </div>
+                )}
+                <div className="tools-btn-row" style={{marginTop: 8}}>
+                    <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleUpdateDeno}
+                        disabled={isUpdatingDeno}
+                    >
+                        {isUpdatingDeno ? t('dep.denoUpdating') : t('dep.denoManage')}
+                    </button>
+                </div>
+                {denoUpdateResult && (
+                    <div className="diagnostic-info" style={{marginTop: 8}}>
+                        <div className="diag-item"><span className="diag-value">{denoUpdateResult}</span></div>
                     </div>
                 )}
                 {depStatus && !depStatus.jsRuntime.found && (

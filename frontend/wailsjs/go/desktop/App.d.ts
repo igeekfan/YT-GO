@@ -56,4 +56,6 @@ export function SetLang(arg1:string):Promise<void>;
 
 export function StartDownload(arg1:desktop.DownloadRequest):Promise<string>;
 
+export function UpdateDeno():Promise<string>;
+
 export function UpdateYtDlp():Promise<string>;
