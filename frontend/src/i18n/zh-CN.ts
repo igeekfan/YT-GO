@@ -60,6 +60,7 @@
     'action.retry': '重试',
     'action.redownload': '重新下载',
     'action.remove': '删除',
+    'action.clear': '清空',
     'action.open': '打开文件',
     'action.openFolder': '打开文件夹',
     'action.logs': '日志',

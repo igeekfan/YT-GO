@@ -60,6 +60,7 @@
     'action.retry': 'Retry',
     'action.redownload': 'Re-download',
     'action.remove': 'Remove',
+    'action.clear': 'Clear',
     'action.open': 'Open File',
     'action.openFolder': 'Open Folder',
     'action.logs': 'Logs',

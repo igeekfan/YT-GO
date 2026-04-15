@@ -241,12 +241,17 @@ body {
   gap: 8px;
 }
 
-.url-input {
+.url-input-wrap {
+  position: relative;
   flex: 1;
+}
+
+.url-input {
+  width: 100%;
   background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 10px 40px 10px 14px;
   color: var(--text-primary);
   font-size: 14px;
   outline: none;
@@ -257,6 +262,30 @@ body {
 }
 .url-input::placeholder {
   color: var(--text-muted);
+}
+
+.url-clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: var(--btn-secondary-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.url-clear-btn:hover {
+  background: var(--btn-secondary-hover);
+  color: var(--text-primary);
 }
 
 /* ===== Video card ===== */

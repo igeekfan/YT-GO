@@ -171,6 +171,17 @@ function App() {
         setTimeout(() => setToast(null), 3000)
     }, [])
 
+    const persistSettingsPatch = useCallback((patch: Partial<Settings>) => {
+        setCurrentSettings(prev => {
+            if (!prev) return prev
+            const next = {...prev, ...patch}
+            SaveSettings(next).catch(error => {
+                console.error('Failed to persist settings patch:', error)
+            })
+            return next
+        })
+    }, [])
+
     const applySettingsToUI = useCallback((settings: Settings) => {
         setCurrentSettings(settings)
         if (settings.outputDir) setOutputDir(settings.outputDir)
@@ -278,6 +289,18 @@ function App() {
             }
         }
     }
+
+    const clearCurrentInput = useCallback(() => {
+        setUrl('')
+        setVideoInfo(null)
+        setPlaylistInfo(null)
+        setFormatInfo(null)
+        setSelectedFormat('')
+        setSelectedVideoFormat('')
+        setSelectedAudioFormat('')
+        setSelectedPlaylistItems(new Set())
+        setSelectedSubtitleLangs(new Set())
+    }, [])
 
     // Listen for download updates and send notifications
     useEffect(() => {
@@ -468,13 +491,6 @@ function App() {
                 videoInfo: videoInfo || undefined,
                 options: buildDownloadOptions(),
             } as any)
-            setUrl('')
-            setVideoInfo(null)
-            setPlaylistInfo(null)
-            setFormatInfo(null)
-            setSelectedFormat('')
-            setSelectedVideoFormat('')
-            setSelectedAudioFormat('')
         } catch (e: any) {
             showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
@@ -513,10 +529,6 @@ function App() {
                     } as any)
                 }
             }
-            setUrl('')
-            setVideoInfo(null)
-            setPlaylistInfo(null)
-            setSelectedPlaylistItems(new Set())
         } catch (e: any) {
             showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
@@ -623,15 +635,28 @@ function App() {
                 {ytdlp?.available && (
                 <div className="url-section">
                     <div className="url-row">
-                        <input
-                            className="url-input"
-                            type="text"
-                            value={url}
-                            onChange={e => setUrl(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={t('url.placeholder')}
-                            disabled={isGettingInfo}
-                        />
+                        <div className="url-input-wrap">
+                            <input
+                                className="url-input"
+                                type="text"
+                                value={url}
+                                onChange={e => setUrl(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                placeholder={t('url.placeholder')}
+                                disabled={isGettingInfo}
+                            />
+                            {url && (
+                                <button
+                                    type="button"
+                                    className="url-clear-btn"
+                                    onClick={clearCurrentInput}
+                                    title={t('action.clear')}
+                                    aria-label={t('action.clear')}
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
                         <button
                             className="btn-primary"
                             onClick={handleGetInfo}
@@ -743,7 +768,9 @@ function App() {
                                 className="select-input"
                                 value={quality}
                                 onChange={e => {
-                                    setQuality(e.target.value)
+                                    const nextQuality = e.target.value
+                                    setQuality(nextQuality)
+                                    persistSettingsPatch({quality: nextQuality})
                                     setSelectedFormat('')
                                     setSelectedVideoFormat('')
                                     setSelectedAudioFormat('')
@@ -893,29 +920,53 @@ function App() {
                             <div className="download-options-title">⚙ {t('downloadOpt.title')}</div>
                             <div className="download-options-grid">
                                 <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptSaveThumbnail} onChange={e => setDlOptSaveThumbnail(e.target.checked)} />
+                                    <input type="checkbox" checked={dlOptSaveThumbnail} onChange={e => {
+                                        const checked = e.target.checked
+                                        setDlOptSaveThumbnail(checked)
+                                        persistSettingsPatch({saveThumbnail: checked})
+                                    }} />
                                     {t('downloadOpt.saveThumbnail')}
                                 </label>
                                 <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptSaveDescription} onChange={e => setDlOptSaveDescription(e.target.checked)} />
+                                    <input type="checkbox" checked={dlOptSaveDescription} onChange={e => {
+                                        const checked = e.target.checked
+                                        setDlOptSaveDescription(checked)
+                                        persistSettingsPatch({saveDescription: checked})
+                                    }} />
                                     {t('downloadOpt.saveDescription')}
                                 </label>
                                 <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptEmbedChapters} onChange={e => setDlOptEmbedChapters(e.target.checked)} />
+                                    <input type="checkbox" checked={dlOptEmbedChapters} onChange={e => {
+                                        const checked = e.target.checked
+                                        setDlOptEmbedChapters(checked)
+                                        persistSettingsPatch({embedChapters: checked})
+                                    }} />
                                     {t('downloadOpt.embedChapters')}
                                 </label>
                                 <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptWriteSubtitles} onChange={e => setDlOptWriteSubtitles(e.target.checked)} />
+                                    <input type="checkbox" checked={dlOptWriteSubtitles} onChange={e => {
+                                        const checked = e.target.checked
+                                        setDlOptWriteSubtitles(checked)
+                                        persistSettingsPatch({writeSubtitles: checked})
+                                    }} />
                                     {t('downloadOpt.writeSubtitles')}
                                 </label>
                                 {dlOptWriteSubtitles && (
                                     <label className="download-opt-item">
-                                        <input type="checkbox" checked={dlOptEmbedSubtitles} onChange={e => setDlOptEmbedSubtitles(e.target.checked)} />
+                                        <input type="checkbox" checked={dlOptEmbedSubtitles} onChange={e => {
+                                            const checked = e.target.checked
+                                            setDlOptEmbedSubtitles(checked)
+                                            persistSettingsPatch({embedSubtitles: checked})
+                                        }} />
                                         {t('downloadOpt.embedSubtitles')}
                                     </label>
                                 )}
                                 <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptSponsorBlock} onChange={e => setDlOptSponsorBlock(e.target.checked)} />
+                                    <input type="checkbox" checked={dlOptSponsorBlock} onChange={e => {
+                                        const checked = e.target.checked
+                                        setDlOptSponsorBlock(checked)
+                                        persistSettingsPatch({sponsorBlock: checked})
+                                    }} />
                                     {t('downloadOpt.sponsorBlock')}
                                     <span className="sponsorblock-tooltip">
                                         <span className="tooltip-icon">?</span>
