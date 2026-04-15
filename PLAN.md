@@ -11,18 +11,20 @@ Go 后端                                 React 前端
 │ - DownloadRequest        │ ◄────────► │ ├── 画质 / 目录选择           │
 │ - DownloadTask           │  Bind      │ └── DownloadList.tsx          │
 │                          │            │     └── DownloadItem.tsx      │
-│ app.go                   │            └──────────────────────────────┘
-│ - CheckYtDlp()           │
-│ - GetVideoInfo()         │            事件总线
-│ - GetDefaultDownloadDir()│            ┌─────────────────┐
-│ - SelectFolder()         │            │ download:update │
-│ - StartDownload()        │ ──────────►│ (DownloadTask)  │
-│ - CancelDownload()       │            └─────────────────┘
-│ - GetDownloads()         │
-│ - ClearCompleted()       │
-│ - OpenFolder()           │
-│ - OpenFile()             │
-│ - SetLang() / GetLang()  │
+│ app.go                   │            事件总线
+│ - App struct / startup   │            ┌─────────────────┐
+│ app_settings.go          │            │ download:update │
+│ - settings / language    │            │ download:log    │
+│ app_ytdlp.go             │ ──────────►│ app:log         │
+│ - yt-dlp / metadata      │            └─────────────────┘
+│ app_downloads.go         │
+│ - queue / progress / db  │
+│ app_ui.go                │
+│ - file dialogs / openers │
+│ app_diagnostics.go       │
+│ - diagnostics / ffmpeg   │
+│ app_update.go            │
+│ - release check / open   │
 └──────────────────────────┘
 ```
 
@@ -30,7 +32,12 @@ Go 后端                                 React 前端
 
 ## 当前状态
 
-当前已实现功能统一维护在 [README.md](README.md) 与 [README.zh-CN.md](README.zh-CN.md) 中，PLAN 只保留未来工作项、优先级和推进顺序，避免重复维护。
+当前已实现功能统一维护在 [README.md](README.md) 与 [README.zh-CN.md](README.zh-CN.md) 中，PLAN 主要保留结构演进、未来工作项、优先级和推进顺序，避免与 README 重复维护。
+
+最近已完成：
+
+- 启动配置页第一步增加语言选择与明暗主题切换，首次启动即可完成界面偏好设置。
+- Go 后端按职责拆分为 settings / yt-dlp / downloads / ui / diagnostics / update 多文件结构，降低单文件复杂度。
 
 ## 产品规划原则
 
@@ -74,6 +81,16 @@ Go 后端                                 React 前端
 | P8 | 工具中心 | 完整补齐 yt-dlp / FFmpeg 检测、更新入口和诊断面板 | ✅ 已完成 |
 | P9 | 历史与管理 | 强化历史记录、筛选、重试、重新下载、文件定位与日志回看 | ✅ 已完成 |
 | P10 | 文档维护 | README 作为产品文档主入口，PLAN 只跟踪未来路线、优先级与里程碑 | ✅ 已完成 |
+| P11 | 启动向导偏好 | 首次启动第一步直接配置下载目录、语言与主题，降低初始化摩擦 | ✅ 已完成 |
+| P12 | 后端结构治理 | 将单体 app.go 按职责拆分，维持现有 Wails 绑定与功能行为不变 | ✅ 已完成 |
+
+## 下一阶段候选项
+
+| 优先级 | 方向 | 说明 | 状态 |
+|--------|------|------|------|
+| N1 | 下载器内核下沉 | 将 yt-dlp 参数构建、任务状态机、日志解析进一步抽成独立内部组件，减少 App 结构体负担 | ⏳ 待开始 |
+| N2 | 设置入口下沉首页 | 把默认下载目录、格式偏好、常用媒体选项逐步下沉到首页，减少弹窗往返 | ⏳ 待开始 |
+| N3 | 工具中心独立页面 | 将诊断、更新、环境检测从设置弹窗继续剥离到独立页面 | ⏳ 待开始 |
 
 ## 分阶段实施建议
 
