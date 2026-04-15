@@ -89,6 +89,17 @@ func fromCoreAboutInfo(in core.AboutInfo) AboutInfo { return AboutInfo(in) }
 
 func fromCoreUpdateInfo(in core.UpdateInfo) UpdateInfo { return UpdateInfo(in) }
 
+func fromCoreDepItem(in core.DepItem) DepItem { return DepItem(in) }
+
+func fromCoreDepStatus(in core.DepStatus) DepStatus {
+	return DepStatus{
+		YtDlp:         fromCoreDepItem(in.YtDlp),
+		FFmpeg:        fromCoreDepItem(in.FFmpeg),
+		JSRuntime:     fromCoreDepItem(in.JSRuntime),
+		JSRuntimeName: in.JSRuntimeName,
+	}
+}
+
 func (a *App) GetSettings() Settings         { return fromCoreSettings(a.service.GetSettings()) }
 func (a *App) IsFirstRun() bool              { return a.service.IsFirstRun() }
 func (a *App) NeedsCookieConfig() bool       { return a.service.NeedsCookieConfig() }
@@ -127,3 +138,4 @@ func (a *App) CheckForUpdate() (UpdateInfo, error) {
 	info, err := a.service.CheckForUpdate()
 	return fromCoreUpdateInfo(info), err
 }
+func (a *App) GetDepStatus() DepStatus { return fromCoreDepStatus(a.service.GetDepStatus()) }

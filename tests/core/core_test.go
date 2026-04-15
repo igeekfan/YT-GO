@@ -22,6 +22,44 @@ func extractThumbnailURL(raw map[string]interface{}) string
 //go:linkname shouldApplyMergeOutputFormat YT-GO/internal/core.shouldApplyMergeOutputFormat
 func shouldApplyMergeOutputFormat(quality string) bool
 
+//go:linkname extractURLFromText YT-GO/internal/core.extractURLFromText
+func extractURLFromText(input string) string
+
+func TestExtractURLFromText(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "plain URL unchanged",
+			input: "https://www.youtube.com/watch?v=abc123",
+			want:  "https://www.youtube.com/watch?v=abc123",
+		},
+		{
+			name:  "noisy douyin share text",
+			input: "3.33 08/10 rEH:/ 嘴上抵制背地里入局  https://v.douyin.com/i193-6eUp6E/ 复制此链接，打开Dou音搜索！",
+			want:  "https://v.douyin.com/i193-6eUp6E/",
+		},
+		{
+			name:  "trailing punctuation stripped",
+			input: "watch this https://youtu.be/abc，",
+			want:  "https://youtu.be/abc",
+		},
+		{
+			name:  "no URL in text",
+			input: "no link here",
+			want:  "no link here",
+		},
+	}
+	for _, tc := range tests {
+		got := extractURLFromText(tc.input)
+		if got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestExtractDouyinTargetFromShareText(t *testing.T) {
 	url, videoID, err := extractDouyinTarget("7.52 复制打开抖音，看看【测试账号】发布的视频！ https://v.douyin.com/iAABBccD/ 😄 ")
 	if err != nil {

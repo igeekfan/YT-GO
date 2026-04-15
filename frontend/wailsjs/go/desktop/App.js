@@ -30,6 +30,10 @@ export function GetDefaultDownloadDir() {
   return window['go']['desktop']['App']['GetDefaultDownloadDir']();
 }
 
+export function GetDepStatus() {
+  return window['go']['desktop']['App']['GetDepStatus']();
+}
+
 export function GetDiagnosticInfo() {
   return window['go']['desktop']['App']['GetDiagnosticInfo']();
 }

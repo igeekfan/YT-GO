@@ -222,6 +222,13 @@ export function GetDiagnosticInfo() {
     return getDesktop(() => DesktopApp.GetDiagnosticInfo(), () => apiFetch('/api/diagnostics'))
 }
 
+export function GetDepStatus() {
+    return getDesktop(
+        () => DesktopApp.GetDepStatus(),
+        () => apiFetch('/api/diagnostics/deps')
+    )
+}
+
 export function SetLang(lang: string) {
     return getDesktop(
         () => DesktopApp.SetLang(lang),

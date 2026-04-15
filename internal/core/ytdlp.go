@@ -200,6 +200,23 @@ func (s *Service) findYtDlp() string {
 	return ""
 }
 
+var shareTextURLRe = regexp.MustCompile(`https?://\S+`)
+
+// extractURLFromText returns the embedded URL from a noisy share-text snippet
+// (e.g. a Douyin/TikTok copy-link share string).  If the input has no
+// whitespace it is already a plain URL and is returned trimmed as-is.
+func extractURLFromText(input string) string {
+	trimmed := strings.TrimSpace(input)
+	if !strings.ContainsAny(trimmed, " \t\r\n") {
+		return trimmed
+	}
+	m := shareTextURLRe.FindString(trimmed)
+	if m == "" {
+		return trimmed
+	}
+	return strings.TrimRight(m, ".,;:!?)]}，。；：！？、）】》」』")
+}
+
 func (s *Service) CheckYtDlp() YtDlpStatus {
 	if s.ytdlpPath == "" {
 		s.ytdlpPath = s.findYtDlp()
@@ -233,7 +250,8 @@ func (s *Service) UpdateYtDlp() (string, error) {
 	return output, nil
 }
 
-func (s *Service) GetVideoInfo(url string) (VideoInfo, error) {
+func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
+	url := extractURLFromText(rawInput)
 	if isDouyinURL(url) {
 		return s.GetDouyinVideoInfo(url)
 	}
@@ -348,7 +366,8 @@ func detectCollectionKind(url string) string {
 	return "playlist"
 }
 
-func (s *Service) GetPlaylistInfo(url string) (PlaylistInfo, error) {
+func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
+	url := extractURLFromText(rawInput)
 	if s.ytdlpPath == "" {
 		return PlaylistInfo{}, fmt.Errorf("yt-dlp not found")
 	}
@@ -436,7 +455,8 @@ func (s *Service) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	return result, nil
 }
 
-func (s *Service) GetFormats(url string) (FormatInfo, error) {
+func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {
+	url := extractURLFromText(rawInput)
 	if isDouyinURL(url) {
 		return s.GetDouyinFormats(url)
 	}

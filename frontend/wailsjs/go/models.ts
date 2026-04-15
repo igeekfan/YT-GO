@@ -20,6 +20,58 @@ export namespace desktop {
 	        this.authorEmail = source["authorEmail"];
 	    }
 	}
+	export class DepItem {
+	    found: boolean;
+	    version: string;
+	    path: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DepItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.found = source["found"];
+	        this.version = source["version"];
+	        this.path = source["path"];
+	    }
+	}
+	export class DepStatus {
+	    ytdlp: DepItem;
+	    ffmpeg: DepItem;
+	    jsRuntime: DepItem;
+	    jsRuntimeName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DepStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ytdlp = this.convertValues(source["ytdlp"], DepItem);
+	        this.ffmpeg = this.convertValues(source["ffmpeg"], DepItem);
+	        this.jsRuntime = this.convertValues(source["jsRuntime"], DepItem);
+	        this.jsRuntimeName = source["jsRuntimeName"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class DiagnosticInfo {
 	    ytdlpPath: string;
 	    ytdlpVersion: string;

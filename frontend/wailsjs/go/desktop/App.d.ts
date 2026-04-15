@@ -16,6 +16,8 @@ export function GetCurrentVersion():Promise<string>;
 
 export function GetDefaultDownloadDir():Promise<string>;
 
+export function GetDepStatus():Promise<desktop.DepStatus>;
+
 export function GetDiagnosticInfo():Promise<desktop.DiagnosticInfo>;
 
 export function GetDownloads():Promise<Array<desktop.DownloadTask>>;

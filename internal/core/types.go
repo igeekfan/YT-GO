@@ -147,3 +147,16 @@ type UpdateInfo struct {
 	HTMLURL        string `json:"htmlUrl"`
 	PublishedAt    string `json:"publishedAt"`
 }
+
+type DepItem struct {
+	Found   bool   `json:"found"`
+	Version string `json:"version"`
+	Path    string `json:"path"`
+}
+
+type DepStatus struct {
+	YtDlp         DepItem `json:"ytdlp"`
+	FFmpeg        DepItem `json:"ffmpeg"`
+	JSRuntime     DepItem `json:"jsRuntime"`
+	JSRuntimeName string  `json:"jsRuntimeName"`
+}

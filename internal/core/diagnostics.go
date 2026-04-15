@@ -42,6 +42,64 @@ func (s *Service) GetDiagnosticInfo() DiagnosticInfo {
 	return info
 }
 
+func (s *Service) GetDepStatus() DepStatus {
+	var status DepStatus
+
+	// yt-dlp
+	ytdlpPath := s.ytdlpPath
+	if ytdlpPath == "" {
+		ytdlpPath = s.findYtDlp()
+	}
+	if ytdlpPath != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, ytdlpPath, "--version").CombinedOutput()
+		if err == nil {
+			status.YtDlp = DepItem{Found: true, Version: strings.TrimSpace(string(out)), Path: ytdlpPath}
+		} else {
+			status.YtDlp = DepItem{Found: true, Path: ytdlpPath}
+		}
+	}
+
+	// ffmpeg
+	ffPath, ffVersion, ffFound := detectFFmpeg()
+	status.FFmpeg = DepItem{Found: ffFound, Version: ffVersion, Path: ffPath}
+
+	// JS runtime: try deno first, then node
+	denoPath, err := exec.LookPath("deno")
+	if err == nil && denoPath != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		out, runErr := exec.CommandContext(ctx, denoPath, "--version").CombinedOutput()
+		ver := ""
+		if runErr == nil {
+			firstLine := strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0])
+			if strings.HasPrefix(firstLine, "deno ") {
+				ver = strings.TrimPrefix(firstLine, "deno ")
+			} else {
+				ver = firstLine
+			}
+		}
+		status.JSRuntime = DepItem{Found: true, Version: ver, Path: denoPath}
+		status.JSRuntimeName = "deno"
+	} else {
+		nodePath, nodeErr := exec.LookPath("node")
+		if nodeErr == nil && nodePath != "" && isNodeVersionSufficient(nodePath) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			out, runErr := exec.CommandContext(ctx, nodePath, "-v").CombinedOutput()
+			ver := ""
+			if runErr == nil {
+				ver = strings.TrimPrefix(strings.TrimSpace(string(out)), "v")
+			}
+			status.JSRuntime = DepItem{Found: true, Version: ver, Path: nodePath}
+			status.JSRuntimeName = "node"
+		}
+	}
+
+	return status
+}
+
 func detectFFmpeg() (path string, version string, found bool) {
 	ffmpegPath, err := exec.LookPath("ffmpeg")
 	if err != nil {

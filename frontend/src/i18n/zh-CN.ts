@@ -217,6 +217,13 @@
     'downloadOpt.noSubtitles': '该视频无可用字幕',
 
     'notification.downloadComplete': '下载完成',
+
+    'dep.ytdlp': 'yt-dlp',
+    'dep.ffmpeg': 'FFmpeg',
+    'dep.jsRuntime': 'JS 运行时',
+    'dep.found': '已就绪',
+    'dep.notFound': '未检测到',
+    'dep.checking': '检测中...',
 }
 
 

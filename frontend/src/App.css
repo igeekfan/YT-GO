@@ -435,6 +435,48 @@ body {
   gap: 6px;
 }
 
+.format-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s;
+}
+.format-section-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.format-toggle-arrow {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.format-toggle-label {
+  white-space: nowrap;
+}
+.format-toggle-summary {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 300px;
+}
+
+/* "use preset" row needs center alignment because it has an inline select */
+.format-list-item-preset {
+  align-items: center;
+}
+
 .format-list-header {
   display: flex;
   align-items: center;
@@ -1533,4 +1575,51 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+/* ===== Dependency status bar ===== */
+.dep-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.dep-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dep-pill-ok {
+  background: rgba(72, 187, 120, 0.12);
+  color: #48bb78;
+  border: 1px solid rgba(72, 187, 120, 0.25);
+}
+
+.dep-pill-missing {
+  background: rgba(229, 62, 62, 0.1);
+  color: var(--accent);
+  border: 1px solid rgba(229, 62, 62, 0.25);
+}
+
+.dep-pill-icon {
+  font-size: 10px;
+}
+
+.dep-pill-label {
+  font-weight: 600;
+}
+
+.dep-pill-version {
+  opacity: 0.8;
+  font-weight: 400;
 }

@@ -217,6 +217,13 @@
     'downloadOpt.noSubtitles': 'No subtitles available for this video',
 
     'notification.downloadComplete': 'Download Complete',
+
+    'dep.ytdlp': 'yt-dlp',
+    'dep.ffmpeg': 'FFmpeg',
+    'dep.jsRuntime': 'JS Runtime',
+    'dep.found': 'Ready',
+    'dep.notFound': 'Not found',
+    'dep.checking': 'Checking...',
 }
 
 export default enUS

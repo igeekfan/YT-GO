@@ -1,5 +1,5 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage} from './lib/backend'
+import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, GetDepStatus} from './lib/backend'
 import {EventsOn} from './lib/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
 import {useI18n} from './i18n/context'
@@ -93,12 +93,28 @@ function getConsoleLogType(line: string): 'error' | 'warning' | 'command' | 'inf
     return 'info'
 }
 
+function DepPill({label, found, version, t}: {label: string; found: boolean; version: string; t: (key: string) => string}) {
+    return (
+        <span className={`dep-pill ${found ? 'dep-pill-ok' : 'dep-pill-missing'}`} title={version || (found ? t('dep.found') : t('dep.notFound'))}>
+            <span className="dep-pill-icon">{found ? '✓' : '✗'}</span>
+            <span className="dep-pill-label">{label}</span>
+            {found && version && <span className="dep-pill-version">{version}</span>}
+        </span>
+    )
+}
+
 function App() {
     const {t, lang, setLang} = useI18n()
     const [theme, setTheme] = useState<'dark' | 'light'>(() =>
         (localStorage.getItem('YT-GOto-theme') as 'dark' | 'light') || 'dark'
     )
     const [ytdlp, setYtdlp] = useState<YtDlpStatus | null>(null)
+    const [depStatus, setDepStatus] = useState<{
+        ytdlp: {found: boolean; version: string; path: string}
+        ffmpeg: {found: boolean; version: string; path: string}
+        jsRuntime: {found: boolean; version: string; path: string}
+        jsRuntimeName: string
+    } | null>(null)
     const [url, setUrl] = useState('')
     const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
     const [playlistInfo, setPlaylistInfo] = useState<PlaylistInfo | null>(null)
@@ -108,6 +124,7 @@ function App() {
     const [selectedVideoFormat, setSelectedVideoFormat] = useState('')
     const [selectedAudioFormat, setSelectedAudioFormat] = useState('')
     const [isGettingFormats, setIsGettingFormats] = useState(false)
+    const [formatExpanded, setFormatExpanded] = useState(false)
     const [selectedPlaylistItems, setSelectedPlaylistItems] = useState<Set<number>>(new Set())
     const [quality, setQuality] = useState('best')
     const [outputDir, setOutputDir] = useState('')
@@ -233,6 +250,7 @@ function App() {
 
     useEffect(() => {
         CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
+        GetDepStatus().then(setDepStatus).catch(() => {})
         
         // Check if first run or needs cookie configuration
         IsFirstRun().then((firstRun: boolean) => {
@@ -304,6 +322,7 @@ function App() {
         setSelectedAudioFormat('')
         setSelectedPlaylistItems(new Set())
         setSelectedSubtitleLangs(new Set())
+        setFormatExpanded(false)
     }, [])
 
     // Listen for download updates and send notifications
@@ -409,12 +428,28 @@ function App() {
 
     const handleSelectBestQuality = () => {
         if (!formatInfo) return
-        const sorted = sortFormats(formatInfo.formats.filter(f => f.hasVideo && f.hasAudio))
-        if (sorted.length > 0) {
+        // Prefer combined V+A streams
+        const combined = sortFormats(formatInfo.formats.filter(f => f.hasVideo && f.hasAudio))
+        if (combined.length > 0) {
             setFormatMode('single')
-            setSelectedFormat(sorted[0].formatId)
+            setSelectedFormat(combined[0].formatId)
             setSelectedVideoFormat('')
             setSelectedAudioFormat('')
+            return
+        }
+        // Fallback: separate V + A tracks (common for YouTube 1080p+)
+        const vFormats = videoOnlyFormats.sort((a, b) => {
+            const aH = parseResolutionHeight(a.resolution || '')
+            const bH = parseResolutionHeight(b.resolution || '')
+            if (aH !== bH) return bH - aH
+            return (b.filesize || 0) - (a.filesize || 0)
+        })
+        const aFormats = audioOnlyFormats.sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0))
+        if (vFormats.length > 0 || aFormats.length > 0) {
+            setFormatMode('combine')
+            setSelectedFormat('')
+            setSelectedVideoFormat(vFormats.length > 0 ? vFormats[0].formatId : '')
+            setSelectedAudioFormat(aFormats.length > 0 ? aFormats[0].formatId : '')
         }
     }
 
@@ -428,6 +463,7 @@ function App() {
         setSelectedFormat('')
         setSelectedVideoFormat('')
         setSelectedAudioFormat('')
+        setFormatExpanded(false)
         setSelectedPlaylistItems(new Set())
         setSelectedSubtitleLangs(new Set())
         try {
@@ -606,6 +642,30 @@ function App() {
                     </button>
                 </div>
             </header>
+
+            {/* Dependency status bar */}
+            {depStatus && (
+                <div className="dep-status-bar">
+                    <DepPill
+                        label={t('dep.ytdlp')}
+                        found={depStatus.ytdlp.found}
+                        version={depStatus.ytdlp.version}
+                        t={t}
+                    />
+                    <DepPill
+                        label={t('dep.ffmpeg')}
+                        found={depStatus.ffmpeg.found}
+                        version={depStatus.ffmpeg.version}
+                        t={t}
+                    />
+                    <DepPill
+                        label={depStatus.jsRuntimeName ? depStatus.jsRuntimeName : t('dep.jsRuntime')}
+                        found={depStatus.jsRuntime.found}
+                        version={depStatus.jsRuntime.version}
+                        t={t}
+                    />
+                </div>
+            )}
 
             {/* Main content */}
             <main className="app-main">
@@ -789,7 +849,6 @@ function App() {
                                     </option>
                                 ))}
                             </select>
-                            {!formatInfo && <span className="option-hint">{t('quality.hint')}</span>}
                         </div>
                         )}
                         <div className="option-group flex-1">
@@ -811,7 +870,24 @@ function App() {
 
                     {videoInfo && (
                         <div className="format-section">
-                            <label className="option-label">{t('format.label')}</label>
+                            <button
+                                className="format-section-toggle"
+                                onClick={() => setFormatExpanded(v => !v)}
+                            >
+                                <span className="format-toggle-arrow">{formatExpanded ? '▼' : '▶'}</span>
+                                <span className="format-toggle-label">{t('format.label')}</span>
+                                {!formatExpanded && hasCustomFormatSelection && (
+                                    <span className="format-toggle-summary">
+                                        {selectedFormat && formatInfo
+                                            ? formatOptionLabel(formatInfo.formats.find(f => f.formatId === selectedFormat)!)
+                                            : (selectedVideoFormat || selectedAudioFormat)
+                                                ? `${selectedVideoFormat ? t('format.video') : ''}${selectedVideoFormat && selectedAudioFormat ? ' + ' : ''}${selectedAudioFormat ? t('format.audio') : ''}`
+                                                : ''}
+                                    </span>
+                                )}
+                            </button>
+                            {formatExpanded && (
+                            <>
                             {formatInfo ? (
                                 <div className="format-list-container">
                                     <div className="format-list-header">
@@ -829,15 +905,13 @@ function App() {
                                             <option value="single">{t('format.mode.single')}</option>
                                             <option value="combine">{t('format.mode.combine')}</option>
                                         </select>
-                                        {formatMode === 'single' && (
-                                            <button className="btn-best-quality" onClick={handleSelectBestQuality}>
-                                                {t('format.bestQuality')}
-                                            </button>
-                                        )}
+                                        <button className="btn-best-quality" onClick={handleSelectBestQuality}>
+                                            {t('format.bestQuality')}
+                                        </button>
                                     </div>
                                     {formatMode === 'single' ? (
                                         <div className="format-list">
-                                            <label className={`format-list-item${!selectedFormat ? ' selected' : ''}`}>
+                                            <label className={`format-list-item format-list-item-preset${!selectedFormat ? ' selected' : ''}`}>
                                                 <input
                                                     type="radio"
                                                     name="format-single"
@@ -935,6 +1009,8 @@ function App() {
                                         </button>
                                     )}
                                 </div>
+                            )}
+                            </>
                             )}
                         </div>
                     )}
