@@ -15,6 +15,8 @@ YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
 
 ## Features
 
+![YT-GO Interface](images/zh-CN/start-1.png)
+
 - One-click metadata fetch for YouTube videos, playlist URLs, and channel video list URLs
 - Generic site support: works with any URL that yt-dlp supports (Bilibili, Twitter/X, etc.)
 - Video preview with title, uploader, duration, platform, and thumbnail
@@ -46,6 +48,9 @@ YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
 
 1. Paste a video, playlist, or supported channel videos URL.
 2. Click Get Info.
+
+![Get Info](images/zh-CN/getinfo.png)
+
 3. Optionally detect formats and choose either a single format or a combined video+audio pair.
 4. Choose the output directory.
 5. Start download, or batch-enqueue the detected collection.
