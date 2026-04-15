@@ -53,7 +53,7 @@ func (s *Service) deleteRecords(ids []string) {
 }
 
 func (s *Service) StartDownload(req DownloadRequest) (string, error) {
-	if s.ytdlpPath == "" {
+	if s.ytdlpPath == "" && !isDouyinURL(req.URL) {
 		return "", fmt.Errorf("yt-dlp not found")
 	}
 	taskID := uuid.New().String()
@@ -113,6 +113,11 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 	cp := *s.downloads[taskID]
 	s.mu.Unlock()
 	s.emitDownloadUpdate(&cp)
+	if isDouyinURL(req.URL) {
+		s.runDouyinDownload(taskID, req, ctx)
+		cancel()
+		return
+	}
 	args := qualityArgs(req.Quality)
 	args = append(args, "--ignore-config")
 	settings := s.GetSettings()

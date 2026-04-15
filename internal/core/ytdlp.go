@@ -190,6 +190,9 @@ func (s *Service) UpdateYtDlp() (string, error) {
 }
 
 func (s *Service) GetVideoInfo(url string) (VideoInfo, error) {
+	if isDouyinURL(url) {
+		return s.GetDouyinVideoInfo(url)
+	}
 	if s.ytdlpPath == "" {
 		return VideoInfo{}, fmt.Errorf("yt-dlp not found")
 	}
@@ -391,6 +394,9 @@ func (s *Service) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 }
 
 func (s *Service) GetFormats(url string) (FormatInfo, error) {
+	if isDouyinURL(url) {
+		return s.GetDouyinFormats(url)
+	}
 	if s.ytdlpPath == "" {
 		return FormatInfo{}, fmt.Errorf("yt-dlp not found")
 	}
