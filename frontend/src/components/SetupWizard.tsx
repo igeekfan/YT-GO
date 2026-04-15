@@ -1,5 +1,5 @@
 import {useState, useEffect} from 'react'
-import {SelectFolder, SelectCookiesFile, CheckYtDlp, backendMode} from '../lib/backend'
+import {SelectFolder, SelectCookiesFile, CheckYtDlp, GetDepStatus, backendMode} from '../lib/backend'
 import {useI18n} from '../i18n/context'
 
 interface Props {
@@ -18,6 +18,7 @@ export default function SetupWizard({onComplete}: Props) {
     const [cookiesFile, setCookiesFile] = useState('')
     const [proxy, setProxy] = useState('')
     const [ytdlpOk, setYtdlpOk] = useState(false)
+    const [denoOk, setDenoOk] = useState<boolean | null>(null)
     const [language, setLanguage] = useState<'zh-CN' | 'en-US'>(lang)
     const [theme, setTheme] = useState<'dark' | 'light'>(() =>
         (localStorage.getItem('YT-GOto-theme') as 'dark' | 'light') || 'dark'
@@ -26,6 +27,9 @@ export default function SetupWizard({onComplete}: Props) {
     useEffect(() => {
         CheckYtDlp().then(status => {
             setYtdlpOk(status.available)
+        }).catch(() => {})
+        GetDepStatus().then(status => {
+            setDenoOk(status.jsRuntime.found)
         }).catch(() => {})
     }, [])
 
@@ -125,6 +129,27 @@ export default function SetupWizard({onComplete}: Props) {
                             {ytdlpOk && (
                                 <div className="setup-ytdlp-ok">
                                     ✓ {t('setup.ytReady')}
+                                </div>
+                            )}
+                            {denoOk === true && (
+                                <div className="setup-ytdlp-ok">
+                                    ✓ {t('setup.denoReady')}
+                                </div>
+                            )}
+                            {denoOk === false && (
+                                <div className="setup-deno-guide">
+                                    <div className="setup-deno-title">⚡ {t('setup.denoNotFound')}</div>
+                                    <p className="setup-hint">{t('setup.denoDesc')}</p>
+                                    <div className="setup-install-cmds">
+                                        <div className="setup-install-cmd">
+                                            <span className="setup-install-label">Windows (PowerShell):</span>
+                                            <code className="install-code">irm https://deno.land/install.ps1 | iex</code>
+                                        </div>
+                                        <div className="setup-install-cmd">
+                                            <span className="setup-install-label">macOS / Linux:</span>
+                                            <code className="install-code">curl -fsSL https://deno.land/install.sh | sh</code>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>

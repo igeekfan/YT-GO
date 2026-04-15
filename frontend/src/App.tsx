@@ -1,5 +1,5 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, GetDepStatus} from './lib/backend'
+import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage} from './lib/backend'
 import {EventsOn} from './lib/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
 import {useI18n} from './i18n/context'
@@ -93,28 +93,12 @@ function getConsoleLogType(line: string): 'error' | 'warning' | 'command' | 'inf
     return 'info'
 }
 
-function DepPill({label, found, version, t}: {label: string; found: boolean; version: string; t: (key: string) => string}) {
-    return (
-        <span className={`dep-pill ${found ? 'dep-pill-ok' : 'dep-pill-missing'}`} title={version || (found ? t('dep.found') : t('dep.notFound'))}>
-            <span className="dep-pill-icon">{found ? '✓' : '✗'}</span>
-            <span className="dep-pill-label">{label}</span>
-            {found && version && <span className="dep-pill-version">{version}</span>}
-        </span>
-    )
-}
-
 function App() {
     const {t, lang, setLang} = useI18n()
     const [theme, setTheme] = useState<'dark' | 'light'>(() =>
         (localStorage.getItem('YT-GOto-theme') as 'dark' | 'light') || 'dark'
     )
     const [ytdlp, setYtdlp] = useState<YtDlpStatus | null>(null)
-    const [depStatus, setDepStatus] = useState<{
-        ytdlp: {found: boolean; version: string; path: string}
-        ffmpeg: {found: boolean; version: string; path: string}
-        jsRuntime: {found: boolean; version: string; path: string}
-        jsRuntimeName: string
-    } | null>(null)
     const [url, setUrl] = useState('')
     const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
     const [playlistInfo, setPlaylistInfo] = useState<PlaylistInfo | null>(null)
@@ -124,7 +108,7 @@ function App() {
     const [selectedVideoFormat, setSelectedVideoFormat] = useState('')
     const [selectedAudioFormat, setSelectedAudioFormat] = useState('')
     const [isGettingFormats, setIsGettingFormats] = useState(false)
-    const [formatExpanded, setFormatExpanded] = useState(false)
+    const [formatExpanded, setFormatExpanded] = useState(true)
     const [selectedPlaylistItems, setSelectedPlaylistItems] = useState<Set<number>>(new Set())
     const [quality, setQuality] = useState('best')
     const [outputDir, setOutputDir] = useState('')
@@ -250,7 +234,6 @@ function App() {
 
     useEffect(() => {
         CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
-        GetDepStatus().then(setDepStatus).catch(() => {})
         
         // Check if first run or needs cookie configuration
         IsFirstRun().then((firstRun: boolean) => {
@@ -642,30 +625,6 @@ function App() {
                     </button>
                 </div>
             </header>
-
-            {/* Dependency status bar */}
-            {depStatus && (
-                <div className="dep-status-bar">
-                    <DepPill
-                        label={t('dep.ytdlp')}
-                        found={depStatus.ytdlp.found}
-                        version={depStatus.ytdlp.version}
-                        t={t}
-                    />
-                    <DepPill
-                        label={t('dep.ffmpeg')}
-                        found={depStatus.ffmpeg.found}
-                        version={depStatus.ffmpeg.version}
-                        t={t}
-                    />
-                    <DepPill
-                        label={depStatus.jsRuntimeName ? depStatus.jsRuntimeName : t('dep.jsRuntime')}
-                        found={depStatus.jsRuntime.found}
-                        version={depStatus.jsRuntime.version}
-                        t={t}
-                    />
-                </div>
-            )}
 
             {/* Main content */}
             <main className="app-main">

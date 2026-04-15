@@ -224,6 +224,22 @@
     'dep.found': '已就绪',
     'dep.notFound': '未检测到',
     'dep.checking': '检测中...',
+    'dep.refresh': '刷新检测',
+    'dep.installGuide': '安装指南',
+    'dep.update': '更新',
+    'dep.denoInstallGuide': '安装 Deno（推荐）',
+    'dep.denoWindows': 'Windows (PowerShell): irm https://deno.land/install.ps1 | iex',
+    'dep.denoMac': 'macOS / Linux: curl -fsSL https://deno.land/install.sh | sh',
+    'dep.ffmpegInstallGuide': '安装 FFmpeg',
+    'dep.ffmpegWindows': 'Windows (winget): winget install --id=Gyan.FFmpeg',
+    'dep.ffmpegMac': 'macOS (Homebrew): brew install ffmpeg',
+
+    'settings.tab.deps': '依赖检测',
+    'settings.tab.tools.short': '工具',
+
+    'setup.denoReady': 'Deno 已就绪',
+    'setup.denoNotFound': '推荐安装 Deno',
+    'setup.denoDesc': 'Deno 是 yt-dlp 解析 YouTube 的 JS 运行时，安装后可稳定获取视频格式。',
 }
 
 

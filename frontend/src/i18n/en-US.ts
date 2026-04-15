@@ -224,6 +224,22 @@
     'dep.found': 'Ready',
     'dep.notFound': 'Not found',
     'dep.checking': 'Checking...',
+    'dep.refresh': 'Refresh',
+    'dep.installGuide': 'Install Guide',
+    'dep.update': 'Update',
+    'dep.denoInstallGuide': 'Install Deno (recommended)',
+    'dep.denoWindows': 'Windows (PowerShell): irm https://deno.land/install.ps1 | iex',
+    'dep.denoMac': 'macOS / Linux: curl -fsSL https://deno.land/install.sh | sh',
+    'dep.ffmpegInstallGuide': 'Install FFmpeg',
+    'dep.ffmpegWindows': 'Windows (winget): winget install --id=Gyan.FFmpeg',
+    'dep.ffmpegMac': 'macOS (Homebrew): brew install ffmpeg',
+
+    'settings.tab.deps': 'Dependencies',
+    'settings.tab.tools.short': 'Tools',
+
+    'setup.denoReady': 'Deno is ready',
+    'setup.denoNotFound': 'Install Deno (recommended)',
+    'setup.denoDesc': 'Deno is used by yt-dlp to parse YouTube formats. Installing it improves reliability.',
 }
 
 export default enUS

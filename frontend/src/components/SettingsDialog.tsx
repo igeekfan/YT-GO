@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo} from '../lib/backend'
+import {SaveSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus} from '../lib/backend'
 
 interface DiagnosticInfo {
     ytdlpPath: string
@@ -24,6 +24,19 @@ interface AboutInfo {
     authorEmail: string
 }
 
+interface DepItem {
+    found: boolean
+    version: string
+    path: string
+}
+
+interface DepStatus {
+    ytdlp: DepItem
+    ffmpeg: DepItem
+    jsRuntime: DepItem
+    jsRuntimeName: string
+}
+
 interface Props {
     open: boolean
     initialSettings: Settings | null
@@ -37,9 +50,9 @@ const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
 const THEME_OPTIONS = ['dark', 'light']
 const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
 
-type SettingsTab = 'download' | 'media' | 'network' | 'tools' | 'appearance'
+type SettingsTab = 'download' | 'media' | 'network' | 'deps' | 'tools' | 'appearance'
 
-const TAB_KEYS: SettingsTab[] = ['download', 'media', 'network', 'tools', 'appearance']
+const TAB_KEYS: SettingsTab[] = ['download', 'media', 'network', 'deps', 'tools', 'appearance']
 
 function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
@@ -53,6 +66,8 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     const [updateResult, setUpdateResult] = useState<string | null>(null)
     const [isResetting, setIsResetting] = useState(false)
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
+    const [depStatus, setDepStatus] = useState<DepStatus | null>(null)
+    const [loadingDeps, setLoadingDeps] = useState(false)
     const [updateInfo, setUpdateInfo] = useState<{
         hasUpdate: boolean
         currentVersion: string
@@ -97,9 +112,16 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
             setDiagnostic(null)
             setActiveTab('download')
             setUpdateInfo(null)
+            setDepStatus(null)
             GetAboutInfo().then(setAboutInfo).catch(console.error)
         }
     }, [open, initialSettings])
+
+    useEffect(() => {
+        if (open && activeTab === 'deps' && !depStatus && !loadingDeps) {
+            handleRefreshDeps()
+        }
+    }, [open, activeTab])
 
     useEffect(() => {
         if (!open || !settings?.theme) return
@@ -120,6 +142,18 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
             console.error('Failed to get diagnostic info:', e)
         } finally {
             setLoadingDiag(false)
+        }
+    }
+
+    const handleRefreshDeps = async () => {
+        setLoadingDeps(true)
+        try {
+            const status = await GetDepStatus()
+            setDepStatus(status as DepStatus)
+        } catch (e) {
+            console.error('Failed to get dep status:', e)
+        } finally {
+            setLoadingDeps(false)
         }
     }
 
@@ -434,6 +468,139 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
         </>
     )
 
+    const renderDepsTab = () => (
+        <>
+            <div className="setting-item">
+                <div className="tools-btn-row">
+                    <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleRefreshDeps}
+                        disabled={loadingDeps}
+                    >
+                        {loadingDeps ? t('dep.checking') : t('dep.refresh')}
+                    </button>
+                </div>
+            </div>
+
+            {/* yt-dlp */}
+            <div className="setting-item">
+                <label className="setting-label">yt-dlp</label>
+                {(!depStatus && !loadingDeps) ? null : (
+                    <div className="diagnostic-info">
+                        {loadingDeps && !depStatus ? (
+                            <div className="diag-item"><span className="diag-value">{t('dep.checking')}</span></div>
+                        ) : depStatus && (
+                            <>
+                                <div className="diag-item">
+                                    <span className="diag-label">{t('settings.diagStatus')}:</span>
+                                    <span className={`diag-value ${depStatus.ytdlp.found ? 'text-green-400' : 'text-red-400'}`}>
+                                        {depStatus.ytdlp.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`}
+                                    </span>
+                                </div>
+                                {depStatus.ytdlp.version && (
+                                    <div className="diag-item">
+                                        <span className="diag-label">{t('settings.diagVersion')}:</span>
+                                        <span className="diag-value">{depStatus.ytdlp.version}</span>
+                                    </div>
+                                )}
+                                {depStatus.ytdlp.path && (
+                                    <div className="diag-item">
+                                        <span className="diag-label">{t('settings.diagPath')}:</span>
+                                        <span className="diag-value">{depStatus.ytdlp.path}</span>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
+                <div className="tools-btn-row" style={{marginTop: 8}}>
+                    <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleUpdateYtDlp}
+                        disabled={isUpdatingYtDlp}
+                    >
+                        {isUpdatingYtDlp ? t('settings.ytdlpUpdating') : t('settings.ytdlpUpdate')}
+                    </button>
+                </div>
+                {updateResult && (
+                    <div className="diagnostic-info" style={{marginTop: 8}}>
+                        <div className="diag-item"><span className="diag-value">{updateResult}</span></div>
+                    </div>
+                )}
+            </div>
+
+            {/* FFmpeg */}
+            <div className="setting-item">
+                <label className="setting-label">FFmpeg</label>
+                {depStatus && (
+                    <div className="diagnostic-info">
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.diagStatus')}:</span>
+                            <span className={`diag-value ${depStatus.ffmpeg.found ? 'text-green-400' : 'text-red-400'}`}>
+                                {depStatus.ffmpeg.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`}
+                            </span>
+                        </div>
+                        {depStatus.ffmpeg.version && (
+                            <div className="diag-item">
+                                <span className="diag-label">{t('settings.diagVersion')}:</span>
+                                <span className="diag-value">{depStatus.ffmpeg.version}</span>
+                            </div>
+                        )}
+                        {depStatus.ffmpeg.path && (
+                            <div className="diag-item">
+                                <span className="diag-label">{t('settings.diagPath')}:</span>
+                                <span className="diag-value">{depStatus.ffmpeg.path}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+                {depStatus && !depStatus.ffmpeg.found && (
+                    <div className="diagnostic-info dep-install-guide" style={{marginTop: 8}}>
+                        <div className="diag-item"><span className="diag-label">{t('dep.ffmpegInstallGuide')}:</span></div>
+                        <div className="diag-item"><code className="install-code">{t('dep.ffmpegWindows')}</code></div>
+                        <div className="diag-item"><code className="install-code">{t('dep.ffmpegMac')}</code></div>
+                    </div>
+                )}
+            </div>
+
+            {/* Deno / Node JS runtime */}
+            <div className="setting-item">
+                <label className="setting-label">{t('dep.jsRuntime')} (Deno / Node)</label>
+                {depStatus && (
+                    <div className="diagnostic-info">
+                        <div className="diag-item">
+                            <span className="diag-label">{t('settings.diagStatus')}:</span>
+                            <span className={`diag-value ${depStatus.jsRuntime.found ? 'text-green-400' : 'text-red-400'}`}>
+                                {depStatus.jsRuntime.found
+                                    ? `✓ ${depStatus.jsRuntimeName || 'deno/node'} ${t('dep.found')}`
+                                    : `✗ ${t('dep.notFound')}`}
+                            </span>
+                        </div>
+                        {depStatus.jsRuntime.version && (
+                            <div className="diag-item">
+                                <span className="diag-label">{t('settings.diagVersion')}:</span>
+                                <span className="diag-value">{depStatus.jsRuntime.version}</span>
+                            </div>
+                        )}
+                        {depStatus.jsRuntime.path && (
+                            <div className="diag-item">
+                                <span className="diag-label">{t('settings.diagPath')}:</span>
+                                <span className="diag-value">{depStatus.jsRuntime.path}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+                {depStatus && !depStatus.jsRuntime.found && (
+                    <div className="diagnostic-info dep-install-guide" style={{marginTop: 8}}>
+                        <div className="diag-item"><span className="diag-label">{t('dep.denoInstallGuide')}:</span></div>
+                        <div className="diag-item"><code className="install-code">{t('dep.denoWindows')}</code></div>
+                        <div className="diag-item"><code className="install-code">{t('dep.denoMac')}</code></div>
+                    </div>
+                )}
+            </div>
+        </>
+    )
+
     const renderToolsTab = () => (
         <>
             {/* App Update */}
@@ -481,99 +648,6 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                 <div className="setting-item setting-item-row">
                     <label className="setting-label">{t('settings.appVersion')}</label>
                     <span className="diag-value">v{diagnostic.appVersion}</span>
-                </div>
-            )}
-            {/* yt-dlp section */}
-            <div className="setting-item">
-                <label className="setting-label">yt-dlp</label>
-                <div className="tools-btn-row">
-                    <button
-                        className="btn-secondary btn-sm"
-                        onClick={handleGetDiagnostic}
-                        disabled={loadingDiag}
-                    >
-                        {loadingDiag ? t('settings.diagChecking') : t('settings.diagCheck')}
-                    </button>
-                    <button
-                        className="btn-secondary btn-sm"
-                        onClick={handleUpdateYtDlp}
-                        disabled={isUpdatingYtDlp}
-                    >
-                        {isUpdatingYtDlp ? t('settings.ytdlpUpdating') : t('settings.ytdlpUpdate')}
-                    </button>
-                </div>
-                {updateResult && (
-                    <div className="diagnostic-info" style={{marginTop: 8}}>
-                        <div className="diag-item">
-                            <span className="diag-value">{updateResult}</span>
-                        </div>
-                    </div>
-                )}
-                {diagnostic && (
-                    <div className="diagnostic-info" style={{marginTop: 8}}>
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.diagPath')}:</span>
-                            <span className="diag-value">{diagnostic.ytdlpPath || t('settings.diagNotFound')}</span>
-                        </div>
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.diagVersion')}:</span>
-                            <span className="diag-value">{diagnostic.ytdlpVersion || '-'}</span>
-                        </div>
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.diagStatus')}:</span>
-                            <span className={`diag-value ${diagnostic.ytdlpFound ? 'text-green-400' : 'text-red-400'}`}>
-                                {diagnostic.ytdlpFound ? t('settings.diagAvailable') : t('settings.diagUnavailable')}
-                            </span>
-                        </div>
-                        {diagnostic.testOutput && (
-                            <div className="diag-item">
-                                <span className="diag-label">{t('settings.diagTest')}:</span>
-                                <span className="diag-value text-green-400">{diagnostic.testOutput}</span>
-                            </div>
-                        )}
-                        {diagnostic.error && (
-                            <div className="diag-item">
-                                <span className="diag-label">{t('settings.diagError')}:</span>
-                                <span className="diag-value text-red-400">{diagnostic.error}</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-            {/* FFmpeg section */}
-            {diagnostic && (
-                <div className="setting-item">
-                    <label className="setting-label">FFmpeg</label>
-                    <div className="diagnostic-info">
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.diagPath')}:</span>
-                            <span className="diag-value">{diagnostic.ffmpegPath || t('settings.diagNotFound')}</span>
-                        </div>
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.diagVersion')}:</span>
-                            <span className="diag-value">{diagnostic.ffmpegVersion || '-'}</span>
-                        </div>
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.diagStatus')}:</span>
-                            <span className={`diag-value ${diagnostic.ffmpegFound ? 'text-green-400' : 'text-red-400'}`}>
-                                {diagnostic.ffmpegFound ? t('settings.diagAvailable') : t('settings.diagUnavailable')}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* Node.js section */}
-            {diagnostic && (
-                <div className="setting-item">
-                    <label className="setting-label">Node.js</label>
-                    <div className="diagnostic-info">
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.diagStatus')}:</span>
-                            <span className={`diag-value ${diagnostic.nodeVersion && !diagnostic.nodeVersion.startsWith('missing') ? 'text-green-400' : 'text-red-400'}`}>
-                                {diagnostic.nodeVersion || '-'}
-                            </span>
-                        </div>
-                    </div>
                 </div>
             )}
             {/* Reset settings section */}
@@ -661,6 +735,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
         download: renderDownloadTab,
         media: renderMediaTab,
         network: renderNetworkTab,
+        deps: renderDepsTab,
         tools: renderToolsTab,
         appearance: renderAppearanceTab,
     }

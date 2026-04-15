@@ -1577,49 +1577,55 @@ body {
   gap: 12px;
 }
 
-/* ===== Dependency status bar ===== */
-.dep-status-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 16px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
+/* ===== Install code blocks (used in deps tab + setup wizard) ===== */
+.install-code {
+  display: block;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  padding: 4px 8px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  word-break: break-all;
+  color: var(--text-primary);
+  margin-top: 2px;
 }
 
-.dep-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
+.dep-install-guide {
+  background: rgba(229, 62, 62, 0.05);
+  border-left: 3px solid var(--accent);
+  padding: 6px 10px;
 }
 
-.dep-pill-ok {
-  background: rgba(72, 187, 120, 0.12);
-  color: #48bb78;
-  border: 1px solid rgba(72, 187, 120, 0.25);
-}
-
-.dep-pill-missing {
-  background: rgba(229, 62, 62, 0.1);
-  color: var(--accent);
+/* ===== Setup wizard deno guide ===== */
+.setup-deno-guide {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(229, 62, 62, 0.06);
   border: 1px solid rgba(229, 62, 62, 0.25);
+  border-radius: 6px;
 }
 
-.dep-pill-icon {
-  font-size: 10px;
-}
-
-.dep-pill-label {
+.setup-deno-title {
   font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
 }
 
-.dep-pill-version {
-  opacity: 0.8;
-  font-weight: 400;
+.setup-install-cmds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.setup-install-cmd {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setup-install-label {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
