@@ -262,6 +262,18 @@ func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDownloadAction(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/downloads/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) == 1 {
+		if r.Method != http.MethodDelete {
+			writeMethodNotAllowed(w, http.MethodDelete)
+			return
+		}
+		if err := s.service.RemoveDownload(parts[0]); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
 	if len(parts) != 2 {
 		http.NotFound(w, r)
 		return

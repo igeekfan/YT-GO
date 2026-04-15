@@ -236,3 +236,18 @@ export function CancelDownload(id: string) {
         }
     )
 }
+
+export function RemoveDownload(id: string) {
+    return getDesktop(
+        async () => {
+            const fn = (window as any)?.go?.desktop?.App?.RemoveDownload
+            if (typeof fn !== 'function') {
+                throw new Error('RemoveDownload is not available')
+            }
+            await fn(id)
+        },
+        async () => {
+            await apiFetch(`/api/downloads/${encodeURIComponent(id)}`, {method: 'DELETE'})
+        }
+    )
+}

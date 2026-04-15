@@ -51,6 +51,10 @@ function DownloadList({downloads, onUpdate}: Props) {
         onUpdate(downloads.filter(d => d.id !== id))
     }
 
+    const handleRemoved = (id: string) => {
+        onUpdate(downloads.filter(d => d.id !== id))
+    }
+
     const filtered = downloads.filter(d => {
         if (statusFilter !== 'all') {
             if (statusFilter === 'downloading' && d.status !== 'downloading' && d.status !== 'pending') return false
@@ -117,6 +121,7 @@ function DownloadList({downloads, onUpdate}: Props) {
                             key={task.id}
                             task={task}
                             onCancelled={handleCancelled}
+                            onRemoved={handleRemoved}
                             onRetry={handleRetryTask}
                             onRedownload={handleRetryTask}
                         />

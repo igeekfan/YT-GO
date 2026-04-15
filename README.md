@@ -28,7 +28,7 @@ YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
 	- smart format sorting by type, resolution, and bitrate
 - Concurrent downloads with configurable max parallel tasks
 - Download history search and filtering by status (all, downloading, completed, failed)
-- Retry failed tasks, re-download completed tasks, or retry all failed tasks from the download list
+- Remove individual tasks, retry failed tasks, re-download completed tasks, or retry all failed tasks from the download list
 - Cancel a running task and automatically remove it from the queue
 - Real-time logs, progress, speed, ETA, and output path tracking
 - Subtitle support: download subtitles with configurable languages and optional embedding into video
@@ -42,6 +42,28 @@ YT-GO focuses on a simple desktop workflow built on top of yt-dlp:
 - Built-in yt-dlp update check and in-app update action
 - Automatic yt-dlp detection from PATH or the application directory
 - English and Simplified Chinese UI
+
+## Recent Milestones
+
+The completed work that used to live in PLAN is now consolidated here as the source of truth for current product status:
+
+- The first-run setup flow now covers download directory, language, and light/dark theme selection.
+- Settings have been reorganized into five task-oriented tabs: Download, Media, Network & Auth, Tools, and Appearance.
+- Format handling now includes probing, sorting, recommendations, and explicit video/audio combination selection.
+- Subtitle download, embedding, chapter metadata, SponsorBlock markers, description export, thumbnail export, container selection, audio conversion, and filename templates are now integrated.
+- Playlist and channel collection flows now support batch selection and enqueue, while download history supports search, filtering, retry, re-download, and per-item removal.
+- Generic site mode is in place, so the app can follow yt-dlp supported URLs beyond YouTube.
+- The tool center now includes yt-dlp updates, FFmpeg detection, Node.js runtime status, and diagnostics.
+- The frontend now works against both the Wails desktop bridge and the HTTP API backend with the same UI flow.
+
+## Architecture Status
+
+The project has moved from a more monolithic layout toward a shared-core, multi-entry structure:
+
+- Backend responsibilities are split across settings, yt-dlp, downloads, diagnostics, and update modules.
+- Shared business logic lives in internal/core, while the desktop layer stays focused on Wails bindings and the web layer exposes HTTP endpoints through internal/httpapi.
+- main.go and main_web.go provide dedicated desktop and web entry points, with the frontend switching through a unified backend adapter.
+- README documents completed capabilities and current architecture; PLAN is now reserved for future roadmap items only.
 
 ## Usage
 
@@ -158,7 +180,7 @@ The repository also includes [Dockerfile](Dockerfile) and [.github/workflows/doc
 
 ## Roadmap
 
-See [PLAN.md](PLAN.md) for the detailed development roadmap and future work items.
+README tracks completed capabilities and current structure. See [PLAN.md](PLAN.md) for the forward-looking roadmap.
 
 ## Stack
 

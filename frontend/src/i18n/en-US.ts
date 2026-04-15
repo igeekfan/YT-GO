@@ -59,6 +59,7 @@
     'action.cancel': 'Cancel',
     'action.retry': 'Retry',
     'action.redownload': 'Re-download',
+    'action.remove': 'Remove',
     'action.open': 'Open File',
     'action.openFolder': 'Open Folder',
     'action.logs': 'Logs',

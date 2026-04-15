@@ -38,6 +38,8 @@ export function OpenFolder(arg1:string):Promise<void>;
 
 export function OpenReleasePage():Promise<void>;
 
+export function RemoveDownload(arg1:string):Promise<void>;
+
 export function ResetSettings():Promise<void>;
 
 export function SaveSettings(arg1:desktop.Settings):Promise<void>;

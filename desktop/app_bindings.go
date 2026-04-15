@@ -113,6 +113,7 @@ func (a *App) StartDownload(req DownloadRequest) (string, error) {
 	return a.service.StartDownload(toCoreDownloadRequest(req))
 }
 func (a *App) CancelDownload(taskID string) error { return a.service.CancelDownload(taskID) }
+func (a *App) RemoveDownload(taskID string) error { return a.service.RemoveDownload(taskID) }
 func (a *App) GetDownloads() []*DownloadTask      { return fromCoreDownloadTasks(a.service.GetDownloads()) }
 func (a *App) ClearCompleted()                    { a.service.ClearCompleted() }
 func (a *App) GetDiagnosticInfo() DiagnosticInfo {

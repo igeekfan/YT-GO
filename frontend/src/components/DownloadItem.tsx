@@ -1,12 +1,13 @@
 ﻿import {useState, useEffect, useRef} from 'react'
 import {DownloadTask} from '../types'
 import {useI18n} from '../i18n/context'
-import {OpenFile, OpenFolder, CancelDownload} from '../lib/backend'
+import {OpenFile, OpenFolder, CancelDownload, RemoveDownload} from '../lib/backend'
 import {EventsOn} from '../lib/runtime'
 
 interface Props {
     task: DownloadTask
     onCancelled: (id: string) => void
+    onRemoved: (id: string) => void
     onRetry: (task: DownloadTask) => void
     onRedownload: (task: DownloadTask) => void
 }
@@ -28,7 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
     cancelled: 'bg-gray-500/20 text-gray-400',
 }
 
-function DownloadItem({task, onCancelled, onRetry, onRedownload}: Props) {
+function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Props) {
     const {t} = useI18n()
     const [showLogs, setShowLogs] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
@@ -69,6 +70,15 @@ function DownloadItem({task, onCancelled, onRetry, onRedownload}: Props) {
             ? task.outputPath.substring(0, Math.max(task.outputPath.lastIndexOf('/'), task.outputPath.lastIndexOf('\\')))
             : task.outputDir
         if (dir) OpenFolder(dir).catch(console.error)
+    }
+
+    const handleRemove = async () => {
+        try {
+            await RemoveDownload(task.id)
+            onRemoved(task.id)
+        } catch (error) {
+            console.error(error)
+        }
     }
 
     const statusLabel = t(`status.${task.status}` as any)
@@ -137,9 +147,14 @@ function DownloadItem({task, onCancelled, onRetry, onRedownload}: Props) {
                     </button>
                 ) : null}
                 {(task.status === 'error' || task.status === 'cancelled') && (
-                    <button className="btn-ghost btn-sm" onClick={() => onRetry(task)}>
-                        {t('action.retry')}
-                    </button>
+                    <>
+                        <button className="btn-ghost btn-sm" onClick={() => onRetry(task)}>
+                            {t('action.retry')}
+                        </button>
+                        <button className="btn-ghost btn-sm" onClick={handleRemove}>
+                            {t('action.remove')}
+                        </button>
+                    </>
                 )}
                 {task.status === 'completed' && (
                     <>
@@ -151,6 +166,9 @@ function DownloadItem({task, onCancelled, onRetry, onRedownload}: Props) {
                         </button>
                         <button className="btn-ghost btn-sm" onClick={() => onRedownload(task)}>
                             {t('action.redownload')}
+                        </button>
+                        <button className="btn-ghost btn-sm" onClick={handleRemove}>
+                            {t('action.remove')}
                         </button>
                     </>
                 )}

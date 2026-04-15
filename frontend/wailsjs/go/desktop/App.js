@@ -74,6 +74,10 @@ export function OpenReleasePage() {
   return window['go']['desktop']['App']['OpenReleasePage']();
 }
 
+export function RemoveDownload(arg1) {
+  return window['go']['desktop']['App']['RemoveDownload'](arg1);
+}
+
 export function ResetSettings() {
   return window['go']['desktop']['App']['ResetSettings']();
 }

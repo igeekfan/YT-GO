@@ -273,6 +273,25 @@ func (s *Service) CancelDownload(taskID string) error {
 	return nil
 }
 
+func (s *Service) RemoveDownload(taskID string) error {
+	s.mu.Lock()
+	task, ok := s.downloads[taskID]
+	if !ok {
+		s.mu.Unlock()
+		return fmt.Errorf("task not found")
+	}
+	if task.Status == "pending" || task.Status == "downloading" {
+		s.mu.Unlock()
+		return fmt.Errorf("active task cannot be removed")
+	}
+	delete(s.downloads, taskID)
+	s.mu.Unlock()
+
+	s.emitDownloadRemove(taskID)
+	go s.deleteRecords([]string{taskID})
+	return nil
+}
+
 func (s *Service) GetDownloads() []*DownloadTask {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
