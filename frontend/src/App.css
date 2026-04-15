@@ -1454,17 +1454,7 @@ body {
   text-decoration: underline;
 }
 
-.setting-hint-link {
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 12px;
-  white-space: nowrap;
-  margin-left: 8px;
-}
 
-.setting-hint-link:hover {
-  text-decoration: underline;
-}
 
 .setup-wizard-footer {
   display: flex;

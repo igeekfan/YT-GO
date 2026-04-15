@@ -419,8 +419,9 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                         >
                             {t('outputDir.browse')}
                         </button>
+                    </div>
+                    <div className="setting-hint">
                         <a 
-                            className="setting-hint-link"
                             href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc"
                             target="_blank"
  rel="noopener noreferrer"

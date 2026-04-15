@@ -21,7 +21,7 @@ func main() {
 	err := wails.Run(&options.App{
 		Title:  "YT-GO",
 		Width:  1000,
-		Height: 700,
+		Height: 800,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
