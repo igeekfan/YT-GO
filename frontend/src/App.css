@@ -1266,7 +1266,7 @@ body {
 
 /* ===== Settings Tabs ===== */
 .settings-dialog {
-  max-width: 560px;
+  max-width: 680px;
   max-height: 90vh;
 }
 
