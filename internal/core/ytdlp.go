@@ -19,13 +19,34 @@ import (
 	"golang.org/x/text/transform"
 )
 
+func isNodeVersionSufficient(nodePath string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, nodePath, "-v").CombinedOutput()
+	if err != nil {
+		return false
+	}
+	version := strings.TrimPrefix(strings.TrimSpace(toUTF8(out)), "v")
+	if dot := strings.Index(version, "."); dot > 0 {
+		version = version[:dot]
+	}
+	major := 0
+	for _, c := range version {
+		if c < '0' || c > '9' {
+			return false
+		}
+		major = major*10 + int(c-'0')
+	}
+	return major >= 12
+}
+
 func getPreferredJSRuntime() string {
 	denoPath, err := exec.LookPath("deno")
 	if err == nil && denoPath != "" {
 		return "deno:" + denoPath
 	}
 	nodePath, err := exec.LookPath("node")
-	if err == nil && nodePath != "" {
+	if err == nil && nodePath != "" && isNodeVersionSufficient(nodePath) {
 		return "node:" + nodePath
 	}
 	return ""
@@ -516,7 +537,7 @@ func qualityArgs(quality string) []string {
 	case "360p":
 		return []string{"-f", "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/best[height<=360]"}
 	case "audio":
-		return []string{"-f", "bestaudio/best", "-x", "--audio-format", "mp3"}
+		return []string{"-f", "bestaudio/best", "-x"}
 	default:
 		return []string{"-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"}
 	}

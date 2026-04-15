@@ -771,6 +771,7 @@ function App() {
 
                     {/* Download options */}
                     <div className="options-row">
+                        {!hasCustomFormatSelection && (
                         <div className="option-group">
                             <label className="option-label">{t('quality.label')}</label>
                             <select
@@ -780,11 +781,7 @@ function App() {
                                     const nextQuality = e.target.value
                                     setQuality(nextQuality)
                                     persistSettingsPatch({quality: nextQuality})
-                                    setSelectedFormat('')
-                                    setSelectedVideoFormat('')
-                                    setSelectedAudioFormat('')
                                 }}
-                                disabled={hasCustomFormatSelection}
                             >
                                 {QUALITY_OPTIONS.map(q => (
                                     <option key={q} value={q}>
@@ -792,8 +789,9 @@ function App() {
                                     </option>
                                 ))}
                             </select>
-                            <span className="option-hint">{t('quality.hint')}</span>
+                            {!formatInfo && <span className="option-hint">{t('quality.hint')}</span>}
                         </div>
+                        )}
                         <div className="option-group flex-1">
                             <label className="option-label">{t('outputDir.label')}</label>
                             <div className="dir-row">
@@ -851,6 +849,23 @@ function App() {
                                                     }}
                                                 />
                                                 <span className="format-item-text">{t('format.usePreset')}</span>
+                                                <select
+                                                    className="select-input select-input-inline"
+                                                    value={quality}
+                                                    onClick={e => e.stopPropagation()}
+                                                    onChange={e => {
+                                                        const nextQuality = e.target.value
+                                                        setQuality(nextQuality)
+                                                        persistSettingsPatch({quality: nextQuality})
+                                                        setSelectedFormat('')
+                                                        setSelectedVideoFormat('')
+                                                        setSelectedAudioFormat('')
+                                                    }}
+                                                >
+                                                    {QUALITY_OPTIONS.map(q => (
+                                                        <option key={q} value={q}>{t(`quality.${q}` as any)}</option>
+                                                    ))}
+                                                </select>
                                             </label>
                                             {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio))
                                                 .map(f => (

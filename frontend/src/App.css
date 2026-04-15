@@ -392,6 +392,15 @@ body {
   border-color: var(--accent);
 }
 
+.select-input-inline {
+  min-width: 130px;
+  padding: 2px 6px;
+  font-size: 12px;
+  border-radius: 4px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
 .format-row {
   display: flex;
   gap: 6px;

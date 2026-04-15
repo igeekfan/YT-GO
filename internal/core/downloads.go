@@ -139,8 +139,14 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 	if settings.MergeOutputFormat != "" && shouldApplyMergeOutputFormat(req.Quality) {
 		args = append(args, "--merge-output-format", settings.MergeOutputFormat)
 	}
-	if settings.AudioFormat != "" && requiresAudioExtraction(req.Quality) {
-		args = append(args, "--audio-format", settings.AudioFormat)
+	if requiresAudioExtraction(req.Quality) {
+		audioFmt := settings.AudioFormat
+		if audioFmt == "" && req.Quality == "audio" {
+			audioFmt = "mp3"
+		}
+		if audioFmt != "" {
+			args = append(args, "--audio-format", audioFmt)
+		}
 	}
 	optSaveDescription := settings.SaveDescription
 	optSaveThumbnail := settings.SaveThumbnail
@@ -272,14 +278,10 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 }
 
 func shouldApplyMergeOutputFormat(quality string) bool {
-	if strings.HasPrefix(quality, "fa:") || strings.HasPrefix(quality, "fv:") || strings.HasPrefix(quality, "f:") {
+	if quality == "audio" || strings.HasPrefix(quality, "fa:") || strings.HasPrefix(quality, "fv:") || strings.HasPrefix(quality, "f:") {
 		return false
 	}
-	if !strings.HasPrefix(quality, "f:") {
-		return true
-	}
-	customFormat := strings.TrimSpace(strings.TrimPrefix(quality, "f:"))
-	return customFormat == "" || !strings.Contains(customFormat, "+")
+	return true
 }
 
 func requiresAudioExtraction(quality string) bool {
