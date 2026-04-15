@@ -7,6 +7,8 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+const releasePageURL = "https://github.com/igeekfan/YT-GO/releases"
+
 // SelectFolder opens a folder picker dialog.
 func (a *App) SelectFolder() string {
 	dir, err := wailsRuntime.OpenDirectoryDialog(a.ctx, wailsRuntime.OpenDialogOptions{
@@ -57,6 +59,19 @@ func (a *App) OpenFile(path string) error {
 		cmd = exec.Command("open", path)
 	default:
 		cmd = exec.Command("xdg-open", path)
+	}
+	return cmd.Start()
+}
+
+func (a *App) OpenReleasePage() error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", releasePageURL)
+	case "darwin":
+		cmd = exec.Command("open", releasePageURL)
+	default:
+		cmd = exec.Command("xdg-open", releasePageURL)
 	}
 	return cmd.Start()
 }

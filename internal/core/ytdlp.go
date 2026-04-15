@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"context"
@@ -24,14 +24,15 @@ func getPreferredJSRuntime() string {
 	return ""
 }
 
-// ytdlpCmd creates an exec.Cmd for yt-dlp with UTF-8 output encoding on Windows.
-func (a *App) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
+func (s *Service) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
 	if jsRuntime := getPreferredJSRuntime(); jsRuntime != "" {
 		args = append([]string{"--js-runtimes", jsRuntime}, args...)
 	}
-	cmd := exec.CommandContext(ctx, a.ytdlpPath, args...)
+	cmd := exec.CommandContext(ctx, s.ytdlpPath, args...)
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
-	hideCmdWindow(cmd)
+	if s.hooks.HideCommand != nil {
+		s.hooks.HideCommand(cmd)
+	}
 	return cmd
 }
 
@@ -65,7 +66,6 @@ func normalizeYtDlpError(errMsg string, settings Settings) string {
 	if errMsg == "" {
 		return errMsg
 	}
-
 	if strings.Contains(errMsg, "Sign in to confirm") || strings.Contains(errMsg, "not a bot") {
 		cookieHint := "当前未配置 Cookies。"
 		if settings.CookiesFrom != "" {
@@ -75,18 +75,13 @@ func normalizeYtDlpError(errMsg string, settings Settings) string {
 		}
 		return fmt.Sprintf("YouTube 拒绝了当前访问，请求被判定为需要登录验证。%s这通常表示 Cookies 已过期、导出不完整、账号未登录 YouTube，或当前代理/IP 风险较高。请重新导出最新的 YouTube cookies.txt，或改用“从浏览器导入 Cookies”。原始错误: %s", cookieHint, errMsg)
 	}
-
 	if strings.Contains(errMsg, "Failed to decrypt with DPAPI") {
 		if settings.CookiesFrom != "" {
 			return fmt.Sprintf("无法读取浏览器 Cookies（DPAPI 解密失败）。当前浏览器来源: %s。请先关闭该浏览器，并确保 YT-GO 不是以管理员身份运行；如果仍失败，请改用导出的 cookies.txt 文件。原始错误: %s", settings.CookiesFrom, errMsg)
 		}
 		return fmt.Sprintf("Cookies 解密失败（DPAPI）。请检查是否以相同 Windows 用户运行，并避免管理员身份运行；必要时改用导出的 cookies.txt 文件。原始错误: %s", errMsg)
 	}
-
-	if strings.Contains(errMsg, "Signature solving failed") ||
-		strings.Contains(errMsg, "n challenge solving failed") ||
-		strings.Contains(errMsg, "Only images are available for download") ||
-		strings.Contains(errMsg, "Requested format is not available") {
+	if strings.Contains(errMsg, "Signature solving failed") || strings.Contains(errMsg, "n challenge solving failed") || strings.Contains(errMsg, "Only images are available for download") || strings.Contains(errMsg, "Requested format is not available") {
 		cookieHint := ""
 		if settings.CookiesFrom != "" {
 			cookieHint = fmt.Sprintf("当前使用浏览器 Cookies: %s。", settings.CookiesFrom)
@@ -95,7 +90,6 @@ func normalizeYtDlpError(errMsg string, settings Settings) string {
 		}
 		return fmt.Sprintf("yt-dlp 已读取到 YouTube 页面，但当前环境无法完成签名/JS challenge 求解，所以只拿到了图片 storyboard，没有拿到真实视频格式。%s请安装 Node.js LTS 并重启应用，或改用具备可用 JS runtime 的 yt-dlp 运行环境。原始错误: %s", cookieHint, errMsg)
 	}
-
 	return errMsg
 }
 
@@ -117,19 +111,17 @@ func getNodeVersion() string {
 	return fmt.Sprintf("%s (%s)", version, nodePath)
 }
 
-func (a *App) logCmd(tag string, cmd *exec.Cmd) {
-	a.emitLog("[%s] exec: %s", tag, strings.Join(cmd.Args, " "))
+func (s *Service) logCmd(tag string, cmd *exec.Cmd) {
+	s.emitLog("[%s] exec: %s", tag, strings.Join(cmd.Args, " "))
 }
 
-// findYtDlp looks for yt-dlp in PATH and the executable directory.
-func (a *App) findYtDlp() string {
+func (s *Service) findYtDlp() string {
 	candidates := []string{"yt-dlp", "yt-dlp.exe"}
 	for _, name := range candidates {
 		if path, err := exec.LookPath(name); err == nil {
 			return path
 		}
 	}
-
 	execDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err == nil {
 		for _, name := range candidates {
@@ -139,7 +131,6 @@ func (a *App) findYtDlp() string {
 			}
 		}
 	}
-
 	var extraDirs []string
 	if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" {
 		wingetPackages := filepath.Join(localApp, "Microsoft", "WinGet", "Packages")
@@ -154,7 +145,6 @@ func (a *App) findYtDlp() string {
 	if home, err := os.UserHomeDir(); err == nil {
 		extraDirs = append(extraDirs, filepath.Join(home, "scoop", "shims"))
 	}
-
 	for _, dir := range extraDirs {
 		for _, name := range candidates {
 			path := filepath.Join(dir, name)
@@ -166,37 +156,31 @@ func (a *App) findYtDlp() string {
 	return ""
 }
 
-// CheckYtDlp verifies yt-dlp is available and returns its version.
-func (a *App) CheckYtDlp() YtDlpStatus {
-	if a.ytdlpPath == "" {
-		a.ytdlpPath = a.findYtDlp()
+func (s *Service) CheckYtDlp() YtDlpStatus {
+	if s.ytdlpPath == "" {
+		s.ytdlpPath = s.findYtDlp()
 	}
-	if a.ytdlpPath == "" {
+	if s.ytdlpPath == "" {
 		return YtDlpStatus{Available: false}
 	}
-
-	cmd := exec.Command(a.ytdlpPath, "--version")
-	hideCmdWindow(cmd)
+	cmd := exec.Command(s.ytdlpPath, "--version")
+	if s.hooks.HideCommand != nil {
+		s.hooks.HideCommand(cmd)
+	}
 	out, err := cmd.Output()
 	if err != nil {
 		return YtDlpStatus{Available: false}
 	}
-	return YtDlpStatus{
-		Available: true,
-		Version:   strings.TrimSpace(string(out)),
-		Path:      a.ytdlpPath,
-	}
+	return YtDlpStatus{Available: true, Version: strings.TrimSpace(string(out)), Path: s.ytdlpPath}
 }
 
-// UpdateYtDlp runs yt-dlp -U to update to the latest version.
-func (a *App) UpdateYtDlp() (string, error) {
-	if a.ytdlpPath == "" {
+func (s *Service) UpdateYtDlp() (string, error) {
+	if s.ytdlpPath == "" {
 		return "", fmt.Errorf("yt-dlp not found")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-
-	cmd := a.ytdlpCmd(ctx, "-U")
+	cmd := s.ytdlpCmd(ctx, "-U")
 	out, err := cmd.CombinedOutput()
 	output := strings.TrimSpace(toUTF8(out))
 	if err != nil {
@@ -205,41 +189,36 @@ func (a *App) UpdateYtDlp() (string, error) {
 	return output, nil
 }
 
-// GetVideoInfo fetches video metadata via yt-dlp --dump-json.
-func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
-	if a.ytdlpPath == "" {
+func (s *Service) GetVideoInfo(url string) (VideoInfo, error) {
+	if s.ytdlpPath == "" {
 		return VideoInfo{}, fmt.Errorf("yt-dlp not found")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-
 	args := []string{"--ignore-config", "--dump-json", "--no-playlist", "--no-warnings"}
-	settings := a.GetSettings()
+	settings := s.GetSettings()
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
 	args = appendCookiesArgs(args, settings)
 	args = append(args, url)
-
-	cmd := a.ytdlpCmd(ctx, args...)
-	a.emitLog("[GetVideoInfo] fetching info for URL: %s", url)
-	a.logCmd("GetVideoInfo", cmd)
+	cmd := s.ytdlpCmd(ctx, args...)
+	s.emitLog("[GetVideoInfo] fetching info for URL: %s", url)
+	s.logCmd("GetVideoInfo", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := normalizeYtDlpError(toUTF8(out), settings)
-		a.emitLog("[GetVideoInfo] failed: err=%v, output=%s", err, errMsg)
+		s.emitLog("[GetVideoInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return VideoInfo{}, fmt.Errorf("%s", errMsg)
 		}
 		return VideoInfo{}, fmt.Errorf("failed to get video info: %w", err)
 	}
-
 	var raw map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil {
-		a.emitLog("[GetVideoInfo] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
+		s.emitLog("[GetVideoInfo] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
 		return VideoInfo{}, fmt.Errorf("failed to parse video info: %w", err)
 	}
-
 	info := VideoInfo{URL: url}
 	if v, ok := raw["title"].(string); ok {
 		info.Title = v
@@ -273,7 +252,6 @@ func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 func extractSubtitleLangs(raw map[string]interface{}) []SubtitleLang {
 	var result []SubtitleLang
 	seen := make(map[string]bool)
-
 	if subs, ok := raw["subtitles"].(map[string]interface{}); ok {
 		for code := range subs {
 			if seen[code] {
@@ -291,7 +269,6 @@ func extractSubtitleLangs(raw map[string]interface{}) []SubtitleLang {
 			result = append(result, SubtitleLang{Code: code, Name: name, Auto: false})
 		}
 	}
-
 	if autoCaptions, ok := raw["automatic_captions"].(map[string]interface{}); ok {
 		for code := range autoCaptions {
 			if seen[code] {
@@ -309,7 +286,6 @@ func extractSubtitleLangs(raw map[string]interface{}) []SubtitleLang {
 			result = append(result, SubtitleLang{Code: code, Name: name, Auto: true})
 		}
 	}
-
 	return result
 }
 
@@ -324,39 +300,35 @@ func detectCollectionKind(url string) string {
 	return "playlist"
 }
 
-// GetPlaylistInfo fetches all video entries from a playlist URL via yt-dlp --flat-playlist.
-func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
-	if a.ytdlpPath == "" {
+func (s *Service) GetPlaylistInfo(url string) (PlaylistInfo, error) {
+	if s.ytdlpPath == "" {
 		return PlaylistInfo{}, fmt.Errorf("yt-dlp not found")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-
 	args := []string{"--ignore-config", "--flat-playlist", "--dump-single-json", "--no-warnings"}
-	settings := a.GetSettings()
+	settings := s.GetSettings()
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
 	args = appendCookiesArgs(args, settings)
 	args = append(args, url)
-
-	cmd := a.ytdlpCmd(ctx, args...)
-	a.emitLog("[GetPlaylistInfo] fetching playlist for URL: %s", url)
-	a.logCmd("GetPlaylistInfo", cmd)
+	cmd := s.ytdlpCmd(ctx, args...)
+	s.emitLog("[GetPlaylistInfo] fetching playlist for URL: %s", url)
+	s.logCmd("GetPlaylistInfo", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := normalizeYtDlpError(toUTF8(out), settings)
-		a.emitLog("[GetPlaylistInfo] failed: err=%v, output=%s", err, errMsg)
+		s.emitLog("[GetPlaylistInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return PlaylistInfo{}, fmt.Errorf("%s", errMsg)
 		}
 		return PlaylistInfo{}, fmt.Errorf("failed to get playlist info: %w", err)
 	}
-
 	result := PlaylistInfo{URL: url, Kind: detectCollectionKind(url)}
 	var raw map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil {
-		a.emitLog("[GetPlaylistInfo] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
+		s.emitLog("[GetPlaylistInfo] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
 		return PlaylistInfo{}, fmt.Errorf("failed to parse playlist info: %w", err)
 	}
 	if v, ok := raw["title"].(string); ok {
@@ -418,41 +390,36 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	return result, nil
 }
 
-// GetFormats fetches all available formats for a video URL via yt-dlp --dump-json.
-func (a *App) GetFormats(url string) (FormatInfo, error) {
-	if a.ytdlpPath == "" {
+func (s *Service) GetFormats(url string) (FormatInfo, error) {
+	if s.ytdlpPath == "" {
 		return FormatInfo{}, fmt.Errorf("yt-dlp not found")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-
 	args := []string{"--ignore-config", "--dump-json", "--no-download", "--no-warnings", "--no-playlist"}
-	settings := a.GetSettings()
+	settings := s.GetSettings()
 	if settings.Proxy != "" {
 		args = append(args, "--proxy", settings.Proxy)
 	}
 	args = appendCookiesArgs(args, settings)
 	args = append(args, url)
-
-	cmd := a.ytdlpCmd(ctx, args...)
-	a.emitLog("[GetFormats] fetching formats for URL: %s", url)
-	a.logCmd("GetFormats", cmd)
+	cmd := s.ytdlpCmd(ctx, args...)
+	s.emitLog("[GetFormats] fetching formats for URL: %s", url)
+	s.logCmd("GetFormats", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := normalizeYtDlpError(toUTF8(out), settings)
-		a.emitLog("[GetFormats] failed: err=%v, output=%s", err, errMsg)
+		s.emitLog("[GetFormats] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return FormatInfo{}, fmt.Errorf("%s", errMsg)
 		}
 		return FormatInfo{}, fmt.Errorf("failed to get formats: %w", err)
 	}
-
 	var raw map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil {
-		a.emitLog("[GetFormats] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
+		s.emitLog("[GetFormats] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
 		return FormatInfo{}, fmt.Errorf("failed to parse JSON: %w", err)
 	}
-
 	result := FormatInfo{URL: url}
 	if v, ok := raw["title"].(string); ok {
 		result.Title = v
@@ -498,7 +465,6 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 			result.Formats = append(result.Formats, format)
 		}
 	}
-
 	return result, nil
 }
 

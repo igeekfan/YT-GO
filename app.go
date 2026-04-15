@@ -5,10 +5,11 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"sync"
+	"os/exec"
+
+	"YT-GO/internal/core"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"gorm.io/gorm"
 )
 
 //go:embed wails.json
@@ -26,47 +27,42 @@ func init() {
 
 // App struct
 type App struct {
-	ctx         context.Context
-	i18n        *I18n
-	downloads   map[string]*DownloadTask
-	cancelFns   map[string]context.CancelFunc
-	mu          sync.RWMutex
-	ytdlpPath   string
-	db          *gorm.DB
-	downloadSem chan struct{} // semaphore for concurrent download limiting
+	ctx     context.Context
+	service *core.Service
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	app := &App{
-		downloads:   make(map[string]*DownloadTask),
-		cancelFns:   make(map[string]context.CancelFunc),
-		i18n:        NewI18n(),
-		downloadSem: make(chan struct{}, 3), // default max 3 concurrent downloads
-	}
-	app.ytdlpPath = app.findYtDlp()
-	return app
+	return &App{service: core.NewService(WailsInfo.Info.ProductVersion)}
 }
 
 // startup is called when the app starts. The context is saved
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	if db, err := openDB(); err == nil {
-		a.db = db
-		a.cleanupTransientDownloads()
-		a.loadFromDB()
-		// Initialize download semaphore based on settings
-		settings := a.GetSettings()
-		maxConcurrent := settings.MaxConcurrent
-		if maxConcurrent < 1 {
-			maxConcurrent = 3 // default
-		}
-		if maxConcurrent > 10 {
-			maxConcurrent = 10 // cap at 10
-		}
-		a.downloadSem = make(chan struct{}, maxConcurrent)
-	}
+	a.service.SetHooks(core.Hooks{
+		AppLog: func(msg string) {
+			fmt.Println(msg)
+			wailsRuntime.EventsEmit(a.ctx, "app:log", msg)
+		},
+		DownloadUpdate: func(task *core.DownloadTask) {
+			if task == nil {
+				return
+			}
+			copy := fromCoreDownloadTask(*task)
+			wailsRuntime.EventsEmit(a.ctx, "download:update", &copy)
+		},
+		DownloadRemove: func(taskID string) {
+			wailsRuntime.EventsEmit(a.ctx, "download:remove", taskID)
+		},
+		DownloadLog: func(taskID string, line string) {
+			wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": line})
+		},
+		HideCommand: func(cmd *exec.Cmd) {
+			hideCmdWindow(cmd)
+		},
+	})
+	_ = a.service.Startup()
 }
 
 // emitLog sends a log message to the frontend via the "app:log" event.

@@ -1,11 +1,9 @@
-package main
+package core
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 )
@@ -15,19 +13,7 @@ const (
 	githubRepo  = "YT-GO"
 )
 
-type UpdateInfo struct {
-	HasUpdate      bool   `json:"hasUpdate"`
-	CurrentVersion string `json:"currentVersion"`
-	LatestVersion  string `json:"latestVersion"`
-	ReleaseName    string `json:"releaseName"`
-	ReleaseBody    string `json:"releaseBody"`
-	HTMLURL        string `json:"htmlUrl"`
-	PublishedAt    string `json:"publishedAt"`
-}
-
-func (a *App) GetCurrentVersion() string {
-	return WailsInfo.Info.ProductVersion
-}
+func (s *Service) GetCurrentVersion() string { return s.appVersion }
 
 func compareVersion(v1, v2 string) int {
 	parts1 := strings.Split(v1, ".")
@@ -50,25 +36,21 @@ func compareVersion(v1, v2 string) int {
 	return 0
 }
 
-func (a *App) CheckForUpdate() (UpdateInfo, error) {
-	currentVersion := WailsInfo.Info.ProductVersion
+func (s *Service) CheckForUpdate() (UpdateInfo, error) {
+	currentVersion := s.appVersion
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
-
 	resp, err := http.Get(url)
 	if err != nil {
 		return UpdateInfo{}, fmt.Errorf("failed to fetch release info: %w", err)
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		return UpdateInfo{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-
 	var data map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return UpdateInfo{}, fmt.Errorf("failed to parse response: %w", err)
 	}
-
 	tagName, _ := data["tag_name"].(string)
 	latestVersion := strings.TrimPrefix(tagName, "v")
 	if compareVersion(latestVersion, currentVersion) > 0 {
@@ -76,35 +58,7 @@ func (a *App) CheckForUpdate() (UpdateInfo, error) {
 		releaseName, _ := data["name"].(string)
 		releaseBody, _ := data["body"].(string)
 		publishedAt, _ := data["published_at"].(string)
-
-		return UpdateInfo{
-			HasUpdate:      true,
-			CurrentVersion: currentVersion,
-			LatestVersion:  latestVersion,
-			ReleaseName:    releaseName,
-			ReleaseBody:    releaseBody,
-			HTMLURL:        htmlURL,
-			PublishedAt:    publishedAt,
-		}, nil
+		return UpdateInfo{HasUpdate: true, CurrentVersion: currentVersion, LatestVersion: latestVersion, ReleaseName: releaseName, ReleaseBody: releaseBody, HTMLURL: htmlURL, PublishedAt: publishedAt}, nil
 	}
-
-	return UpdateInfo{
-		HasUpdate:      false,
-		CurrentVersion: currentVersion,
-		LatestVersion:  latestVersion,
-	}, nil
-}
-
-func (a *App) OpenReleasePage() error {
-	url := fmt.Sprintf("https://github.com/%s/%s/releases", githubOwner, githubRepo)
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", url)
-	case "darwin":
-		cmd = exec.Command("open", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
-	}
-	return cmd.Start()
+	return UpdateInfo{HasUpdate: false, CurrentVersion: currentVersion, LatestVersion: latestVersion}, nil
 }

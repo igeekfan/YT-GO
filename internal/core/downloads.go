@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"bytes"
@@ -12,75 +12,62 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// cleanupTransientDownloads removes stale transient tasks left by a previous session.
-func (a *App) cleanupTransientDownloads() {
-	if a.db == nil {
+func (s *Service) cleanupTransientDownloads() {
+	if s.db == nil {
 		return
 	}
-	a.db.Where("status IN ?", []string{"pending", "downloading", "cancelled"}).Delete(&DownloadRecord{})
+	s.db.Where("status IN ?", []string{"pending", "downloading", "cancelled"}).Delete(&DownloadRecord{})
 }
 
-// loadFromDB loads all persisted download records into the in-memory map.
-func (a *App) loadFromDB() {
-	if a.db == nil {
+func (s *Service) loadFromDB() {
+	if s.db == nil {
 		return
 	}
 	var records []DownloadRecord
-	if err := a.db.Order("created_at desc").Find(&records).Error; err != nil {
+	if err := s.db.Order("created_at desc").Find(&records).Error; err != nil {
 		return
 	}
-	a.mu.Lock()
+	s.mu.Lock()
 	for _, record := range records {
 		task := recordToTask(record)
-		a.downloads[task.ID] = task
+		s.downloads[task.ID] = task
 	}
-	a.mu.Unlock()
+	s.mu.Unlock()
 }
 
-func (a *App) upsertRecord(t *DownloadTask) {
-	if a.db == nil {
+func (s *Service) upsertRecord(task *DownloadTask) {
+	if s.db == nil {
 		return
 	}
-	record := taskToRecord(t)
-	a.db.Save(&record)
+	record := taskToRecord(task)
+	s.db.Save(&record)
 }
 
-func (a *App) deleteRecords(ids []string) {
-	if a.db == nil || len(ids) == 0 {
+func (s *Service) deleteRecords(ids []string) {
+	if s.db == nil || len(ids) == 0 {
 		return
 	}
-	a.db.Delete(&DownloadRecord{}, ids)
+	s.db.Delete(&DownloadRecord{}, ids)
 }
 
-// StartDownload enqueues and starts a video download, returns the task ID.
-func (a *App) StartDownload(req DownloadRequest) (string, error) {
-	if a.ytdlpPath == "" {
+func (s *Service) StartDownload(req DownloadRequest) (string, error) {
+	if s.ytdlpPath == "" {
 		return "", fmt.Errorf("yt-dlp not found")
 	}
 	taskID := uuid.New().String()
-	task := &DownloadTask{
-		ID:        taskID,
-		URL:       req.URL,
-		OutputDir: req.OutputDir,
-		Quality:   req.Quality,
-		Status:    "pending",
-		CreatedAt: time.Now().Format(time.RFC3339),
-	}
+	task := &DownloadTask{ID: taskID, URL: req.URL, OutputDir: req.OutputDir, Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339)}
 	if req.VideoInfo != nil {
 		task.Title = req.VideoInfo.Title
 		task.Thumbnail = req.VideoInfo.Thumbnail
 	}
-
-	a.mu.Lock()
-	a.downloads[taskID] = task
-	a.mu.Unlock()
-
-	go a.upsertRecord(task)
-	wailsRuntime.EventsEmit(a.ctx, "download:update", task)
-	go a.runDownload(taskID, req)
+	s.mu.Lock()
+	s.downloads[taskID] = task
+	s.mu.Unlock()
+	go s.upsertRecord(task)
+	s.emitDownloadUpdate(task)
+	go s.runDownload(taskID, req)
 	return taskID, nil
 }
 
@@ -116,37 +103,24 @@ var (
 	finalPathRe = regexp.MustCompile(`^\[YT-GO-OUTPUT\](.+)$`)
 )
 
-func (a *App) runDownload(taskID string, req DownloadRequest) {
-	a.downloadSem <- struct{}{}
-	defer func() { <-a.downloadSem }()
-
+func (s *Service) runDownload(taskID string, req DownloadRequest) {
+	s.downloadSem <- struct{}{}
+	defer func() { <-s.downloadSem }()
 	ctx, cancel := context.WithCancel(context.Background())
-
-	a.mu.Lock()
-	a.cancelFns[taskID] = cancel
-	a.downloads[taskID].Status = "downloading"
-	{
-		cp := *a.downloads[taskID]
-		a.mu.Unlock()
-		wailsRuntime.EventsEmit(a.ctx, "download:update", &cp)
-	}
-
+	s.mu.Lock()
+	s.cancelFns[taskID] = cancel
+	s.downloads[taskID].Status = "downloading"
+	cp := *s.downloads[taskID]
+	s.mu.Unlock()
+	s.emitDownloadUpdate(&cp)
 	args := qualityArgs(req.Quality)
 	args = append(args, "--ignore-config")
-
-	settings := a.GetSettings()
+	settings := s.GetSettings()
 	outputTemplate := "%(title)s.%(ext)s"
 	if settings.FilenameTemplate != "" {
 		outputTemplate = settings.FilenameTemplate
 	}
-	args = append(args,
-		"--newline",
-		"--progress",
-		"--print", "after_move:[YT-GO-OUTPUT]%(filepath)s",
-		"-o", filepath.Join(req.OutputDir, outputTemplate),
-		"--no-playlist",
-	)
-
+	args = append(args, "--newline", "--progress", "--print", "after_move:[YT-GO-OUTPUT]%(filepath)s", "-o", filepath.Join(req.OutputDir, outputTemplate), "--no-playlist")
 	if settings.RateLimit != "" {
 		args = append(args, "--rate-limit", settings.RateLimit)
 	}
@@ -159,7 +133,6 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	if settings.AudioFormat != "" && req.Quality == "audio" {
 		args = append(args, "--audio-format", settings.AudioFormat)
 	}
-
 	optSaveDescription := settings.SaveDescription
 	optSaveThumbnail := settings.SaveThumbnail
 	optWriteSubtitles := settings.WriteSubtitles
@@ -190,7 +163,6 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 			optSponsorBlock = *req.Options.SponsorBlock
 		}
 	}
-
 	if optSaveDescription {
 		args = append(args, "--write-description")
 	}
@@ -214,63 +186,56 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 	}
 	args = appendCookiesArgs(args, settings)
 	args = append(args, req.URL)
-
-	cmd := a.ytdlpCmd(ctx, args...)
-	wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": fmt.Sprintf("[YT-GO] Starting download: %s", req.URL)})
-	wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": fmt.Sprintf("[YT-GO] yt-dlp path: %s", a.ytdlpPath)})
-	wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": fmt.Sprintf("[YT-GO] Output dir: %s", req.OutputDir)})
-
+	cmd := s.ytdlpCmd(ctx, args...)
+	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Starting download: %s", req.URL))
+	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] yt-dlp path: %s", s.ytdlpPath))
+	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Output dir: %s", req.OutputDir))
 	var lastOutputFile string
-	writer := &lineWriter{
-		handler: func(line string) {
-			if m := finalPathRe.FindStringSubmatch(line); m != nil {
-				lastOutputFile = strings.TrimSpace(m[1])
-				return
-			}
-
-			wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": line})
-			if m := progressRe.FindStringSubmatch(line); m != nil {
-				pct, _ := strconv.ParseFloat(m[1], 64)
-				var cp *DownloadTask
-				a.mu.Lock()
-				if t, ok := a.downloads[taskID]; ok {
-					t.Progress = pct
-					t.Size = m[2]
-					t.Speed = m[3]
-					if len(m) > 4 {
-						t.ETA = m[4]
-					}
-					taskCopy := *t
-					cp = &taskCopy
+	writer := &lineWriter{handler: func(line string) {
+		if m := finalPathRe.FindStringSubmatch(line); m != nil {
+			lastOutputFile = strings.TrimSpace(m[1])
+			return
+		}
+		s.emitDownloadLog(taskID, line)
+		if m := progressRe.FindStringSubmatch(line); m != nil {
+			pct, _ := strconv.ParseFloat(m[1], 64)
+			var updated *DownloadTask
+			s.mu.Lock()
+			if t, ok := s.downloads[taskID]; ok {
+				t.Progress = pct
+				t.Size = m[2]
+				t.Speed = m[3]
+				if len(m) > 4 {
+					t.ETA = m[4]
 				}
-				a.mu.Unlock()
-				if cp != nil {
-					wailsRuntime.EventsEmit(a.ctx, "download:update", cp)
-				}
-			} else if m := destRe1.FindStringSubmatch(line); m != nil {
-				lastOutputFile = m[1]
-			} else if m := destRe2.FindStringSubmatch(line); m != nil {
-				lastOutputFile = strings.Trim(m[1], `"`)
-			} else if m := destRe3.FindStringSubmatch(line); m != nil {
-				lastOutputFile = m[1]
+				copy := *t
+				updated = &copy
 			}
-		},
-	}
-
+			s.mu.Unlock()
+			if updated != nil {
+				s.emitDownloadUpdate(updated)
+			}
+		} else if m := destRe1.FindStringSubmatch(line); m != nil {
+			lastOutputFile = m[1]
+		} else if m := destRe2.FindStringSubmatch(line); m != nil {
+			lastOutputFile = strings.Trim(m[1], `"`)
+		} else if m := destRe3.FindStringSubmatch(line); m != nil {
+			lastOutputFile = m[1]
+		}
+	}}
 	cmd.Stdout = writer
 	cmd.Stderr = writer
 	err := cmd.Run()
 	wasCancelled := ctx.Err() != nil
 	cancel()
-
-	a.mu.Lock()
-	delete(a.cancelFns, taskID)
+	s.mu.Lock()
+	delete(s.cancelFns, taskID)
 	var finalTask *DownloadTask
 	var removed bool
-	if t, ok := a.downloads[taskID]; ok {
+	if t, ok := s.downloads[taskID]; ok {
 		switch {
 		case wasCancelled:
-			delete(a.downloads, taskID)
+			delete(s.downloads, taskID)
 			removed = true
 		case err != nil:
 			t.Status = "error"
@@ -282,27 +247,25 @@ func (a *App) runDownload(taskID string, req DownloadRequest) {
 				t.OutputPath = lastOutputFile
 			}
 		}
-		cp := *t
-		finalTask = &cp
+		copy := *t
+		finalTask = &copy
 	}
-	a.mu.Unlock()
-
+	s.mu.Unlock()
 	if removed {
-		wailsRuntime.EventsEmit(a.ctx, "download:remove", taskID)
-		go a.deleteRecords([]string{taskID})
+		s.emitDownloadRemove(taskID)
+		go s.deleteRecords([]string{taskID})
 		return
 	}
 	if finalTask != nil {
-		wailsRuntime.EventsEmit(a.ctx, "download:update", finalTask)
-		go a.upsertRecord(finalTask)
+		s.emitDownloadUpdate(finalTask)
+		go s.upsertRecord(finalTask)
 	}
 }
 
-// CancelDownload cancels an active download by task ID.
-func (a *App) CancelDownload(taskID string) error {
-	a.mu.RLock()
-	cancel, ok := a.cancelFns[taskID]
-	a.mu.RUnlock()
+func (s *Service) CancelDownload(taskID string) error {
+	s.mu.RLock()
+	cancel, ok := s.cancelFns[taskID]
+	s.mu.RUnlock()
 	if !ok {
 		return fmt.Errorf("task not found or not active")
 	}
@@ -310,28 +273,26 @@ func (a *App) CancelDownload(taskID string) error {
 	return nil
 }
 
-// GetDownloads returns all download tasks.
-func (a *App) GetDownloads() []*DownloadTask {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	result := make([]*DownloadTask, 0, len(a.downloads))
-	for _, task := range a.downloads {
+func (s *Service) GetDownloads() []*DownloadTask {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]*DownloadTask, 0, len(s.downloads))
+	for _, task := range s.downloads {
 		copy := *task
 		result = append(result, &copy)
 	}
 	return result
 }
 
-// ClearCompleted removes finished/failed/cancelled tasks from the list.
-func (a *App) ClearCompleted() {
-	a.mu.Lock()
+func (s *Service) ClearCompleted() {
+	s.mu.Lock()
 	var ids []string
-	for id, task := range a.downloads {
+	for id, task := range s.downloads {
 		if task.Status == "completed" || task.Status == "error" || task.Status == "cancelled" {
 			ids = append(ids, id)
-			delete(a.downloads, id)
+			delete(s.downloads, id)
 		}
 	}
-	a.mu.Unlock()
-	go a.deleteRecords(ids)
+	s.mu.Unlock()
+	go s.deleteRecords(ids)
 }
