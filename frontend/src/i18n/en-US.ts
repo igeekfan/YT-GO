@@ -73,6 +73,8 @@
 
     'toast.getInfoFail': 'Failed to get video info',
     'toast.downloadStartFail': 'Failed to start download',
+    'toast.downloadQueued': 'Download task added. You can check progress below.',
+    'toast.downloadQueuedCount': '{count} download tasks added. You can check progress below.',
     'toast.cancelFail': 'Failed to cancel',
     'toast.openFail': 'Failed to open',
 

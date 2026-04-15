@@ -73,6 +73,8 @@
 
     'toast.getInfoFail': '获取视频信息失败',
     'toast.downloadStartFail': '启动下载失败',
+    'toast.downloadQueued': '已添加下载任务，可在下方查看进度',
+    'toast.downloadQueuedCount': '已添加 {count} 个下载任务，可在下方查看进度',
     'toast.cancelFail': '取消失败',
     'toast.openFail': '打开失败',
 

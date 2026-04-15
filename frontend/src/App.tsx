@@ -549,6 +549,7 @@ function App() {
                 videoInfo: videoInfo || undefined,
                 options: buildDownloadOptions(),
             } as any)
+            showToast(t('toast.downloadQueued'))
         } catch (e: any) {
             showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
@@ -574,6 +575,7 @@ function App() {
         setIsStarting(true)
         try {
             const downloadQuality = resolveDownloadQuality()
+            let startedCount = 0
             for (let i = 0; i < playlistInfo.videos.length; i++) {
                 if (!selectedPlaylistItems.has(i)) continue
                 const video = playlistInfo.videos[i]
@@ -585,7 +587,11 @@ function App() {
                         videoInfo: video,
                         options: buildDownloadOptions(),
                     } as any)
+                    startedCount++
                 }
+            }
+            if (startedCount > 0) {
+                showToast(t('toast.downloadQueuedCount', {count: String(startedCount)}))
             }
         } catch (e: any) {
             showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
