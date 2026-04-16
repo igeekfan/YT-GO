@@ -50,9 +50,29 @@
 - 继续补齐 Web 模式下与桌面端的交互差异。
 - 根据运行模式差异整理更明确的限制提示和文档说明。
 
+## 技术替换方向
+
+### 引入 go-ytdlp 包替换自有实现
+
+- 包地址：[github.com/lrstanley/go-ytdlp](https://github.com/lrstanley/go-ytdlp)
+- 引入理由：
+  - 提供完整的类型安全 flag builder，避免手动拼接 `[]string` args 出错
+  - 内置 `Install*` 辅助函数，可自动下载/缓存 yt-dlp、ffmpeg、ffprobe、bun，无需自己维护更新逻辑
+  - 支持 `FlagConfig`（JSON ↔ flags 双向转换），便于后续 UI 侧暴露高级参数配置
+  - 已处理 Windows 下隐藏 CMD 窗口（`command_windows.go`），减少平台差异维护成本
+  - 持续跟进 yt-dlp 最新版本，自动生成绑定代码
+- 替换范围：
+  - `internal/core/ytdlp.go` 中的命令构建、执行、安装/更新逻辑
+  - `internal/core/diagnostics.go` 中的 ffmpeg/yt-dlp 版本探测逻辑
+  - `internal/core/update.go` 中的 yt-dlp 自动更新逻辑
+- 注意事项：
+  - 实时进度解析（stderr 流式读取）需确认 go-ytdlp 的 `StderrFunc` 回调是否满足需求
+  - 迁移时保留现有进度解析逻辑，逐步替换命令构建部分
+
 ## 当前推荐推进顺序
 
 1. 先做下载器内核下沉，避免新功能继续堆在现有调用链上。
-2. 再做首页常用设置下沉，优化高频下载流程。
-3. 然后拆出独立工具中心，收敛低频维护功能。
-4. 最后补齐队列管理增强与 Web 模式体验对齐。
+2. 评估并引入 go-ytdlp 包，替换自有命令构建与安装更新逻辑。
+3. 再做首页常用设置下沉，优化高频下载流程。
+4. 然后拆出独立工具中心，收敛低频维护功能。
+5. 最后补齐队列管理增强与 Web 模式体验对齐。
