@@ -8,6 +8,12 @@ type YtDlpStatus struct {
 	Path      string `json:"path"`
 }
 
+type YtDlpVersionCheck struct {
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion"`
+	IsLatest       bool   `json:"isLatest"`
+}
+
 type VideoInfo struct {
 	URL       string         `json:"url"`
 	ID        string         `json:"id"`

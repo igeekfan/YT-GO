@@ -1542,40 +1542,67 @@ body {
 
 .settings-tabs {
   display: flex;
-  gap: 8px;
+  gap: 0;
   border-bottom: 1px solid var(--border);
-  padding: 0 22px 14px;
+  padding: 0 16px;
   overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.settings-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .settings-tab {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid transparent;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 700;
-  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 11px 13px;
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-  border-radius: 999px;
+  transition: color 0.15s, border-color 0.15s;
+  border-radius: 0;
+  letter-spacing: 0.01em;
 }
 
 .settings-tab:hover {
   color: var(--text-primary);
-  background: var(--bg-hover);
 }
 
 .settings-tab-active {
-  color: var(--text-primary);
-  border-color: rgba(85, 179, 255, 0.24);
-  background: rgba(85, 179, 255, 0.08);
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+  font-weight: 600;
 }
 
 .tools-btn-row {
   display: flex;
   gap: 8px;
   margin-bottom: 4px;
+}
+
+.dep-version-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.dep-version-latest {
+  color: var(--accent-green);
+  background: rgba(95, 201, 146, 0.12);
+  border: 1px solid rgba(95, 201, 146, 0.24);
+}
+
+.dep-version-outdated {
+  color: var(--accent-yellow);
+  background: rgba(255, 188, 51, 0.12);
+  border: 1px solid rgba(255, 188, 51, 0.24);
 }
 
 .dep-panel {

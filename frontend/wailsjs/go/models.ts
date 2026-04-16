@@ -460,6 +460,22 @@ export namespace desktop {
 	        this.path = source["path"];
 	    }
 	}
+	export class YtDlpVersionCheck {
+	    currentVersion: string;
+	    latestVersion: string;
+	    isLatest: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new YtDlpVersionCheck(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.currentVersion = source["currentVersion"];
+	        this.latestVersion = source["latestVersion"];
+	        this.isLatest = source["isLatest"];
+	    }
+	}
 
 }
 

@@ -14,6 +14,10 @@ export function CheckYtDlp() {
   return window['go']['desktop']['App']['CheckYtDlp']();
 }
 
+export function CheckYtDlpVersion() {
+  return window['go']['desktop']['App']['CheckYtDlpVersion']();
+}
+
 export function ClearCompleted() {
   return window['go']['desktop']['App']['ClearCompleted']();
 }

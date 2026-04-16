@@ -8,6 +8,8 @@ export function CheckForUpdate():Promise<desktop.UpdateInfo>;
 
 export function CheckYtDlp():Promise<desktop.YtDlpStatus>;
 
+export function CheckYtDlpVersion():Promise<desktop.YtDlpVersionCheck>;
+
 export function ClearCompleted():Promise<void>;
 
 export function GetAboutInfo():Promise<desktop.AboutInfo>;

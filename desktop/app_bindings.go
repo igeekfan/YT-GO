@@ -110,6 +110,10 @@ func (a *App) SetLang(lang string)           { a.service.SetLang(lang) }
 func (a *App) GetLang() string               { return a.service.GetLang() }
 func (a *App) CheckYtDlp() YtDlpStatus       { return fromCoreYtDlpStatus(a.service.CheckYtDlp()) }
 func (a *App) UpdateYtDlp() (string, error)  { return a.service.UpdateYtDlp() }
+func (a *App) CheckYtDlpVersion() (YtDlpVersionCheck, error) {
+	result, err := a.service.CheckYtDlpVersion()
+	return YtDlpVersionCheck(result), err
+}
 func (a *App) UpdateDeno() (string, error)   { return a.service.UpdateDeno() }
 func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	info, err := a.service.GetVideoInfo(url)

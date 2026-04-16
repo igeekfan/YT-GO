@@ -40,6 +40,13 @@ export function CheckYtDlp() {
     return getDesktop(() => DesktopApp.CheckYtDlp(), () => apiFetch('/api/ytdlp/status'))
 }
 
+export function CheckYtDlpVersion() {
+    return getDesktop(
+        () => DesktopApp.CheckYtDlpVersion(),
+        () => apiFetch('/api/ytdlp/version-check')
+    )
+}
+
 export function UpdateYtDlp() {
     return getDesktop(
         () => DesktopApp.UpdateYtDlp(),

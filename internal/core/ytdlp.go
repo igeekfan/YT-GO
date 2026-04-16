@@ -444,6 +444,37 @@ func (s *Service) UpdateYtDlp() (string, error) {
 	return output, nil
 }
 
+func (s *Service) CheckYtDlpVersion() (YtDlpVersionCheck, error) {
+	if s.ytdlpPath == "" {
+		return YtDlpVersionCheck{}, fmt.Errorf("yt-dlp not found")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := s.ytdlpCmd(ctx, "--version").CombinedOutput()
+	if err != nil {
+		return YtDlpVersionCheck{}, fmt.Errorf("failed to get version: %w", err)
+	}
+	currentVersion := strings.TrimSpace(toUTF8(out))
+
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	resp, err := httpClient.Get("https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest")
+	if err != nil {
+		return YtDlpVersionCheck{CurrentVersion: currentVersion}, fmt.Errorf("failed to fetch latest version: %w", err)
+	}
+	defer resp.Body.Close()
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return YtDlpVersionCheck{CurrentVersion: currentVersion}, fmt.Errorf("failed to parse response: %w", err)
+	}
+	tagName, _ := data["tag_name"].(string)
+	latestVersion := strings.TrimPrefix(tagName, "v")
+	return YtDlpVersionCheck{
+		CurrentVersion: currentVersion,
+		LatestVersion:  latestVersion,
+		IsLatest:       currentVersion == latestVersion,
+	}, nil
+}
+
 func (s *Service) UpdateDeno() (string, error) {
 	denoProbe := probeDenoRuntime()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)

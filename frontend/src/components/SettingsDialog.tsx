@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus} from '../lib/backend'
+import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion} from '../lib/backend'
 
 interface DiagnosticInfo {
     ytdlpPath: string
@@ -67,6 +67,9 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     const [isUpdatingDeno, setIsUpdatingDeno] = useState(false)
     const [denoUpdateResult, setDenoUpdateResult] = useState<string | null>(null)
     const [isResetting, setIsResetting] = useState(false)
+    const [resetMessage, setResetMessage] = useState<string | null>(null)
+    const [isCheckingYtDlpVersion, setIsCheckingYtDlpVersion] = useState(false)
+    const [ytdlpVersionCheck, setYtdlpVersionCheck] = useState<{currentVersion: string; latestVersion: string; isLatest: boolean} | null>(null)
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
     const [depStatus, setDepStatus] = useState<DepStatus | null>(null)
     const [loadingDeps, setLoadingDeps] = useState(false)
@@ -79,6 +82,19 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
         htmlUrl: string
         publishedAt: string
     } | null>(null)
+
+    const handleCheckYtDlpVersion = async () => {
+        setIsCheckingYtDlpVersion(true)
+        setYtdlpVersionCheck(null)
+        try {
+            const result = await CheckYtDlpVersion()
+            setYtdlpVersionCheck(result as any)
+        } catch (e) {
+            console.error('Failed to check yt-dlp version:', e)
+        } finally {
+            setIsCheckingYtDlpVersion(false)
+        }
+    }
 
     const handleCheckForUpdate = async () => {
         setIsCheckingUpdate(true)
@@ -115,6 +131,8 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
             setActiveTab('download')
             setUpdateInfo(null)
             setDepStatus(null)
+            setResetMessage(null)
+            setYtdlpVersionCheck(null)
             GetAboutInfo().then(setAboutInfo).catch(console.error)
         }
     }, [open, initialSettings])
@@ -192,11 +210,12 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
 
     const handleResetSettings = async () => {
         setIsResetting(true)
+        setResetMessage(null)
         try {
             await ResetSettings()
-            setUpdateResult(t('settings.resetSuccess') + ' ' + (lang === 'zh-CN' ? '请重启应用使设置生效' : 'Please restart the app for changes to take effect'))
+            setResetMessage(t('settings.resetSuccess'))
         } catch (e: any) {
-            setUpdateResult(e?.message ? `${e.message}` : t('settings.resetFailed'))
+            setResetMessage(e?.message ? `${e.message}` : t('settings.resetFailed'))
         } finally {
             setIsResetting(false)
         }
@@ -569,13 +588,30 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                         {label: t('settings.diagPath'), value: depStatus?.ytdlp.path},
                     ],
                     actions: (
-                        <button
-                            className="btn-secondary btn-sm"
-                            onClick={handleUpdateYtDlp}
-                            disabled={isUpdatingYtDlp}
-                        >
-                            {isUpdatingYtDlp ? t('settings.ytdlpUpdating') : t('settings.ytdlpUpdate')}
-                        </button>
+                        <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
+                            <button
+                                className="btn-secondary btn-sm"
+                                onClick={handleCheckYtDlpVersion}
+                                disabled={isCheckingYtDlpVersion || !depStatus?.ytdlp.found}
+                            >
+                                {isCheckingYtDlpVersion ? t('dep.ytdlpCheckingVersion') : t('dep.ytdlpCheckVersion')}
+                            </button>
+                            <button
+                                className="btn-secondary btn-sm"
+                                onClick={handleUpdateYtDlp}
+                                disabled={isUpdatingYtDlp}
+                            >
+                                {isUpdatingYtDlp ? t('settings.ytdlpUpdating') : t('settings.ytdlpUpdate')}
+                            </button>
+                            {ytdlpVersionCheck && (
+                                <span className={`dep-version-status ${ytdlpVersionCheck.isLatest ? 'dep-version-latest' : 'dep-version-outdated'}`}>
+                                    {ytdlpVersionCheck.isLatest
+                                        ? t('dep.ytdlpLatest')
+                                        : `${t('dep.ytdlpOutdated')}: ${ytdlpVersionCheck.latestVersion}`
+                                    }
+                                </span>
+                            )}
+                        </div>
                     ),
                     note: updateResult,
                 })}
@@ -692,6 +728,11 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                         {isResetting ? t('settings.resetting') : t('settings.reset')}
                     </button>
                 </div>
+                {resetMessage && (
+                    <div className="dep-card-note" style={{marginTop: 8}}>
+                        <span className="dep-card-note-value">{resetMessage}</span>
+                    </div>
+                )}
             </div>
             {aboutInfo && (
                 <div className="setting-item">
