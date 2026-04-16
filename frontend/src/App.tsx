@@ -615,13 +615,15 @@ function App() {
         <div className="app-root">
             {/* Header */}
             <header className="app-header">
-                <div className="header-left">
+                <div className="header-brand">
                     <span className="app-logo">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/>
                         </svg>
                     </span>
-                    <h1 className="app-title">{t('app.title')}</h1>
+                    <span className="app-title">{t('app.title')}</span>
+                </div>
+                <div className="header-status">
                     {ytdlp && (
                         <span className={`ytdlp-badge ${ytdlp.available ? 'ytdlp-ok' : 'ytdlp-missing'}`}>
                             {ytdlp.available
@@ -640,22 +642,22 @@ function App() {
                         </button>
                     )}
                 </div>
-                <div className="header-right">
+                <div className="header-actions">
                     <button
-                        className="btn-ghost btn-sm"
+                        className="header-btn"
                         onClick={handleQuickLanguageToggle}
                     >
                         {lang === 'zh-CN' ? 'EN' : '中'}
                     </button>
                     <button
-                        className="btn-ghost btn-sm"
+                        className="header-btn"
                         onClick={handleQuickThemeToggle}
                         title={theme === 'dark' ? t('app.theme.light') : t('app.theme.dark')}
                     >
                         {theme === 'dark' ? '☀' : '☽'}
                     </button>
                     <button
-                        className="btn-ghost btn-sm"
+                        className="header-btn"
                         onClick={() => setShowSettings(true)}
                         title={t('settings.title')}
                     >
@@ -664,75 +666,77 @@ function App() {
                 </div>
             </header>
 
-            {/* Main content */}
-            <main className="app-main">
-                {/* yt-dlp installation guide when not found */}
-                {ytdlp && !ytdlp.available && (
-                    <div className="ytdlp-install-guide">
-                        <div className="install-guide-icon">⚠️</div>
-                        <h3>{t('ytdlp.notFound')}</h3>
-                        <p>{t('ytdlp.installGuide')}</p>
-                        <div className="install-commands">
-                            <div className="install-method">
-                                <strong>Windows (winget):</strong>
-                                <code>winget install yt-dlp</code>
+            {/* Workspace */}
+            <main className="app-workspace">
+                {/* Zone 1: Command */}
+                <div className="cmd-zone">
+                    {ytdlp && !ytdlp.available && (
+                        <div className="ytdlp-install-guide">
+                            <div className="install-guide-icon">⚠️</div>
+                            <h3>{t('ytdlp.notFound')}</h3>
+                            <p>{t('ytdlp.installGuide')}</p>
+                            <div className="install-commands">
+                                <div className="install-method">
+                                    <strong>Windows (winget):</strong>
+                                    <code>winget install yt-dlp</code>
+                                </div>
+                                <div className="install-method">
+                                    <strong>Windows (scoop):</strong>
+                                    <code>scoop install yt-dlp</code>
+                                </div>
+                                <div className="install-method">
+                                    <strong>macOS (Homebrew):</strong>
+                                    <code>brew install yt-dlp</code>
+                                </div>
+                                <div className="install-method">
+                                    <strong>Linux (pip):</strong>
+                                    <code>pip install yt-dlp</code>
+                                </div>
                             </div>
-                            <div className="install-method">
-                                <strong>Windows (scoop):</strong>
-                                <code>scoop install yt-dlp</code>
-                            </div>
-                            <div className="install-method">
-                                <strong>macOS (Homebrew):</strong>
-                                <code>brew install yt-dlp</code>
-                            </div>
-                            <div className="install-method">
-                                <strong>Linux (pip):</strong>
-                                <code>pip install yt-dlp</code>
-                            </div>
+                            <p className="install-note">{t('ytdlp.installNote')}</p>
+                            <button className="btn-primary" onClick={() => CheckYtDlp().then(setYtdlp)}>
+                                {t('ytdlp.recheck')}
+                            </button>
                         </div>
-                        <p className="install-note">{t('ytdlp.installNote')}</p>
-                        <button className="btn-primary" onClick={() => CheckYtDlp().then(setYtdlp)}>
-                            {t('ytdlp.recheck')}
-                        </button>
-                    </div>
-                )}
-
-                {/* URL input - only show when yt-dlp is available */}
-                {ytdlp?.available && (
-                <div className="url-section">
-                    <div className="url-row">
-                        <div className="url-input-wrap">
-                            <input
-                                className="url-input"
-                                type="text"
-                                value={url}
-                                onChange={e => setUrl(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder={t('url.placeholder')}
-                                disabled={isGettingInfo}
-                            />
-                            {url && (
-                                <button
-                                    type="button"
-                                    className="url-clear-btn"
-                                    onClick={clearCurrentInput}
-                                    title={t('action.clear')}
-                                    aria-label={t('action.clear')}
-                                >
-                                    ×
-                                </button>
-                            )}
+                    )}
+                    {ytdlp?.available && (
+                        <div className="cmd-bar">
+                            <div className="url-input-wrap">
+                                <input
+                                    className="url-input"
+                                    type="text"
+                                    value={url}
+                                    onChange={e => setUrl(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder={t('url.placeholder')}
+                                    disabled={isGettingInfo}
+                                />
+                                {url && (
+                                    <button
+                                        type="button"
+                                        className="url-clear-btn"
+                                        onClick={clearCurrentInput}
+                                        title={t('action.clear')}
+                                        aria-label={t('action.clear')}
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                            </div>
+                            <button
+                                className="btn-primary"
+                                onClick={handleGetInfo}
+                                disabled={isGettingInfo || !url.trim()}
+                            >
+                                {isGettingInfo ? t('url.gettingInfo') : t('url.getInfo')}
+                            </button>
                         </div>
-                        <button
-                            className="btn-primary"
-                            onClick={handleGetInfo}
-                            disabled={isGettingInfo || !url.trim()}
-                        >
-                            {isGettingInfo ? t('url.gettingInfo') : t('url.getInfo')}
-                        </button>
-                    </div>
+                    )}
+                </div>
 
-                    {/* Video info preview */}
+                {/* Zone 2: Result */}
+                {ytdlp?.available && (videoInfo || playlistInfo) && (
+                <div className="result-zone">
                     {videoInfo && (
                         <div className="video-card">
                             {videoInfo.thumbnail && (
@@ -825,8 +829,12 @@ function App() {
                         </div>
                         </>
                     )}
+                </div>
+                )}
 
-                    {/* Download options */}
+                {/* Zone 3: Controls */}
+                {ytdlp?.available && (videoInfo || playlistInfo) && (
+                <div className="controls-zone">
                     <div className="options-row">
                         {!hasCustomFormatSelection && (
                         <div className="option-group">
@@ -1105,7 +1113,7 @@ function App() {
                         </div>
                     )}
 
-                    <div className="options-row">
+                    <div className="action-bar">
                         <button
                             className="btn-primary download-btn"
                             onClick={handleDownload}
@@ -1126,6 +1134,8 @@ function App() {
                 </div>
                 )}
 
+                {/* Zone 4: Queue */}
+                <div className="queue-zone">
                 {/* Console logs */}
                 {consoleLogs.length > 0 && (
                     <div className="console-panel">
@@ -1156,6 +1166,7 @@ function App() {
 
                 {/* Downloads list */}
                 <DownloadList downloads={downloads} onUpdate={setDownloads} />
+                </div>
             </main>
 
             {/* Toast */}
