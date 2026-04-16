@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"YT-GO/internal/platform"
 )
 
 const (
@@ -46,7 +48,9 @@ func detectSystemVersion() string {
 }
 
 func commandOutput(name string, args ...string) string {
-	out, err := exec.Command(name, args...).CombinedOutput()
+	cmd := exec.Command(name, args...)
+	platform.HideCmdWindow(cmd)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return ""
 	}

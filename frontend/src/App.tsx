@@ -115,9 +115,11 @@ function shouldTryPlaylistFallback(error: unknown): boolean {
 
 function App() {
     const {t, lang, setLang} = useI18n()
-    const [theme, setTheme] = useState<'dark' | 'light'>(() =>
-        (localStorage.getItem('YT-GOto-theme') as 'dark' | 'light') || 'dark'
-    )
+    const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+        const saved = localStorage.getItem('YT-GOto-theme') as 'dark' | 'light' | null
+        if (saved) return saved
+        return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+    })
     const [ytdlp, setYtdlp] = useState<YtDlpStatus | null>(null)
     const [url, setUrl] = useState('')
     const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)

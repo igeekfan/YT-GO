@@ -20,9 +20,11 @@ export default function SetupWizard({onComplete}: Props) {
     const [ytdlpOk, setYtdlpOk] = useState(false)
     const [denoOk, setDenoOk] = useState<boolean | null>(null)
     const [language, setLanguage] = useState<'zh-CN' | 'en-US'>(lang)
-    const [theme, setTheme] = useState<'dark' | 'light'>(() =>
-        (localStorage.getItem('YT-GOto-theme') as 'dark' | 'light') || 'dark'
-    )
+    const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+        const saved = localStorage.getItem('YT-GOto-theme') as 'dark' | 'light' | null
+        if (saved) return saved
+        return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+    })
 
     useEffect(() => {
         CheckYtDlp().then(status => {

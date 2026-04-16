@@ -40,7 +40,9 @@ type runtimeProbe struct {
 func isNodeVersionSufficient(nodePath string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, nodePath, "-v").CombinedOutput()
+	nodeCheckCmd := exec.CommandContext(ctx, nodePath, "-v")
+	platform.HideCmdWindow(nodeCheckCmd)
+	out, err := nodeCheckCmd.CombinedOutput()
 	if err != nil {
 		return false
 	}
