@@ -18,6 +18,8 @@ import (
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
+
+	"YT-GO/internal/platform"
 )
 
 const (
@@ -109,7 +111,9 @@ func probeDenoRuntime() runtimeProbe {
 	probe.Path = denoPath
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	out, runErr := exec.CommandContext(ctx, denoPath, "--version").CombinedOutput()
+	denoCmd := exec.CommandContext(ctx, denoPath, "--version")
+	platform.HideCmdWindow(denoCmd)
+	out, runErr := denoCmd.CombinedOutput()
 	if runErr != nil {
 		probe.Reason = fmt.Sprintf("当前检测到 Deno 路径 %s，但无法正常执行。", denoPath)
 		return probe
@@ -139,7 +143,9 @@ func probeNodeRuntime() runtimeProbe {
 	probe.Path = nodePath
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	out, runErr := exec.CommandContext(ctx, nodePath, "-v").CombinedOutput()
+	nodeCmd := exec.CommandContext(ctx, nodePath, "-v")
+	platform.HideCmdWindow(nodeCmd)
+	out, runErr := nodeCmd.CombinedOutput()
 	if runErr != nil {
 		probe.Reason = fmt.Sprintf("当前检测到 Node.js 路径 %s，但无法正常执行。", nodePath)
 		return probe
@@ -325,7 +331,9 @@ func getNodeVersion() string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, nodePath, "-v").CombinedOutput()
+	nodeVerCmd := exec.CommandContext(ctx, nodePath, "-v")
+	platform.HideCmdWindow(nodeVerCmd)
+	out, err := nodeVerCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Sprintf("found at %s but failed to run: %v", nodePath, err)
 	}

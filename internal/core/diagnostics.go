@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"YT-GO/internal/platform"
 )
 
 func (s *Service) GetDiagnosticInfo() DiagnosticInfo {
@@ -53,7 +55,9 @@ func (s *Service) GetDepStatus() DepStatus {
 	if ytdlpPath != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		out, err := exec.CommandContext(ctx, ytdlpPath, "--version").CombinedOutput()
+		ytCmd := exec.CommandContext(ctx, ytdlpPath, "--version")
+		platform.HideCmdWindow(ytCmd)
+		out, err := ytCmd.CombinedOutput()
 		if err == nil {
 			status.YtDlp = DepItem{Found: true, Version: strings.TrimSpace(string(out)), Path: ytdlpPath}
 		} else {
@@ -101,7 +105,9 @@ func detectFFmpeg() (path string, version string, found bool) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, ffmpegPath, "-version").CombinedOutput()
+	ffCmd := exec.CommandContext(ctx, ffmpegPath, "-version")
+	platform.HideCmdWindow(ffCmd)
+	out, err := ffCmd.CombinedOutput()
 	if err != nil {
 		return ffmpegPath, "", true
 	}
