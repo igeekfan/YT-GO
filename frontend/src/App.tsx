@@ -125,7 +125,7 @@ function App() {
     const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
     const [playlistInfo, setPlaylistInfo] = useState<PlaylistInfo | null>(null)
     const [formatInfo, setFormatInfo] = useState<FormatInfo | null>(null)
-    const [formatMode, setFormatMode] = useState<'single' | 'combine'>('single')
+    const [formatMode, setFormatMode] = useState<'single' | 'combine' | 'audio-only' | 'video-only'>('single')
     const [selectedFormat, setSelectedFormat] = useState('')
     const [selectedVideoFormat, setSelectedVideoFormat] = useState('')
     const [selectedAudioFormat, setSelectedAudioFormat] = useState('')
@@ -415,6 +415,14 @@ function App() {
             if (selectedVideoFormat) return `fv:${selectedVideoFormat}`
             if (selectedAudioFormat) return `fa:${selectedAudioFormat}`
         }
+        if (formatMode === 'audio-only') {
+            if (selectedAudioFormat) return `fa:${selectedAudioFormat}`
+            return 'audio'
+        }
+        if (formatMode === 'video-only') {
+            if (selectedVideoFormat) return `fv:${selectedVideoFormat}`
+            return 'best'
+        }
         return quality
     }
 
@@ -531,15 +539,9 @@ function App() {
             showToast(t('download.noDir'))
             return
         }
-        if (formatMode === 'combine') {
-            if (!hasSeparateTrackFormats) {
-                showToast(t('format.combineUnavailable'))
-                return
-            }
-            if (!selectedVideoFormat && !selectedAudioFormat) {
-                showToast(t('toast.selectAnyTrack'))
-                return
-            }
+        if (formatMode === 'combine' && !hasSeparateTrackFormats) {
+            showToast(t('format.combineUnavailable'))
+            return
         }
         setIsStarting(true)
         try {
@@ -836,26 +838,6 @@ function App() {
                 {ytdlp?.available && (videoInfo || playlistInfo) && (
                 <div className="controls-zone">
                     <div className="options-row">
-                        {!hasCustomFormatSelection && (
-                        <div className="option-group">
-                            <label className="option-label">{t('quality.label')}</label>
-                            <select
-                                className="select-input"
-                                value={quality}
-                                onChange={e => {
-                                    const nextQuality = e.target.value
-                                    setQuality(nextQuality)
-                                    persistSettingsPatch({quality: nextQuality})
-                                }}
-                            >
-                                {QUALITY_OPTIONS.map(q => (
-                                    <option key={q} value={q}>
-                                        {t(`quality.${q}` as any)}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        )}
                         <div className="option-group flex-1">
                             <label className="option-label">{t('outputDir.label')}</label>
                             <div className="dir-row">
@@ -900,7 +882,7 @@ function App() {
                                             className="select-input format-mode-select"
                                             value={formatMode}
                                             onChange={e => {
-                                                const nextMode = e.target.value as 'single' | 'combine'
+                                                const nextMode = e.target.value as 'single' | 'combine' | 'audio-only' | 'video-only'
                                                 setFormatMode(nextMode)
                                                 setSelectedFormat('')
                                                 setSelectedVideoFormat('')
@@ -909,6 +891,8 @@ function App() {
                                         >
                                             <option value="single">{t('format.mode.single')}</option>
                                             <option value="combine">{t('format.mode.combine')}</option>
+                                            <option value="audio-only">{t('format.mode.audioOnly')}</option>
+                                            <option value="video-only">{t('format.mode.videoOnly')}</option>
                                         </select>
                                         <button className="btn-best-quality" onClick={handleSelectBestQuality}>
                                             {t('format.bestQuality')}
@@ -916,36 +900,6 @@ function App() {
                                     </div>
                                     {formatMode === 'single' ? (
                                         <div className="format-list">
-                                            <label className={`format-list-item format-list-item-preset${!selectedFormat ? ' selected' : ''}`}>
-                                                <input
-                                                    type="radio"
-                                                    name="format-single"
-                                                    checked={!selectedFormat}
-                                                    onChange={() => {
-                                                        setSelectedFormat('')
-                                                        setSelectedVideoFormat('')
-                                                        setSelectedAudioFormat('')
-                                                    }}
-                                                />
-                                                <span className="format-item-text">{t('format.usePreset')}</span>
-                                                <select
-                                                    className="select-input select-input-inline"
-                                                    value={quality}
-                                                    onClick={e => e.stopPropagation()}
-                                                    onChange={e => {
-                                                        const nextQuality = e.target.value
-                                                        setQuality(nextQuality)
-                                                        persistSettingsPatch({quality: nextQuality})
-                                                        setSelectedFormat('')
-                                                        setSelectedVideoFormat('')
-                                                        setSelectedAudioFormat('')
-                                                    }}
-                                                >
-                                                    {QUALITY_OPTIONS.map(q => (
-                                                        <option key={q} value={q}>{t(`quality.${q}` as any)}</option>
-                                                    ))}
-                                                </select>
-                                            </label>
                                             {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio))
                                                 .map(f => (
                                                     <label key={f.formatId} className={`format-list-item${selectedFormat === f.formatId ? ' selected' : ''}`}>
@@ -962,6 +916,45 @@ function App() {
                                                         <span className="format-item-text">{formatOptionLabel(f)}</span>
                                                     </label>
                                                 ))}
+                                        </div>
+                                    ) : formatMode === 'audio-only' ? (
+                                        <div className="format-list">
+                                            <label className={`format-list-item${!selectedAudioFormat ? ' selected' : ''}`}>
+                                                <input type="radio" name="format-audio-only" checked={!selectedAudioFormat} onChange={() => setSelectedAudioFormat('')} />
+                                                <span className="format-item-text">{t('format.auto')}</span>
+                                            </label>
+                                            {audioOnlyFormats.sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0)).map(f => (
+                                                <label key={f.formatId} className={`format-list-item${selectedAudioFormat === f.formatId ? ' selected' : ''}`}>
+                                                    <input type="radio" name="format-audio-only" checked={selectedAudioFormat === f.formatId} onChange={() => {
+                                                        setSelectedAudioFormat(f.formatId)
+                                                        setSelectedVideoFormat('')
+                                                        setSelectedFormat('')
+                                                    }} />
+                                                    <span className="format-item-text">{formatOptionLabel(f)}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    ) : formatMode === 'video-only' ? (
+                                        <div className="format-list">
+                                            <label className={`format-list-item${!selectedVideoFormat ? ' selected' : ''}`}>
+                                                <input type="radio" name="format-video-only" checked={!selectedVideoFormat} onChange={() => setSelectedVideoFormat('')} />
+                                                <span className="format-item-text">{t('format.auto')}</span>
+                                            </label>
+                                            {videoOnlyFormats.sort((a, b) => {
+                                                const aH = parseResolutionHeight(a.resolution || '')
+                                                const bH = parseResolutionHeight(b.resolution || '')
+                                                if (aH !== bH) return bH - aH
+                                                return (b.filesize || 0) - (a.filesize || 0)
+                                            }).map(f => (
+                                                <label key={f.formatId} className={`format-list-item${selectedVideoFormat === f.formatId ? ' selected' : ''}`}>
+                                                    <input type="radio" name="format-video-only" checked={selectedVideoFormat === f.formatId} onChange={() => {
+                                                        setSelectedVideoFormat(f.formatId)
+                                                        setSelectedAudioFormat('')
+                                                        setSelectedFormat('')
+                                                    }} />
+                                                    <span className="format-item-text">{formatOptionLabel(f)}</span>
+                                                </label>
+                                            ))}
                                         </div>
                                     ) : hasSeparateTrackFormats ? (
                                         <div className="format-combine-grid">
