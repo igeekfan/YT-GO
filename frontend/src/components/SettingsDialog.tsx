@@ -57,7 +57,6 @@ const TAB_KEYS: SettingsTab[] = ['download', 'media', 'network', 'deps', 'tools'
 function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
-    const [saving, setSaving] = useState(false)
     const [activeTab, setActiveTab] = useState<SettingsTab>('download')
     const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
     const [aboutInfo, setAboutInfo] = useState<AboutInfo | null>(null)
@@ -223,39 +222,35 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
 
     if (!open || !settings) return null
 
-    const handleDismiss = () => {
-        if (initialSettings?.theme) {
-            onThemePreview(initialSettings.theme as 'dark' | 'light')
-        }
-        if (initialSettings?.language) {
-            onLanguagePreview(initialSettings.language as 'zh-CN' | 'en-US')
-        }
+    const handleClose = () => {
         onClose()
     }
 
-    const handleSave = async () => {
-        if (!settings) return
-        setSaving(true)
-        try {
-            await SaveSettings(settings)
-            onSaved(settings)
-            onClose()
-        } catch (e) {
-            console.error('Failed to save settings:', e)
-        } finally {
-            setSaving(false)
-        }
+    const autoSave = (next: Settings) => {
+        SaveSettings(next).then(() => {
+            onSaved(next)
+        }).catch(e => {
+            console.error('Failed to auto-save settings:', e)
+        })
+    }
+
+    const update = (key: keyof Settings, value: any) => {
+        setSettings(prev => {
+            if (!prev) return prev
+            const next = {...prev, [key]: value}
+            autoSave(next)
+            // Live preview for theme and language
+            if (key === 'theme') onThemePreview(value as 'dark' | 'light')
+            if (key === 'language') onLanguagePreview(value as 'zh-CN' | 'en-US')
+            return next
+        })
     }
 
     const handleSelectFolder = async () => {
         const dir = await SelectFolder()
         if (dir) {
-            setSettings({...settings, outputDir: dir})
+            update('outputDir', dir)
         }
-    }
-
-    const update = (key: keyof Settings, value: any) => {
-        setSettings({...settings, [key]: value})
     }
 
     const renderDependencyCard = ({
@@ -503,7 +498,12 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                     value={settings.cookiesFrom || ''}
                     onChange={e => {
                         const val = e.target.value
-                        setSettings(prev => prev ? {...prev, cookiesFrom: val, cookiesFile: val ? '' : prev.cookiesFile} : prev)
+                        setSettings(prev => {
+                            if (!prev) return prev
+                            const next = {...prev, cookiesFrom: val, cookiesFile: val ? '' : prev.cookiesFile}
+                            autoSave(next)
+                            return next
+                        })
                     }}
                 >
                     <option value="">{t('settings.cookiesFromNone')}</option>
@@ -536,7 +536,12 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                             value={settings.cookiesFile || ''}
                             onChange={e => {
                                 const val = e.target.value
-                                setSettings(prev => prev ? {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom} : prev)
+                                setSettings(prev => {
+                                    if (!prev) return prev
+                                    const next = {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom}
+                                    autoSave(next)
+                                    return next
+                                })
                             }}
                             placeholder={t('settings.cookiesFilePlaceholder')}
                         />
@@ -546,7 +551,12 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                                 onClick={async () => {
                                     const file = await SelectCookiesFile()
                                     if (file) {
-                                        setSettings(prev => prev ? {...prev, cookiesFile: file, cookiesFrom: ''} : prev)
+                                        setSettings(prev => {
+                                            if (!prev) return prev
+                                            const next = {...prev, cookiesFile: file, cookiesFrom: ''}
+                                            autoSave(next)
+                                            return next
+                                        })
                                     }
                                 }}
                             >
@@ -564,7 +574,12 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                                         if (!file) return
                                         try {
                                             const result = await UploadCookiesFile(file)
-                                            setSettings(prev => prev ? {...prev, cookiesFile: result.path, cookiesFrom: ''} : prev)
+                                            setSettings(prev => {
+                                                if (!prev) return prev
+                                                const next = {...prev, cookiesFile: result.path, cookiesFrom: ''}
+                                                autoSave(next)
+                                                return next
+                                            })
                                         } catch (err) {
                                             console.error('Failed to upload cookies file:', err)
                                         }
@@ -849,11 +864,11 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     }
 
     return (
-        <div className="dialog-overlay" onClick={handleDismiss}>
+        <div className="dialog-overlay" onClick={handleClose}>
             <div className="dialog-content settings-dialog" onClick={e => e.stopPropagation()}>
                 <div className="dialog-header">
                     <h2>{t('settings.title')}</h2>
-                    <button className="btn-ghost btn-sm" onClick={handleDismiss}>✕</button>
+                    <button className="btn-ghost btn-sm" onClick={handleClose}>✕</button>
                 </div>
                 <div className="settings-tabs">
                     {TAB_KEYS.map(tab => (
@@ -870,10 +885,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                     {tabContent[activeTab]()}
                 </div>
                 <div className="dialog-footer">
-                    <button className="btn-secondary" onClick={handleDismiss}>{t('action.cancel')}</button>
-                    <button className="btn-primary" onClick={handleSave} disabled={saving}>
-                        {saving ? t('settings.saving') : t('settings.save')}
-                    </button>
+                    <button className="btn-secondary" onClick={handleClose}>{t('action.close')}</button>
                 </div>
             </div>
         </div>

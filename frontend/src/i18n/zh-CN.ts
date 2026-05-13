@@ -59,6 +59,7 @@
     'status.cancelled': '已取消',
 
     'action.cancel': '取消',
+    'action.close': '关闭',
     'action.retry': '重试',
     'action.redownload': '重新下载',
     'action.remove': '删除',

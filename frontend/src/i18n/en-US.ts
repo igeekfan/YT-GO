@@ -59,6 +59,7 @@
     'status.cancelled': 'Cancelled',
 
     'action.cancel': 'Cancel',
+    'action.close': 'Close',
     'action.retry': 'Retry',
     'action.redownload': 'Re-download',
     'action.remove': 'Remove',
