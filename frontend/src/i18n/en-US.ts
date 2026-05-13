@@ -253,6 +253,14 @@
     'setup.denoReady': 'Deno is ready',
     'setup.denoNotFound': 'Install or upgrade Deno (recommended)',
     'setup.denoDesc': 'Deno is used by yt-dlp to solve YouTube JavaScript challenges. Keep it updated, then restart the app.',
+
+    'quickSettings.toggle': 'Quick Settings',
+    'quickSettings.quality': 'Quality',
+    'quickSettings.proxy': 'Proxy',
+    'quickSettings.proxyPlaceholder': 'e.g. http://127.0.0.1:7890',
+    'quickSettings.cookiesFrom': 'Cookies',
+    'quickSettings.audioFormat': 'Audio Format',
+    'quickSettings.mergeFormat': 'Container',
 }
 
 export default enUS

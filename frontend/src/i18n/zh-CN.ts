@@ -253,6 +253,14 @@
     'setup.denoReady': 'Deno 已就绪',
     'setup.denoNotFound': '推荐安装或升级 Deno',
     'setup.denoDesc': 'Deno 是 yt-dlp 解析 YouTube 的 JS 运行时。建议保持较新版本，安装或升级后重启应用。',
+
+    'quickSettings.toggle': '快捷设置',
+    'quickSettings.quality': '画质',
+    'quickSettings.proxy': '代理',
+    'quickSettings.proxyPlaceholder': '如 http://127.0.0.1:7890',
+    'quickSettings.cookiesFrom': 'Cookies',
+    'quickSettings.audioFormat': '音频格式',
+    'quickSettings.mergeFormat': '容器格式',
 }
 
 

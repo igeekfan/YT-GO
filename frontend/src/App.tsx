@@ -145,6 +145,7 @@ function App() {
     const [notificationsEnabled, setNotificationsEnabled] = useState(false)
     const [consoleLogs, setConsoleLogs] = useState<string[]>([])
     const [showConsole, setShowConsole] = useState(false)
+    const [quickSettingsExpanded, setQuickSettingsExpanded] = useState(false)
     const consoleEndRef = useRef<HTMLDivElement>(null)
 
     // Update dialog state
@@ -735,6 +736,99 @@ function App() {
                         </div>
                     )}
                 </div>
+
+                {/* Quick Settings Bar */}
+                {ytdlp?.available && (
+                <div className="quick-settings-zone">
+                    <button
+                        className="quick-settings-toggle"
+                        onClick={() => setQuickSettingsExpanded(v => !v)}
+                    >
+                        <span className="quick-settings-arrow">{quickSettingsExpanded ? '▼' : '▶'}</span>
+                        <span className="quick-settings-label">{t('quickSettings.toggle')}</span>
+                        <span className="quick-settings-summary">
+                            {t('quality.' + (quality === 'best' ? 'best' : quality))}
+                            {currentSettings?.proxy && ` · ${t('quickSettings.proxy')}`}
+                            {currentSettings?.cookiesFrom && ` · ${t('quickSettings.cookiesFrom')}`}
+                        </span>
+                    </button>
+                    {quickSettingsExpanded && (
+                    <div className="quick-settings-grid">
+                        <div className="quick-settings-item">
+                            <label className="quick-settings-label-inner">{t('quickSettings.quality')}</label>
+                            <select
+                                className="select-input quick-settings-select"
+                                value={quality}
+                                onChange={e => {
+                                    const v = e.target.value
+                                    setQuality(v)
+                                    persistSettingsPatch({quality: v})
+                                }}
+                            >
+                                {QUALITY_OPTIONS.map(q => (
+                                    <option key={q} value={q}>{t('quality.' + (q === 'best' ? 'best' : q))}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="quick-settings-item">
+                            <label className="quick-settings-label-inner">{t('quickSettings.proxy')}</label>
+                            <input
+                                className="text-input quick-settings-input"
+                                type="text"
+                                value={currentSettings?.proxy || ''}
+                                onChange={e => persistSettingsPatch({proxy: e.target.value})}
+                                placeholder={t('quickSettings.proxyPlaceholder')}
+                            />
+                        </div>
+                        <div className="quick-settings-item">
+                            <label className="quick-settings-label-inner">{t('quickSettings.cookiesFrom')}</label>
+                            <select
+                                className="select-input quick-settings-select"
+                                value={currentSettings?.cookiesFrom || ''}
+                                onChange={e => persistSettingsPatch({cookiesFrom: e.target.value})}
+                            >
+                                <option value="">{t('settings.cookiesFromNone')}</option>
+                                <option value="chrome">Chrome</option>
+                                <option value="firefox">Firefox</option>
+                                <option value="edge">Edge</option>
+                                <option value="opera">Opera</option>
+                                <option value="brave">Brave</option>
+                                <option value="vivaldi">Vivaldi</option>
+                                <option value="safari">Safari</option>
+                            </select>
+                        </div>
+                        <div className="quick-settings-item">
+                            <label className="quick-settings-label-inner">{t('quickSettings.audioFormat')}</label>
+                            <select
+                                className="select-input quick-settings-select"
+                                value={currentSettings?.audioFormat || ''}
+                                onChange={e => persistSettingsPatch({audioFormat: e.target.value})}
+                            >
+                                <option value="">{t('settings.audioFormatDefault')}</option>
+                                <option value="mp3">MP3</option>
+                                <option value="m4a">M4A</option>
+                                <option value="opus">Opus</option>
+                                <option value="flac">FLAC</option>
+                                <option value="wav">WAV</option>
+                            </select>
+                        </div>
+                        <div className="quick-settings-item">
+                            <label className="quick-settings-label-inner">{t('quickSettings.mergeFormat')}</label>
+                            <select
+                                className="select-input quick-settings-select"
+                                value={currentSettings?.mergeOutputFormat || ''}
+                                onChange={e => persistSettingsPatch({mergeOutputFormat: e.target.value})}
+                            >
+                                <option value="">{t('settings.mergeOutputFormatAuto')}</option>
+                                <option value="mp4">MP4</option>
+                                <option value="mkv">MKV</option>
+                                <option value="webm">WebM</option>
+                            </select>
+                        </div>
+                    </div>
+                    )}
+                </div>
+                )}
 
                 {/* Zone 2: Result */}
                 {ytdlp?.available && (videoInfo || playlistInfo) && (
