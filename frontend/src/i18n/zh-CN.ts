@@ -14,6 +14,10 @@
     'ytdlp.installGuide': '请使用以下任一方法安装 yt-dlp：',
     'ytdlp.installNote': '安装完成后，点击下方按钮重新检测',
     'ytdlp.recheck': '重新检测',
+    'ytdlp.autoInstall': '一键安装',
+    'ytdlp.installing': '正在安装...',
+    'ytdlp.installSuccess': 'yt-dlp 安装成功',
+    'ytdlp.installFail': 'yt-dlp 安装失败',
 
     'install.windowsWinget': 'Windows (winget)',
     'install.windowsScoop': 'Windows (scoop)',
@@ -240,6 +244,7 @@
     'downloadOpt.writeSubtitles': '下载字幕',
     'downloadOpt.embedSubtitles': '嵌入字幕',
     'downloadOpt.subtitleLangs': '字幕语言',
+    'downloadOpt.subtitleSearch': '搜索字幕...',
     'downloadOpt.sponsorBlock': 'SponsorBlock',
     'downloadOpt.sponsorBlockDesc': 'SponsorBlock 可自动标记视频中的赞助片段、片头片尾等非正片内容，播放时可一键跳过。',
     'downloadOpt.subtitleManual': '人工字幕',
@@ -274,6 +279,10 @@
 
     'settings.tab.deps': '依赖检测',
     'settings.tab.tools.short': '工具',
+    'settings.tab.about': '关于',
+
+    'about.openSource': '开源视频下载工具',
+    'about.feedback': '欢迎在 GitHub 提交 Issue 和 PR',
 
     'setup.denoReady': 'Deno 已就绪',
     'setup.denoNotFound': '推荐安装或升级 Deno',

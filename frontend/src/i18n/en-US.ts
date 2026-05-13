@@ -14,6 +14,10 @@
     'ytdlp.installGuide': 'Please install yt-dlp using one of the following methods:',
     'ytdlp.installNote': 'After installation, click the button below to re-check',
     'ytdlp.recheck': 'Re-check',
+    'ytdlp.autoInstall': 'Auto Install',
+    'ytdlp.installing': 'Installing...',
+    'ytdlp.installSuccess': 'yt-dlp installed successfully',
+    'ytdlp.installFail': 'yt-dlp installation failed',
 
     'install.windowsWinget': 'Windows (winget)',
     'install.windowsScoop': 'Windows (scoop)',
@@ -240,6 +244,7 @@
     'downloadOpt.writeSubtitles': 'Download subtitles',
     'downloadOpt.embedSubtitles': 'Embed subtitles',
     'downloadOpt.subtitleLangs': 'Subtitle languages',
+    'downloadOpt.subtitleSearch': 'Search subtitles...',
     'downloadOpt.sponsorBlock': 'SponsorBlock',
     'downloadOpt.sponsorBlockDesc': 'SponsorBlock automatically marks sponsored segments, intros, outros and other non-content sections in videos, allowing you to skip them during playback.',
     'downloadOpt.subtitleManual': 'Manual',
@@ -274,6 +279,10 @@
 
     'settings.tab.deps': 'Dependencies',
     'settings.tab.tools.short': 'Tools',
+    'settings.tab.about': 'About',
+
+    'about.openSource': 'Open-source video downloader',
+    'about.feedback': 'Issues and PRs are welcome on GitHub',
 
     'setup.denoReady': 'Deno is ready',
     'setup.denoNotFound': 'Install or upgrade Deno (recommended)',

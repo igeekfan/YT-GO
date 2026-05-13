@@ -4,6 +4,11 @@ import {useI18n} from '../i18n/context'
 import {OpenFile, OpenFolder, CancelDownload, RemoveDownload, backendMode, getDownloadFileURL} from '../lib/backend'
 import {EventsOn} from '../lib/runtime'
 import {formatDuration} from '../lib/formatUtils'
+import {Button} from '@/components/ui/button'
+import {Badge} from '@/components/ui/badge'
+import {Progress} from '@/components/ui/progress'
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
+import {Play, X, RotateCcw, FolderOpen, FileDown, ChevronDown, ChevronRight} from 'lucide-react'
 
 interface Props {
     task: DownloadTask
@@ -13,182 +18,143 @@ interface Props {
     onRedownload: (task: DownloadTask) => void
 }
 
-const STATUS_COLORS: Record<string, string> = {
-    pending: 'bg-yellow-500/20 text-yellow-400',
-    downloading: 'bg-blue-500/20 text-blue-400',
-    completed: 'bg-green-500/20 text-green-400',
-    error: 'bg-red-500/20 text-red-400',
-    cancelled: 'bg-gray-500/20 text-gray-400',
+const STATUS_VARIANT: Record<string, 'secondary' | 'default' | 'destructive' | 'outline'> = {
+    pending: 'outline', downloading: 'default', completed: 'secondary', error: 'destructive', cancelled: 'outline',
 }
-
-const isDesktop = backendMode === 'desktop'
 
 function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Props) {
     const {t} = useI18n()
     const [showLogs, setShowLogs] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
     const logEndRef = useRef<HTMLDivElement>(null)
+    const isDesktop = backendMode === 'desktop'
 
     useEffect(() => {
         const off = EventsOn('download:log', (data: {taskId: string; line: string}) => {
             if (data.taskId === task.id) {
-                setLogs(prev => {
-                    const next = [...prev, data.line]
-                    // Keep last 200 lines to avoid memory issues
-                    return next.length > 200 ? next.slice(-200) : next
-                })
+                setLogs(prev => { const next = [...prev, data.line]; return next.length > 200 ? next.slice(-200) : next })
             }
         })
         return () => { if (typeof off === 'function') off() }
     }, [task.id])
 
-
-
     const handleCancel = async () => {
-        try {
-            await CancelDownload(task.id)
-        } catch {
-            // already cancelled or completed
-        }
+        try { await CancelDownload(task.id) } catch { /* already cancelled */ }
         onCancelled(task.id)
     }
 
-    const handleOpenFile = () => {
-        if (task.outputPath) {
-            OpenFile(task.outputPath).catch(console.error)
-        }
-    }
-
-    const handleOpenFolder = () => {
-        const target = task.outputPath || task.outputDir
-        if (target) OpenFolder(target).catch(console.error)
-    }
-
     const handleRemove = async () => {
-        try {
-            await RemoveDownload(task.id)
-            onRemoved(task.id)
-        } catch (error) {
-            console.error(error)
-        }
+        try { await RemoveDownload(task.id); onRemoved(task.id) }
+        catch (error) { console.error(error) }
     }
-
-    const statusLabel = t(`status.${task.status}` as any)
-    const statusColor = STATUS_COLORS[task.status] || STATUS_COLORS.pending
 
     return (
-        <div className="download-item">
-            {task.thumbnail && (
-                <img
-                    src={task.thumbnail}
-                    alt=""
-                    className="download-thumb"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
-            )}
-            {!task.thumbnail && (
-                <div className="download-thumb-placeholder">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polygon points="5 3 19 12 5 21 5 3"/>
-                    </svg>
-                </div>
-            )}
-            <div className="download-info">
-                <div className="download-title" title={task.url}>
-                    {task.title || task.url}
-                </div>
-                {task.status === 'downloading' && (
-                    <div className="download-progress-wrap">
-                        <div className="download-progress-bar">
-                            <div
-                                className="download-progress-fill"
-                                style={{width: `${task.progress || 0}%`}}
-                            />
+        <div className="rounded-lg border p-3 space-y-2">
+            {/* Top row: thumbnail + info + actions */}
+            <div className="flex items-start gap-3">
+                {/* Thumbnail */}
+                {task.thumbnail ? (
+                    <img src={task.thumbnail} alt="" className="w-20 h-12 object-cover rounded shrink-0"
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                ) : (
+                    <div className="w-20 h-12 bg-muted rounded shrink-0 flex items-center justify-center text-muted-foreground">
+                        <Play className="h-4 w-4" />
+                    </div>
+                )}
+
+                {/* Info */}
+                <div className="flex-1 min-w-0 space-y-1">
+                    <div className="text-sm font-medium truncate" title={task.url}>{task.title || task.url}</div>
+                    {task.status === 'downloading' && (
+                        <div className="space-y-0.5">
+                            <Progress value={task.progress || 0} className="h-1.5" />
+                            <span className="text-xs text-muted-foreground">
+                                {(task.progress || 0).toFixed(1)}%
+                                {task.speed && ` · ${task.speed}`}
+                                {task.eta && ` · ETA ${task.eta}`}
+                                {task.size && ` · ${task.size}`}
+                            </span>
                         </div>
-                        <span className="download-progress-text">
-                            {(task.progress || 0).toFixed(1)}%
-                            {task.speed && ` · ${task.speed}`}
-                            {task.eta && ` · ETA ${task.eta}`}
-                            {task.size && ` · ${task.size}`}
-                        </span>
-                    </div>
-                )}
-                {task.status === 'error' && task.error && (
-                    <div className="download-error">{task.error}</div>
-                )}
-                {task.status === 'completed' && task.outputPath && (
-                    <div className="download-path" title={task.outputPath}>
-                        {task.outputPath}
-                    </div>
-                )}
-            </div>
-            <div className="download-actions">
-                <span className={`status-badge ${statusColor}`}>{statusLabel}</span>
-                {(task.status === 'downloading' || logs.length > 0) && (
-                    <button
-                        className="btn-ghost btn-sm"
-                        onClick={() => setShowLogs(!showLogs)}
-                        title={showLogs ? t('action.hideLogs') : t('action.showLogs')}
-                    >
-                        {showLogs ? '▼' : '▶'} {t('action.logs')}
-                    </button>
-                )}
-                {task.status === 'downloading' || task.status === 'pending' ? (
-                    <button className="btn-ghost btn-sm" onClick={handleCancel}>
-                        {t('action.cancel')}
-                    </button>
-                ) : null}
-                {(task.status === 'error' || task.status === 'cancelled') && (
-                    <>
-                        <button className="btn-ghost btn-sm" onClick={() => onRetry(task)}>
-                            {t('action.retry')}
-                        </button>
-                        <button className="btn-ghost btn-sm" onClick={handleRemove}>
-                            {t('action.remove')}
-                        </button>
-                    </>
-                )}
-                {task.status === 'completed' && (
-                    <>
-                        {isDesktop ? (
-                            <>
-                                <button className="btn-ghost btn-sm" onClick={handleOpenFile}>
-                                    {t('action.open')}
-                                </button>
-                                <button className="btn-ghost btn-sm" onClick={handleOpenFolder}>
-                                    {t('action.openFolder')}
-                                </button>
-                            </>
-                        ) : (
-                            <a
-                                className="btn-ghost btn-sm"
-                                href={getDownloadFileURL(task.id)}
-                                download
-                                target="_blank"
-                                rel="noopener"
-                            >
-                                {t('action.download')}
-                            </a>
-                        )}
-                        <button className="btn-ghost btn-sm" onClick={() => onRedownload(task)}>
-                            {t('action.redownload')}
-                        </button>
-                        <button className="btn-ghost btn-sm" onClick={handleRemove}>
-                            {t('action.remove')}
-                        </button>
-                    </>
-                )}
-            </div>
-            {showLogs && logs.length > 0 && (
-                <div className="download-logs">
-                    <pre className="download-logs-content">
-                        {logs.map((line, i) => (
-                            <div key={i} className="log-line">{line}</div>
-                        ))}
-                        <div ref={logEndRef} />
-                    </pre>
+                    )}
+                    {task.status === 'error' && task.error && (
+                        <div className="text-xs text-destructive truncate">{task.error}</div>
+                    )}
+                    {task.status === 'completed' && task.outputPath && (
+                        <div className="text-xs text-muted-foreground truncate" title={task.outputPath}>{task.outputPath}</div>
+                    )}
                 </div>
-            )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                    <Badge variant={STATUS_VARIANT[task.status] || 'outline'} className="text-[10px]">
+                        {t(`status.${task.status}` as any)}
+                    </Badge>
+                    {(task.status === 'downloading' || logs.length > 0) && (
+                        <Collapsible open={showLogs} onOpenChange={setShowLogs}>
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5">
+                                    {showLogs ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                    {t('action.logs')}
+                                </Button>
+                            </CollapsibleTrigger>
+                        </Collapsible>
+                    )}
+                    {(task.status === 'downloading' || task.status === 'pending') && (
+                        <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={handleCancel}>
+                            <X className="h-3 w-3 mr-0.5" />{t('action.cancel')}
+                        </Button>
+                    )}
+                    {(task.status === 'error' || task.status === 'cancelled') && (
+                        <>
+                            <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={() => onRetry(task)}>
+                                <RotateCcw className="h-3 w-3 mr-0.5" />{t('action.retry')}
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={handleRemove}>
+                                <X className="h-3 w-3 mr-0.5" />{t('action.remove')}
+                            </Button>
+                        </>
+                    )}
+                    {task.status === 'completed' && (
+                        <>
+                            {isDesktop ? (
+                                <>
+                                    <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={() => OpenFile(task.outputPath!).catch(console.error)}>
+                                        <FileDown className="h-3 w-3 mr-0.5" />{t('action.open')}
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={() => OpenFolder(task.outputPath || task.outputDir).catch(console.error)}>
+                                        <FolderOpen className="h-3 w-3 mr-0.5" />{t('action.openFolder')}
+                                    </Button>
+                                </>
+                            ) : (
+                                <a href={getDownloadFileURL(task.id)} download target="_blank" rel="noopener"
+                                    className="inline-flex items-center gap-0.5 h-6 px-1.5 text-xs rounded-md hover:bg-accent hover:text-accent-foreground">
+                                    <FileDown className="h-3 w-3" />{t('action.download')}
+                                </a>
+                            )}
+                            <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={() => onRedownload(task)}>
+                                <RotateCcw className="h-3 w-3 mr-0.5" />{t('action.redownload')}
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={handleRemove}>
+                                <X className="h-3 w-3 mr-0.5" />{t('action.remove')}
+                            </Button>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* Logs - full width below the top row */}
+            <Collapsible open={showLogs} onOpenChange={setShowLogs}>
+                <CollapsibleContent>
+                    {showLogs && logs.length > 0 && (
+                        <div className="max-h-48 overflow-y-auto overflow-x-hidden rounded-md border bg-muted/20">
+                            <pre className="p-2 text-xs font-mono leading-relaxed whitespace-pre-wrap break-words w-full">
+                                {logs.map((line, i) => <div key={i}>{line}</div>)}
+                                <div ref={logEndRef} />
+                            </pre>
+                        </div>
+                    )}
+                </CollapsibleContent>
+            </Collapsible>
         </div>
     )
 }
