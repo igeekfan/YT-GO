@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/lrstanley/go-ytdlp"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
@@ -33,138 +31,102 @@ func toUTF8(b []byte) string {
 	return strings.ToValidUTF8(string(b), "\ufffd")
 }
 
-// ytdlpCmd builds a basic yt-dlp command with context and environment.
-func (s *Service) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, s.ytdlpPath, args...)
-	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
-	if s.hooks.HideCommand != nil {
-		s.hooks.HideCommand(cmd)
+// newYtdlpCommand creates a new go-ytdlp Command with common environment settings.
+func (s *Service) newYtdlpCommand() *ytdlp.Command {
+	cmd := ytdlp.New()
+	cmd.SetEnvVar("PYTHONIOENCODING", "utf-8")
+	cmd.SetEnvVar("PYTHONUTF8", "1")
+	return cmd
+}
+
+// applyMediaCommand applies JS runtime auto-detection and common settings to the command.
+func (s *Service) applyMediaCommand(cmd *ytdlp.Command) *ytdlp.Command {
+	if jsRuntime := getPreferredJSRuntime(s.i18n); jsRuntime != "" {
+		cmd.JsRuntimes(jsRuntime)
 	}
 	return cmd
 }
 
-// ytdlpMediaCmd builds a yt-dlp command with JS runtime auto-detection.
-func (s *Service) ytdlpMediaCmd(ctx context.Context, args ...string) *exec.Cmd {
-	if jsRuntime := getPreferredJSRuntime(s.i18n); jsRuntime != "" {
-		args = append([]string{"--js-runtimes", jsRuntime}, args...)
-	}
-	return s.ytdlpCmd(ctx, args...)
-}
-
 // logCmd emits a log message with the full command line.
-func (s *Service) logCmd(tag string, cmd *exec.Cmd) {
-	s.emitLog("[%s] exec: %s", tag, strings.Join(cmd.Args, " "))
+func (s *Service) logCmd(tag string, cmd *ytdlp.Command, ctx context.Context, args ...string) {
+	built := cmd.BuildCommand(ctx, args...)
+	s.emitLog("[%s] exec: %s", tag, strings.Join(built.Args, " "))
 }
 
-// appendCookiesArgs appends cookie-related arguments based on settings.
-func appendCookiesArgs(args []string, settings Settings) []string {
+// applyCookiesArgs applies cookie-related settings to the command builder.
+func applyCookiesArgs(cmd *ytdlp.Command, settings Settings) *ytdlp.Command {
 	if settings.CookiesFrom != "" {
-		return append(args, "--cookies-from-browser", settings.CookiesFrom)
+		cmd.CookiesFromBrowser(settings.CookiesFrom)
+	} else if settings.CookiesFile != "" {
+		cmd.Cookies(settings.CookiesFile)
 	}
-	if settings.CookiesFile != "" {
-		return append(args, "--cookies", settings.CookiesFile)
-	}
-	return args
+	return cmd
 }
 
-// qualityArgs maps a quality preset to yt-dlp format selection arguments.
-func qualityArgs(quality string) []string {
+// applyFormatArgs maps a quality preset to the go-ytdlp Format builder method.
+func applyFormatArgs(cmd *ytdlp.Command, quality string) *ytdlp.Command {
 	if len(quality) > 3 && quality[:3] == "fa:" {
-		return []string{"-f", quality[3:], "-x"}
+		cmd.Format(quality[3:]).ExtractAudio()
+		return cmd
 	}
 	if len(quality) > 3 && quality[:3] == "fv:" {
-		return []string{"-f", quality[3:]}
+		cmd.Format(quality[3:])
+		return cmd
 	}
 	if len(quality) > 2 && quality[:2] == "f:" {
-		return []string{"-f", quality[2:]}
+		cmd.Format(quality[2:])
+		return cmd
 	}
 	switch quality {
 	case "1080p":
-		return []string{"-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]"}
+		cmd.Format("bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]")
 	case "720p":
-		return []string{"-f", "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]"}
+		cmd.Format("bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]")
 	case "480p":
-		return []string{"-f", "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480]"}
+		cmd.Format("bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480]")
 	case "360p":
-		return []string{"-f", "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/best[height<=360]"}
+		cmd.Format("bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/best[height<=360]")
 	case "audio":
-		return []string{"-f", "bestaudio/best", "-x"}
+		cmd.Format("bestaudio/best").ExtractAudio()
 	default:
-		return []string{"-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"}
+		cmd.Format("bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best")
 	}
-}
-
-// findYtDlp searches for yt-dlp in PATH, app directory, and common install locations.
-func (s *Service) findYtDlp() string {
-	candidates := []string{"yt-dlp", "yt-dlp.exe"}
-	for _, name := range candidates {
-		if path, err := exec.LookPath(name); err == nil {
-			return path
-		}
-	}
-	execDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err == nil {
-		for _, name := range candidates {
-			path := filepath.Join(execDir, name)
-			if _, err := os.Stat(path); err == nil {
-				return path
-			}
-		}
-	}
-	var extraDirs []string
-	if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" {
-		wingetPackages := filepath.Join(localApp, "Microsoft", "WinGet", "Packages")
-		if entries, err := os.ReadDir(wingetPackages); err == nil {
-			for _, entry := range entries {
-				if entry.IsDir() && strings.HasPrefix(entry.Name(), "yt-dlp.yt-dlp") {
-					extraDirs = append(extraDirs, filepath.Join(wingetPackages, entry.Name()))
-				}
-			}
-		}
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		extraDirs = append(extraDirs, filepath.Join(home, "scoop", "shims"))
-	}
-	for _, dir := range extraDirs {
-		for _, name := range candidates {
-			path := filepath.Join(dir, name)
-			if _, err := os.Stat(path); err == nil {
-				return path
-			}
-		}
-	}
-	return ""
+	return cmd
 }
 
 // CheckYtDlp verifies yt-dlp availability and returns its status.
 func (s *Service) CheckYtDlp() YtDlpStatus {
-	if s.ytdlpPath == "" {
-		s.ytdlpPath = s.findYtDlp()
-	}
-	if s.ytdlpPath == "" {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	resolved, err := ytdlp.Install(ctx, &ytdlp.InstallOptions{
+		DisableDownload:      true,
+		DisableSystem:        false,
+		AllowVersionMismatch: true,
+	})
+	if err != nil || resolved.Executable == "" {
 		return YtDlpStatus{Available: false}
 	}
-	cmd := exec.Command(s.ytdlpPath, "--version")
-	if s.hooks.HideCommand != nil {
-		s.hooks.HideCommand(cmd)
-	}
-	out, err := cmd.Output()
-	if err != nil {
+	versionResult, vErr := ytdlp.New().SetExecutable(resolved.Executable).Version(ctx)
+	if vErr != nil {
 		return YtDlpStatus{Available: false}
 	}
-	return YtDlpStatus{Available: true, Version: strings.TrimSpace(string(out)), Path: s.ytdlpPath}
+	return YtDlpStatus{Available: true, Version: strings.TrimSpace(versionResult.Stdout), Path: resolved.Executable}
 }
 
-// UpdateYtDlp runs yt-dlp self-update.
+// UpdateYtDlp runs yt-dlp self-update via go-ytdlp.
 func (s *Service) UpdateYtDlp() (string, error) {
-	if s.ytdlpPath == "" {
+	ytdlpPath := s.resolveYtDlp()
+	if ytdlpPath == "" {
 		return "", fmt.Errorf("yt-dlp not found")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	cmd := s.ytdlpCmd(ctx, "-U")
-	out, err := cmd.CombinedOutput()
-	output := strings.TrimSpace(toUTF8(out))
+	result, err := ytdlp.New().SetExecutable(ytdlpPath).Update(ctx)
+	output := ""
+	if result != nil {
+		output = strings.TrimSpace(result.Stdout + "\n" + result.Stderr)
+	}
+	output = toUTF8([]byte(output))
 	if err != nil {
 		return output, fmt.Errorf("update failed: %w", err)
 	}
@@ -173,16 +135,17 @@ func (s *Service) UpdateYtDlp() (string, error) {
 
 // CheckYtDlpVersion compares the local yt-dlp version with the latest GitHub release.
 func (s *Service) CheckYtDlpVersion() (YtDlpVersionCheck, error) {
-	if s.ytdlpPath == "" {
+	ytdlpPath := s.resolveYtDlp()
+	if ytdlpPath == "" {
 		return YtDlpVersionCheck{}, fmt.Errorf("yt-dlp not found")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	out, err := s.ytdlpCmd(ctx, "--version").CombinedOutput()
+	result, err := ytdlp.New().SetExecutable(ytdlpPath).Version(ctx)
 	if err != nil {
 		return YtDlpVersionCheck{}, fmt.Errorf("failed to get version: %w", err)
 	}
-	currentVersion := strings.TrimSpace(toUTF8(out))
+	currentVersion := strings.TrimSpace(result.Stdout)
 
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	resp, err := httpClient.Get("https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest")
@@ -201,4 +164,19 @@ func (s *Service) CheckYtDlpVersion() (YtDlpVersionCheck, error) {
 		LatestVersion:  latestVersion,
 		IsLatest:       currentVersion == latestVersion,
 	}, nil
+}
+
+// InstallYtDlp downloads yt-dlp if not already installed.
+func (s *Service) InstallYtDlp() (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	resolved, err := ytdlp.Install(ctx, &ytdlp.InstallOptions{
+		DisableDownload:      false,
+		DisableSystem:        false,
+		AllowVersionMismatch: true,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to install yt-dlp: %w", err)
+	}
+	return resolved.Executable, nil
 }

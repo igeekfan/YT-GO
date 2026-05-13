@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/lrstanley/go-ytdlp"
 )
 
 func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
@@ -16,7 +18,8 @@ func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
 	if isDouyinURL(videoURL) {
 		return s.GetDouyinVideoInfo(videoURL)
 	}
-	if s.ytdlpPath == "" {
+	ytdlpPath := s.resolveYtDlp()
+	if ytdlpPath == "" {
 		return VideoInfo{}, fmt.Errorf("yt-dlp not found")
 	}
 	settings := s.GetSettings()
@@ -26,93 +29,125 @@ func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	args := []string{"--ignore-config", "--dump-json", "--no-playlist", "--no-warnings"}
+
+	cmd := s.newYtdlpCommand().SetExecutable(ytdlpPath).
+		IgnoreConfig().DumpJSON().NoPlaylist().NoWarnings()
 	if settings.Proxy != "" {
-		args = append(args, "--proxy", settings.Proxy)
+		cmd.Proxy(settings.Proxy)
 	}
-	args = appendCookiesArgs(args, settings)
-	args = append(args, videoURL)
-	cmd := s.ytdlpMediaCmd(ctx, args...)
+	applyCookiesArgs(cmd, settings)
+	s.applyMediaCommand(cmd)
+
 	s.emitLog("[GetVideoInfo] fetching info for URL: %s", videoURL)
-	s.logCmd("GetVideoInfo", cmd)
-	out, err := cmd.CombinedOutput()
+	s.logCmd("GetVideoInfo", cmd, ctx, videoURL)
+
+	result, err := cmd.Run(ctx, videoURL)
 	if err != nil {
-		errMsg := normalizeYtDlpError(s.i18n, toUTF8(out), settings)
+		errMsg := normalizeYtDlpError(s.i18n, toUTF8([]byte(result.Stderr)), settings)
 		s.emitLog("[GetVideoInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return VideoInfo{}, fmt.Errorf("%s", errMsg)
 		}
 		return VideoInfo{}, fmt.Errorf("failed to get video info: %w", err)
 	}
-	var raw map[string]interface{}
-	if err := json.Unmarshal(out, &raw); err != nil {
-		s.emitLog("[GetVideoInfo] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
-		return VideoInfo{}, fmt.Errorf("failed to parse video info: %w", err)
+
+	infoList, parseErr := result.GetExtractedInfo()
+	if parseErr != nil || len(infoList) == 0 {
+		s.emitLog("[GetVideoInfo] JSON parse failed: %v", parseErr)
+		return VideoInfo{}, fmt.Errorf("failed to parse video info: %w", parseErr)
 	}
-	info := VideoInfo{URL: videoURL}
-	if v, ok := raw["title"].(string); ok {
-		info.Title = v
-	}
-	if v, ok := raw["id"].(string); ok {
-		info.ID = v
-	}
-	info.Thumbnail = extractThumbnailURL(raw)
-	if v, ok := raw["duration"].(float64); ok {
-		info.Duration = v
-	}
-	if v, ok := raw["uploader"].(string); ok {
-		info.Uploader = v
-	} else if v, ok := raw["channel"].(string); ok {
-		info.Uploader = v
-	}
-	if v, ok := raw["extractor_key"].(string); ok {
-		info.Platform = v
-	} else if v, ok := raw["extractor"].(string); ok {
-		info.Platform = v
-	}
-	if v, ok := raw["webpage_url"].(string); ok && v != "" {
-		info.URL = v
-	}
+
+	raw := infoList[0]
+	info := extractVideoInfoFromExtracted(raw, videoURL)
 	if fallback := s.resolveVideoThumbnailFallback(info, raw); fallback != "" {
 		info.Thumbnail = fallback
 	}
-	info.Subtitles = extractSubtitleLangs(raw)
 	return info, nil
 }
 
-func extractSubtitleLangs(raw map[string]interface{}) []SubtitleLang {
+// extractVideoInfoFromExtracted converts a go-ytdlp ExtractedInfo to our VideoInfo type.
+func extractVideoInfoFromExtracted(raw *ytdlp.ExtractedInfo, videoURL string) VideoInfo {
+	info := VideoInfo{URL: videoURL}
+	if raw.ID != "" {
+		info.ID = raw.ID
+	}
+	if raw.Title != nil {
+		info.Title = *raw.Title
+	}
+	info.Thumbnail = extractThumbnailFromExtracted(raw)
+	if raw.Duration != nil {
+		info.Duration = *raw.Duration
+	}
+	if raw.Uploader != nil {
+		info.Uploader = *raw.Uploader
+	} else if raw.Channel != nil {
+		info.Uploader = *raw.Channel
+	}
+	if raw.ExtractorKey != nil {
+		info.Platform = *raw.ExtractorKey
+	} else if raw.Extractor != nil {
+		info.Platform = *raw.Extractor
+	}
+	if raw.WebpageURL != nil && *raw.WebpageURL != "" {
+		info.URL = *raw.WebpageURL
+	}
+	info.Subtitles = extractSubtitleLangsFromExtracted(raw)
+	return info
+}
+
+// extractThumbnailFromExtracted extracts the best thumbnail URL from ExtractedInfo.
+func extractThumbnailFromExtracted(raw *ytdlp.ExtractedInfo) string {
+	// Try direct thumbnail field
+	if raw.Thumbnail != nil && *raw.Thumbnail != "" {
+		if normalized := normalizeThumbnailURL(*raw.Thumbnail); normalized != "" {
+			if !isPlaceholderThumbnailURL(normalized) {
+				return normalized
+			}
+		}
+	}
+	// Try thumbnails array (last = highest quality)
+	if raw.Thumbnails != nil {
+		for i := len(raw.Thumbnails) - 1; i >= 0; i-- {
+			thumb := raw.Thumbnails[i]
+			if normalized := normalizeThumbnailURL(thumb.URL); normalized != "" {
+				if !isPlaceholderThumbnailURL(normalized) {
+					return normalized
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// extractSubtitleLangsFromExtracted extracts subtitle language info from ExtractedInfo.
+func extractSubtitleLangsFromExtracted(raw *ytdlp.ExtractedInfo) []SubtitleLang {
 	var result []SubtitleLang
 	seen := make(map[string]bool)
-	if subs, ok := raw["subtitles"].(map[string]interface{}); ok {
-		for code := range subs {
+
+	// Manual subtitles
+	if raw.Subtitles != nil {
+		for code, subs := range raw.Subtitles {
 			if seen[code] {
 				continue
 			}
 			seen[code] = true
 			name := code
-			if arr, ok := subs[code].([]interface{}); ok && len(arr) > 0 {
-				if obj, ok := arr[0].(map[string]interface{}); ok {
-					if nameValue, ok := obj["name"].(string); ok && nameValue != "" {
-						name = nameValue
-					}
-				}
+			if len(subs) > 0 && subs[0].Name != nil {
+				name = *subs[0].Name
 			}
 			result = append(result, SubtitleLang{Code: code, Name: name, Auto: false})
 		}
 	}
-	if autoCaptions, ok := raw["automatic_captions"].(map[string]interface{}); ok {
-		for code := range autoCaptions {
+	// Automatic captions
+	if raw.AutomaticCaptions != nil {
+		for code, subs := range raw.AutomaticCaptions {
 			if seen[code] {
 				continue
 			}
 			seen[code] = true
 			name := code
-			if arr, ok := autoCaptions[code].([]interface{}); ok && len(arr) > 0 {
-				if obj, ok := arr[0].(map[string]interface{}); ok {
-					if nameValue, ok := obj["name"].(string); ok && nameValue != "" {
-						name = nameValue
-					}
-				}
+			if len(subs) > 0 && subs[0].Name != nil {
+				name = *subs[0].Name
 			}
 			result = append(result, SubtitleLang{Code: code, Name: name, Auto: true})
 		}
@@ -146,7 +181,8 @@ func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 		}
 		s.emitLog("[GetPlaylistInfo] Douyin custom handler failed (%v), falling back to yt-dlp", err)
 	}
-	if s.ytdlpPath == "" {
+	ytdlpPath := s.resolveYtDlp()
+	if ytdlpPath == "" {
 		return PlaylistInfo{}, fmt.Errorf("yt-dlp not found")
 	}
 	settings := s.GetSettings()
@@ -156,85 +192,66 @@ func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	args := []string{"--ignore-config", "--flat-playlist", "--dump-single-json", "--no-warnings"}
+
+	cmd := s.newYtdlpCommand().SetExecutable(ytdlpPath).
+		IgnoreConfig().FlatPlaylist().DumpSingleJSON().NoWarnings()
 	if settings.Proxy != "" {
-		args = append(args, "--proxy", settings.Proxy)
+		cmd.Proxy(settings.Proxy)
 	}
-	args = appendCookiesArgs(args, settings)
-	args = append(args, videoURL)
-	cmd := s.ytdlpMediaCmd(ctx, args...)
+	applyCookiesArgs(cmd, settings)
+	s.applyMediaCommand(cmd)
+
 	s.emitLog("[GetPlaylistInfo] fetching playlist for URL: %s", videoURL)
-	s.logCmd("GetPlaylistInfo", cmd)
-	out, err := cmd.CombinedOutput()
+	s.logCmd("GetPlaylistInfo", cmd, ctx, videoURL)
+
+	result, err := cmd.Run(ctx, videoURL)
 	if err != nil {
-		errMsg := normalizeYtDlpError(s.i18n, toUTF8(out), settings)
+		errMsg := normalizeYtDlpError(s.i18n, toUTF8([]byte(result.Stderr)), settings)
 		s.emitLog("[GetPlaylistInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return PlaylistInfo{}, fmt.Errorf("%s", errMsg)
 		}
 		return PlaylistInfo{}, fmt.Errorf("failed to get playlist info: %w", err)
 	}
-	result := PlaylistInfo{URL: videoURL, Kind: detectCollectionKind(videoURL)}
-	var raw map[string]interface{}
-	if err := json.Unmarshal(out, &raw); err != nil {
-		s.emitLog("[GetPlaylistInfo] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
-		return PlaylistInfo{}, fmt.Errorf("failed to parse playlist info: %w", err)
+
+	infoList, parseErr := result.GetExtractedInfo()
+	if parseErr != nil || len(infoList) == 0 {
+		s.emitLog("[GetPlaylistInfo] JSON parse failed: %v", parseErr)
+		return PlaylistInfo{}, fmt.Errorf("failed to parse playlist info: %w", parseErr)
 	}
-	if v, ok := raw["title"].(string); ok {
-		result.Title = v
+
+	raw := infoList[0]
+	playlistResult := PlaylistInfo{URL: videoURL, Kind: detectCollectionKind(videoURL)}
+
+	if raw.Title != nil {
+		playlistResult.Title = *raw.Title
 	}
-	if v, ok := raw["playlist_title"].(string); ok && v != "" {
-		result.Title = v
+	if raw.PlaylistTitle != nil && *raw.PlaylistTitle != "" {
+		playlistResult.Title = *raw.PlaylistTitle
 	}
-	if v, ok := raw["uploader"].(string); ok {
-		result.Uploader = v
-	} else if v, ok := raw["playlist_uploader"].(string); ok {
-		result.Uploader = v
-	} else if v, ok := raw["channel"].(string); ok {
-		result.Uploader = v
+	if raw.Uploader != nil {
+		playlistResult.Uploader = *raw.Uploader
+	} else if raw.PlaylistUploader != nil {
+		playlistResult.Uploader = *raw.PlaylistUploader
+	} else if raw.Channel != nil {
+		playlistResult.Uploader = *raw.Channel
 	}
-	if result.Kind == "playlist" {
-		if extractor, ok := raw["extractor_key"].(string); ok && strings.Contains(strings.ToLower(extractor), "tab") {
-			lowerTitle := strings.ToLower(result.Title)
+	if playlistResult.Kind == "playlist" {
+		if raw.ExtractorKey != nil && strings.Contains(strings.ToLower(*raw.ExtractorKey), "tab") {
+			lowerTitle := strings.ToLower(playlistResult.Title)
 			if strings.Contains(lowerTitle, "channel") || strings.Contains(lowerTitle, "videos") {
-				result.Kind = "channel"
+				playlistResult.Kind = "channel"
 			}
 		}
 	}
-	if entries, ok := raw["entries"].([]interface{}); ok {
-		for _, entry := range entries {
-			entryMap, ok := entry.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			info := VideoInfo{}
-			if v, ok := entryMap["webpage_url"].(string); ok {
-				info.URL = v
-			} else if v, ok := entryMap["url"].(string); ok {
-				info.URL = v
-			}
-			if v, ok := entryMap["title"].(string); ok {
-				info.Title = v
-			}
-			if v, ok := entryMap["id"].(string); ok {
-				info.ID = v
-			}
-			info.Thumbnail = extractThumbnailURL(entryMap)
-			if v, ok := entryMap["duration"].(float64); ok {
-				info.Duration = v
-			}
-			if v, ok := entryMap["uploader"].(string); ok {
-				info.Uploader = v
-			} else if v, ok := entryMap["channel"].(string); ok {
-				info.Uploader = v
-			}
-			if info.URL != "" || info.ID != "" {
-				result.Videos = append(result.Videos, info)
-			}
+	for _, entry := range raw.Entries {
+		info := extractVideoInfoFromExtracted(entry, "")
+		if info.URL != "" || info.ID != "" {
+			playlistResult.Videos = append(playlistResult.Videos, info)
 		}
 	}
-	result.Count = len(result.Videos)
-	return result, nil
+	playlistResult.Count = len(playlistResult.Videos)
+	return playlistResult, nil
 }
 
 func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {
@@ -242,7 +259,8 @@ func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {
 	if isDouyinURL(videoURL) {
 		return s.GetDouyinFormats(videoURL)
 	}
-	if s.ytdlpPath == "" {
+	ytdlpPath := s.resolveYtDlp()
+	if ytdlpPath == "" {
 		return FormatInfo{}, fmt.Errorf("yt-dlp not found")
 	}
 	settings := s.GetSettings()
@@ -252,112 +270,78 @@ func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	args := []string{"--ignore-config", "--dump-json", "--no-download", "--no-warnings", "--no-playlist"}
+
+	cmd := s.newYtdlpCommand().SetExecutable(ytdlpPath).
+		IgnoreConfig().DumpJSON().SkipDownload().NoWarnings().NoPlaylist()
 	if settings.Proxy != "" {
-		args = append(args, "--proxy", settings.Proxy)
+		cmd.Proxy(settings.Proxy)
 	}
-	args = appendCookiesArgs(args, settings)
-	args = append(args, videoURL)
-	cmd := s.ytdlpMediaCmd(ctx, args...)
+	applyCookiesArgs(cmd, settings)
+	s.applyMediaCommand(cmd)
+
 	s.emitLog("[GetFormats] fetching formats for URL: %s", videoURL)
-	s.logCmd("GetFormats", cmd)
-	out, err := cmd.CombinedOutput()
+	s.logCmd("GetFormats", cmd, ctx, videoURL)
+
+	result, err := cmd.Run(ctx, videoURL)
 	if err != nil {
-		errMsg := normalizeYtDlpError(s.i18n, toUTF8(out), settings)
+		errMsg := normalizeYtDlpError(s.i18n, toUTF8([]byte(result.Stderr)), settings)
 		s.emitLog("[GetFormats] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return FormatInfo{}, fmt.Errorf("%s", errMsg)
 		}
 		return FormatInfo{}, fmt.Errorf("failed to get formats: %w", err)
 	}
-	var raw map[string]interface{}
-	if err := json.Unmarshal(out, &raw); err != nil {
-		s.emitLog("[GetFormats] JSON parse failed: %v, raw output: %s", err, toUTF8(out))
-		return FormatInfo{}, fmt.Errorf("failed to parse JSON: %w", err)
+
+	infoList, parseErr := result.GetExtractedInfo()
+	if parseErr != nil || len(infoList) == 0 {
+		s.emitLog("[GetFormats] JSON parse failed: %v", parseErr)
+		return FormatInfo{}, fmt.Errorf("failed to parse JSON: %w", parseErr)
 	}
-	result := FormatInfo{URL: videoURL}
-	if v, ok := raw["title"].(string); ok {
-		result.Title = v
+
+	raw := infoList[0]
+	fmtResult := FormatInfo{URL: videoURL}
+	if raw.Title != nil {
+		fmtResult.Title = *raw.Title
 	}
-	if formatsRaw, ok := raw["formats"].([]interface{}); ok {
-		for _, rawFormat := range formatsRaw {
-			formatMap, ok := rawFormat.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			format := Format{}
-			if v, ok := formatMap["format_id"].(string); ok {
-				format.FormatID = v
-			}
-			if v, ok := formatMap["ext"].(string); ok {
-				format.Ext = v
-			}
-			if v, ok := formatMap["resolution"].(string); ok {
-				format.Resolution = v
-			}
-			if v, ok := formatMap["fps"].(float64); ok {
-				format.FPS = v
-			}
-			if v, ok := formatMap["vcodec"].(string); ok {
-				format.VCodec = v
-				format.HasVideo = v != "none" && v != ""
-			}
-			if v, ok := formatMap["acodec"].(string); ok {
-				format.ACodec = v
-				format.HasAudio = v != "none" && v != ""
-			}
-			if v, ok := formatMap["filesize"].(float64); ok {
-				format.Filesize = int64(v)
-			} else if v, ok := formatMap["filesize_approx"].(float64); ok {
-				format.Filesize = int64(v)
-			}
-			if v, ok := formatMap["tbr"].(float64); ok {
-				format.TBR = v
-			}
-			if v, ok := formatMap["format_note"].(string); ok {
-				format.Note = v
-			}
-			result.Formats = append(result.Formats, format)
+	for _, f := range raw.Formats {
+		format := Format{}
+		if f.FormatID != nil {
+			format.FormatID = *f.FormatID
 		}
+		if f.Extension != nil {
+			format.Ext = *f.Extension
+		}
+		if f.Resolution != nil {
+			format.Resolution = *f.Resolution
+		}
+		if f.FPS != nil {
+			format.FPS = *f.FPS
+		}
+		if f.VCodec != nil {
+			format.VCodec = *f.VCodec
+			format.HasVideo = *f.VCodec != "" && *f.VCodec != "none"
+		}
+		if f.ACodec != nil {
+			format.ACodec = *f.ACodec
+			format.HasAudio = *f.ACodec != "" && *f.ACodec != "none"
+		}
+		if f.FileSize != nil {
+			format.Filesize = int64(*f.FileSize)
+		} else if f.FileSizeApprox != nil {
+			format.Filesize = int64(*f.FileSizeApprox)
+		}
+		if f.TBR != nil {
+			format.TBR = *f.TBR
+		}
+		if f.FormatNote != nil {
+			format.Note = *f.FormatNote
+		}
+		fmtResult.Formats = append(fmtResult.Formats, format)
 	}
-	return result, nil
+	return fmtResult, nil
 }
 
 // --- Thumbnail helpers ---
-
-func extractThumbnailURL(raw map[string]interface{}) string {
-	for _, key := range []string{"thumbnail", "pic", "cover"} {
-		if value, ok := raw[key].(string); ok {
-			if normalized := normalizeThumbnailURL(value); normalized != "" {
-				if isPlaceholderThumbnailURL(normalized) {
-					continue
-				}
-				return normalized
-			}
-		}
-	}
-	thumbnails, ok := raw["thumbnails"].([]interface{})
-	if !ok {
-		return ""
-	}
-	for index := len(thumbnails) - 1; index >= 0; index-- {
-		thumbMap, ok := thumbnails[index].(map[string]interface{})
-		if !ok {
-			continue
-		}
-		for _, key := range []string{"url", "src"} {
-			if value, ok := thumbMap[key].(string); ok {
-				if normalized := normalizeThumbnailURL(value); normalized != "" {
-					if isPlaceholderThumbnailURL(normalized) {
-						continue
-					}
-					return normalized
-				}
-			}
-		}
-	}
-	return ""
-}
 
 func normalizeThumbnailURL(raw string) string {
 	value := strings.TrimSpace(raw)
@@ -377,14 +361,14 @@ func isPlaceholderThumbnailURL(raw string) bool {
 
 // --- Bilibili thumbnail fallback ---
 
-func (s *Service) resolveVideoThumbnailFallback(info VideoInfo, raw map[string]interface{}) string {
+func (s *Service) resolveVideoThumbnailFallback(info VideoInfo, raw *ytdlp.ExtractedInfo) string {
 	if info.Thumbnail != "" && !isPlaceholderThumbnailURL(info.Thumbnail) {
 		return ""
 	}
-	if !isBilibiliVideo(info, raw) {
+	if !isBilibiliVideoExtracted(info, raw) {
 		return ""
 	}
-	bvid := extractBilibiliBVID(info, raw)
+	bvid := extractBilibiliBVIDExtracted(info, raw)
 	if bvid == "" {
 		return ""
 	}
@@ -396,29 +380,21 @@ func (s *Service) resolveVideoThumbnailFallback(info VideoInfo, raw map[string]i
 	return thumbnail
 }
 
-func isBilibiliVideo(info VideoInfo, raw map[string]interface{}) bool {
+func isBilibiliVideoExtracted(info VideoInfo, raw *ytdlp.ExtractedInfo) bool {
 	platform := strings.ToLower(info.Platform)
 	videoURL := strings.ToLower(info.URL)
 	if strings.Contains(platform, "bilibili") || strings.Contains(videoURL, "bilibili.com") {
 		return true
 	}
-	if extractor, ok := raw["extractor_key"].(string); ok && strings.Contains(strings.ToLower(extractor), "bilibili") {
+	if raw.ExtractorKey != nil && strings.Contains(strings.ToLower(*raw.ExtractorKey), "bilibili") {
 		return true
 	}
 	return false
 }
 
-func extractBilibiliBVID(info VideoInfo, raw map[string]interface{}) string {
+func extractBilibiliBVIDExtracted(info VideoInfo, raw *ytdlp.ExtractedInfo) string {
 	if id := strings.TrimSpace(info.ID); strings.HasPrefix(strings.ToUpper(id), "BV") {
 		return id
-	}
-	for _, key := range []string{"bvid", "display_id"} {
-		if value, ok := raw[key].(string); ok {
-			value = strings.TrimSpace(value)
-			if strings.HasPrefix(strings.ToUpper(value), "BV") {
-				return value
-			}
-		}
 	}
 	match := regexp.MustCompile(`(?i)BV[0-9A-Za-z]+`).FindString(info.URL)
 	return strings.TrimSpace(match)

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lrstanley/go-ytdlp"
 )
 
 func (s *Service) cleanupTransientDownloads() {
@@ -51,7 +51,8 @@ func (s *Service) deleteRecords(ids []string) {
 }
 
 func (s *Service) StartDownload(req DownloadRequest) (string, error) {
-	if s.ytdlpPath == "" && !isDouyinURL(req.URL) {
+	ytdlpPath := s.resolveYtDlp()
+	if ytdlpPath == "" && !isDouyinURL(req.URL) {
 		return "", fmt.Errorf("yt-dlp not found")
 	}
 	if err := ensureYouTubeJSRuntime(s.i18n, extractURLFromText(req.URL), s.GetSettings()); err != nil {
@@ -68,11 +69,11 @@ func (s *Service) StartDownload(req DownloadRequest) (string, error) {
 	s.mu.Unlock()
 	go s.upsertRecord(task)
 	s.emitDownloadUpdate(task)
-	go s.runDownload(taskID, req)
+	go s.runDownload(taskID, req, ytdlpPath)
 	return taskID, nil
 }
 
-func (s *Service) runDownload(taskID string, req DownloadRequest) {
+func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath string) {
 	s.downloadSem <- struct{}{}
 	defer func() { <-s.downloadSem }()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -87,25 +88,35 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 		cancel()
 		return
 	}
-	args := qualityArgs(req.Quality)
-	args = append(args, "--ignore-config")
-	if runtime.GOOS == "windows" {
-		args = append(args, "--windows-filenames")
-	}
+
 	settings := s.GetSettings()
+
+	// Build the download command using go-ytdlp builder.
+	cmd := s.newYtdlpCommand().SetExecutable(ytdlpPath)
+	applyFormatArgs(cmd, req.Quality)
+	cmd.IgnoreConfig()
+
+	if runtime.GOOS == "windows" {
+		cmd.WindowsFilenames()
+	}
+
 	outputTemplate := "%(title)s.%(ext)s"
 	if settings.FilenameTemplate != "" {
 		outputTemplate = settings.FilenameTemplate
 	}
-	args = append(args, "--newline", "--progress", "--print", "after_move:[YT-GO-OUTPUT]%(filepath)s", "-o", filepath.Join(req.OutputDir, outputTemplate), "--no-playlist")
+	cmd.Newline()
+	cmd.Print("after_move:[YT-GO-OUTPUT]%(filepath)s")
+	cmd.Output(filepath.Join(req.OutputDir, outputTemplate))
+	cmd.NoPlaylist()
+
 	if settings.RateLimit != "" {
-		args = append(args, "--rate-limit", settings.RateLimit)
+		cmd.LimitRate(settings.RateLimit)
 	}
 	if settings.Proxy != "" {
-		args = append(args, "--proxy", settings.Proxy)
+		cmd.Proxy(settings.Proxy)
 	}
 	if settings.MergeOutputFormat != "" && shouldApplyMergeOutputFormat(req.Quality) {
-		args = append(args, "--merge-output-format", settings.MergeOutputFormat)
+		cmd.MergeOutputFormat(settings.MergeOutputFormat)
 	}
 	if requiresAudioExtraction(req.Quality) {
 		audioFmt := settings.AudioFormat
@@ -113,9 +124,11 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 			audioFmt = "mp3"
 		}
 		if audioFmt != "" {
-			args = append(args, "--audio-format", audioFmt)
+			cmd.AudioFormat(audioFmt)
 		}
 	}
+
+	// Resolve per-download options (override global settings).
 	optSaveDescription := settings.SaveDescription
 	optSaveThumbnail := settings.SaveThumbnail
 	optWriteSubtitles := settings.WriteSubtitles
@@ -146,69 +159,79 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 			optSponsorBlock = *req.Options.SponsorBlock
 		}
 	}
+
 	if optSaveDescription {
-		args = append(args, "--write-description")
+		cmd.WriteDescription()
 	}
 	if optSaveThumbnail {
-		args = append(args, "--write-thumbnail")
+		cmd.WriteThumbnail()
 	}
 	if optWriteSubtitles {
-		args = append(args, "--write-subs")
+		cmd.WriteSubs()
 		if optSubtitleLangs != "" {
-			args = append(args, "--sub-langs", optSubtitleLangs)
+			cmd.SubLangs(optSubtitleLangs)
 		}
 		if optEmbedSubtitles {
-			args = append(args, "--embed-subs")
+			cmd.EmbedSubs()
 		}
 	}
 	if optEmbedChapters {
-		args = append(args, "--embed-chapters")
+		cmd.EmbedChapters()
 	}
 	if optSponsorBlock {
-		args = append(args, "--sponsorblock-mark", "all")
+		cmd.SponsorblockMark("all")
 	}
-	args = appendCookiesArgs(args, settings)
-	args = append(args, req.URL)
-	cmd := s.ytdlpMediaCmd(ctx, args...)
-	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Starting download: %s", req.URL))
-	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] yt-dlp path: %s", s.ytdlpPath))
-	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Output dir: %s", req.OutputDir))
+
+	applyCookiesArgs(cmd, settings)
+	s.applyMediaCommand(cmd)
+
+	// Set up progress callback.
 	var lastOutputFile string
-	writer := &lineWriter{handler: func(line string) {
+	cmd.ProgressFunc(200*time.Millisecond, func(update ytdlp.ProgressUpdate) {
+		var updated *DownloadTask
+		s.mu.Lock()
+		if t, ok := s.downloads[taskID]; ok {
+			t.Progress = update.Percent()
+			if update.TotalBytes > 0 {
+				t.Size = fmt.Sprintf("%.1fMB", float64(update.DownloadedBytes)/1024/1024)
+			}
+			if update.Filename != "" {
+				lastOutputFile = update.Filename
+			}
+			// Calculate speed and ETA from duration.
+			elapsed := update.Duration()
+			if elapsed > 0 && update.DownloadedBytes > 0 {
+				speed := float64(update.DownloadedBytes) / elapsed.Seconds()
+				t.Speed = formatSpeed(speed)
+				if update.TotalBytes > 0 {
+					remaining := time.Duration(float64(update.TotalBytes-update.DownloadedBytes)/speed) * time.Second
+					t.ETA = formatDuration(remaining)
+				}
+			}
+			copy := *t
+			updated = &copy
+		}
+		s.mu.Unlock()
+		if updated != nil {
+			s.emitDownloadUpdate(updated)
+		}
+	})
+
+	// Set up stderr callback for logging.
+	cmd.StderrFunc(func(line string) {
+		// Check for output path markers from our --print after_move directive.
 		if m := finalPathRe.FindStringSubmatch(line); m != nil {
 			lastOutputFile = strings.TrimSpace(m[1])
 			return
 		}
 		s.emitDownloadLog(taskID, line)
-		if m := progressRe.FindStringSubmatch(line); m != nil {
-			pct, _ := strconv.ParseFloat(m[1], 64)
-			var updated *DownloadTask
-			s.mu.Lock()
-			if t, ok := s.downloads[taskID]; ok {
-				t.Progress = pct
-				t.Size = m[2]
-				t.Speed = m[3]
-				if len(m) > 4 {
-					t.ETA = m[4]
-				}
-				copy := *t
-				updated = &copy
-			}
-			s.mu.Unlock()
-			if updated != nil {
-				s.emitDownloadUpdate(updated)
-			}
-		} else if m := destRe1.FindStringSubmatch(line); m != nil {
-			lastOutputFile = m[1]
-		} else if m := destRe2.FindStringSubmatch(line); m != nil {
-			lastOutputFile = strings.Trim(m[1], `"`)
-		} else if m := destRe3.FindStringSubmatch(line); m != nil {
-			lastOutputFile = m[1]
-		}
-	}}
-	cmd.Stdout = writer
-	cmd.Stderr = writer
-	err := cmd.Run()
+	})
+
+	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Starting download: %s", req.URL))
+	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] yt-dlp path: %s", ytdlpPath))
+	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Output dir: %s", req.OutputDir))
+
+	_, err := cmd.Run(ctx, req.URL)
 	wasCancelled := ctx.Err() != nil
 	cancel()
 	s.mu.Lock()
@@ -243,6 +266,31 @@ func (s *Service) runDownload(taskID string, req DownloadRequest) {
 		s.emitDownloadUpdate(finalTask)
 		go s.upsertRecord(finalTask)
 	}
+}
+
+// formatSpeed formats bytes per second as a human-readable string.
+func formatSpeed(bytesPerSec float64) string {
+	if bytesPerSec < 1024 {
+		return fmt.Sprintf("%.0fB/s", bytesPerSec)
+	}
+	if bytesPerSec < 1024*1024 {
+		return fmt.Sprintf("%.1fKB/s", bytesPerSec/1024)
+	}
+	return fmt.Sprintf("%.1fMB/s", bytesPerSec/1024/1024)
+}
+
+// formatDuration formats a duration for display (e.g. "1:23:45").
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	if h > 0 {
+		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%d:%02d", m, s)
 }
 
 func (s *Service) CancelDownload(taskID string) error {

@@ -7,38 +7,45 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lrstanley/go-ytdlp"
 	"YT-GO/internal/platform"
 )
 
 func (s *Service) GetDiagnosticInfo() DiagnosticInfo {
-	info := DiagnosticInfo{YtDlpPath: s.ytdlpPath, YtDlpFound: s.ytdlpPath != "", AppVersion: s.appVersion}
-	if s.ytdlpPath == "" {
-		s.ytdlpPath = s.findYtDlp()
-		info.YtDlpPath = s.ytdlpPath
-		info.YtDlpFound = s.ytdlpPath != ""
-	}
-	if s.ytdlpPath != "" {
+	ytdlpPath := s.resolveYtDlp()
+	info := DiagnosticInfo{YtDlpPath: ytdlpPath, YtDlpFound: ytdlpPath != "", AppVersion: s.appVersion}
+
+	if ytdlpPath != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		out, err := s.ytdlpCmd(ctx, "--version").CombinedOutput()
+		result, err := ytdlp.New().SetExecutable(ytdlpPath).Version(ctx)
 		if err != nil {
 			info.Error = fmt.Sprintf("version check failed: %v", err)
 		} else {
-			info.YtDlpVersion = strings.TrimSpace(string(out))
+			info.YtDlpVersion = strings.TrimSpace(result.Stdout)
 		}
+
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel2()
-		testOut, err := s.ytdlpCmd(ctx2, "--help").CombinedOutput()
-		if err != nil {
-			info.Error = fmt.Sprintf("help command failed: %v", err)
-		} else if strings.Contains(string(testOut), "youtube") || strings.Contains(string(testOut), "Usage:") {
-			info.TestOutput = "yt-dlp is working correctly"
+		helpResult, helpErr := ytdlp.New().SetExecutable(ytdlpPath).Run(ctx2, "--help")
+		if helpErr != nil {
+			info.Error = fmt.Sprintf("help command failed: %v", helpErr)
 		} else {
-			info.TestOutput = fmt.Sprintf("unexpected output (first 200 chars): %s", string(testOut)[:min(200, len(testOut))])
+			helpOutput := helpResult.Stdout + helpResult.Stderr
+			if strings.Contains(helpOutput, "youtube") || strings.Contains(helpOutput, "Usage:") {
+				info.TestOutput = "yt-dlp is working correctly"
+			} else {
+				truncated := helpOutput
+				if len(truncated) > 200 {
+					truncated = truncated[:200]
+				}
+				info.TestOutput = fmt.Sprintf("unexpected output (first 200 chars): %s", truncated)
+			}
 		}
 	} else {
 		info.Error = "yt-dlp not found in PATH or common installation directories"
 	}
+
 	info.FFmpegPath, info.FFmpegVersion, info.FFmpegFound = detectFFmpeg()
 	info.NodeVersion = getNodeVersion()
 	return info
@@ -47,27 +54,30 @@ func (s *Service) GetDiagnosticInfo() DiagnosticInfo {
 func (s *Service) GetDepStatus() DepStatus {
 	var status DepStatus
 
-	// yt-dlp
-	ytdlpPath := s.ytdlpPath
-	if ytdlpPath == "" {
-		ytdlpPath = s.findYtDlp()
-	}
-	if ytdlpPath != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		ytCmd := exec.CommandContext(ctx, ytdlpPath, "--version")
-		platform.HideCmdWindow(ytCmd)
-		out, err := ytCmd.CombinedOutput()
-		if err == nil {
-			status.YtDlp = DepItem{Found: true, Version: strings.TrimSpace(string(out)), Path: ytdlpPath}
-		} else {
-			status.YtDlp = DepItem{Found: true, Path: ytdlpPath}
-		}
+	// yt-dlp - use go-ytdlp Install with download disabled to resolve from system.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	resolved, err := ytdlp.Install(ctx, &ytdlp.InstallOptions{
+		DisableDownload:      true,
+		DisableSystem:        false,
+		AllowVersionMismatch: true,
+	})
+	if err == nil && resolved.Executable != "" {
+		status.YtDlp = DepItem{Found: true, Version: resolved.Version, Path: resolved.Executable}
 	}
 
-	// ffmpeg
-	ffPath, ffVersion, ffFound := detectFFmpeg()
-	status.FFmpeg = DepItem{Found: ffFound, Version: ffVersion, Path: ffPath}
+	// ffmpeg - use go-ytdlp InstallFFmpeg with download disabled.
+	ffResolved, ffErr := ytdlp.InstallFFmpeg(ctx, &ytdlp.InstallFFmpegOptions{
+		DisableDownload: true,
+		DisableSystem:   false,
+	})
+	if ffErr == nil && ffResolved.Executable != "" {
+		status.FFmpeg = DepItem{Found: true, Version: ffResolved.Version, Path: ffResolved.Executable}
+	} else {
+		// Fallback: manual PATH lookup
+		ffPath, ffVersion, ffFound := detectFFmpegFallback()
+		status.FFmpeg = DepItem{Found: ffFound, Version: ffVersion, Path: ffPath}
+	}
 
 	denoProbe := probeDenoRuntime(s.i18n)
 	if denoProbe.Found {
@@ -98,7 +108,22 @@ func (s *Service) GetDepStatus() DepStatus {
 	return status
 }
 
+// detectFFmpeg tries go-ytdlp's InstallFFmpeg first, then falls back to manual lookup.
 func detectFFmpeg() (path string, version string, found bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	resolved, err := ytdlp.InstallFFmpeg(ctx, &ytdlp.InstallFFmpegOptions{
+		DisableDownload: true,
+		DisableSystem:   false,
+	})
+	if err == nil && resolved.Executable != "" {
+		return resolved.Executable, resolved.Version, true
+	}
+	return detectFFmpegFallback()
+}
+
+// detectFFmpegFallback does a manual PATH lookup for ffmpeg.
+func detectFFmpegFallback() (path string, version string, found bool) {
 	ffmpegPath, err := exec.LookPath("ffmpeg")
 	if err != nil {
 		return "", "", false

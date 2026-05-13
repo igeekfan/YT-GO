@@ -3,10 +3,8 @@ package desktop
 import (
 	"context"
 	"fmt"
-	"os/exec"
 
 	"YT-GO/internal/core"
-	"YT-GO/internal/platform"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -43,9 +41,6 @@ func (a *App) startup(ctx context.Context) {
 		},
 		DownloadLog: func(taskID string, line string) {
 			wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": line})
-		},
-		HideCommand: func(cmd *exec.Cmd) {
-			platform.HideCmdWindow(cmd)
 		},
 	})
 	_ = a.service.Startup()

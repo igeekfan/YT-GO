@@ -1,13 +1,12 @@
 package core
 
 import (
-	"bytes"
 	"regexp"
 	"strings"
-	"sync"
 )
 
 // Progress regex patterns for parsing yt-dlp stderr output.
+// Used by douyin download and fallback progress parsing.
 var (
 	progressRe  = regexp.MustCompile(`\[download\]\s+([\d.]+)%\s+of\s+(\S+)\s+at\s+(\S+)(?:\s+ETA\s+(\S+))?`)
 	destRe1     = regexp.MustCompile(`^\[download\] Destination: (.+)$`)
@@ -15,31 +14,6 @@ var (
 	destRe3     = regexp.MustCompile(`^\[ExtractAudio\] Destination: (.+)$`)
 	finalPathRe = regexp.MustCompile(`^\[YT-GO-OUTPUT\](.+)$`)
 )
-
-// lineWriter buffers bytes into complete lines and calls handler for each.
-type lineWriter struct {
-	mu      sync.Mutex
-	buf     []byte
-	handler func(string)
-}
-
-func (lw *lineWriter) Write(p []byte) (int, error) {
-	lw.mu.Lock()
-	defer lw.mu.Unlock()
-	lw.buf = append(lw.buf, p...)
-	for {
-		idx := bytes.IndexByte(lw.buf, '\n')
-		if idx < 0 {
-			break
-		}
-		line := strings.TrimRight(toUTF8(lw.buf[:idx]), "\r")
-		lw.buf = lw.buf[idx+1:]
-		if line != "" {
-			lw.handler(line)
-		}
-	}
-	return len(p), nil
-}
 
 // shouldApplyMergeOutputFormat returns true if --merge-output-format should be applied for the given quality.
 func shouldApplyMergeOutputFormat(quality string) bool {

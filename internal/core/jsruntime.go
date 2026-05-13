@@ -270,9 +270,7 @@ func (s *Service) UpdateDeno() (string, error) {
 	}
 
 	cmd.Env = append(os.Environ(), "DENO_INSTALL_PROMPT=0")
-	if s.hooks.HideCommand != nil {
-		s.hooks.HideCommand(cmd)
-	}
+	platform.HideCmdWindow(cmd)
 	if action == "upgrade" {
 		s.emitLog("[UpdateDeno] upgrading Deno from: %s", denoProbe.Path)
 	} else {

@@ -8,7 +8,7 @@
 
 ## 规划原则
 
-- 首页优先服务“分析链接 -> 选择格式 -> 开始下载”的核心路径，减少不必要跳转。
+- 首页优先服务"分析链接 -> 选择格式 -> 开始下载"的核心路径，减少不必要跳转。
 - 高使用频率的设置优先前置，低频维护类能力继续拆离主流程。
 - 下载器核心优先做内部解耦，避免后续新增站点、任务类型或 UI 入口时反复穿透 App 层。
 - 文档持续分层：README 讲现状，PLAN 讲下一步。
@@ -19,6 +19,7 @@
 |--------|------|------|------|
 | N1 | 下载器内核下沉 | 拆分 yt-dlp 参数构建、任务生命周期、日志解析、状态更新，形成更清晰的内部组件边界 | ✅ 已完成 |
 | N2 | 首页常用设置下沉 | 将默认下载目录、格式偏好、字幕与媒体增强项的高频开关逐步下沉到主页面 | ✅ 已完成 |
+| N2.5 | 引入 go-ytdlp 包 | 替换自有命令构建、JSON 解析、进度解析、yt-dlp/ffmpeg 安装与检测逻辑 | ✅ 已完成 |
 | N3 | 工具中心独立页面 | 将诊断、更新、环境检测从设置弹窗中继续剥离，形成独立 Tools 页面 | ⏳ 待开始 |
 | N4 | 队列管理增强 | 增加任务批量操作、排序控制、失败聚合处理与更明确的队列状态反馈 | ⏳ 待开始 |
 | N5 | Web 模式补强 | 继续对齐 desktop/web 差异，补齐文件选择、状态同步和运行时提示的体验缺口 | ⏳ 待开始 |
@@ -35,7 +36,7 @@
 ### 第二阶段：把高频配置拉近主流程
 
 - 将下载目录、格式偏好、字幕与媒体增强开关逐步移动到首页或折叠区域。
-- 减少用户在“获取信息”和“开始下载”之间来回进入设置弹窗。
+- 减少用户在"获取信息"和"开始下载"之间来回进入设置弹窗。
 - 基于首页布局重新审视批量下载和单视频下载的默认交互。
 
 ### 第三阶段：抽离工具与维护区
@@ -50,29 +51,29 @@
 - 继续补齐 Web 模式下与桌面端的交互差异。
 - 根据运行模式差异整理更明确的限制提示和文档说明。
 
-## 技术替换方向
+## 已完成的技术替换
 
-### 引入 go-ytdlp 包替换自有实现
+### 引入 go-ytdlp 包替换自有实现（已完成）
 
-- 包地址：[github.com/lrstanley/go-ytdlp](https://github.com/lrstanley/go-ytdlp)
-- 引入理由：
-  - 提供完整的类型安全 flag builder，避免手动拼接 `[]string` args 出错
-  - 内置 `Install*` 辅助函数，可自动下载/缓存 yt-dlp、ffmpeg、ffprobe、bun，无需自己维护更新逻辑
-  - 支持 `FlagConfig`（JSON ↔ flags 双向转换），便于后续 UI 侧暴露高级参数配置
-  - 已处理 Windows 下隐藏 CMD 窗口（`command_windows.go`），减少平台差异维护成本
-  - 持续跟进 yt-dlp 最新版本，自动生成绑定代码
-- 替换范围：
-  - `internal/core/ytdlp.go` 中的命令构建、执行、安装/更新逻辑
-  - `internal/core/diagnostics.go` 中的 ffmpeg/yt-dlp 版本探测逻辑
-  - `internal/core/update.go` 中的 yt-dlp 自动更新逻辑
-- 注意事项：
-  - 实时进度解析（stderr 流式读取）需确认 go-ytdlp 的 `StderrFunc` 回调是否满足需求
-  - 迁移时保留现有进度解析逻辑，逐步替换命令构建部分
+- 包地址：[github.com/lrstanley/go-ytdlp](https://github.com/lrstanley/go-ytdlp) (v1.3.5)
+- 已替换内容：
+  - `executor.go`: 命令构建改用 `ytdlp.New()` builder 链式调用；`CheckYtDlp()`/`UpdateYtDlp()`/`CheckYtDlpVersion()` 使用 go-ytdlp 的 `Install()`/`Version()`/`Update()`；新增 `InstallYtDlp()` 自动下载安装
+  - `ytdlp.go`: `GetVideoInfo()`/`GetPlaylistInfo()`/`GetFormats()` 使用 `DumpJSON()`/`DumpSingleJSON()` + `ExtractedInfo` 类型安全解析，替代手动 `map[string]interface{}` JSON 解析
+  - `downloads.go`: 下载执行使用 go-ytdlp builder + `ProgressFunc()` 进度回调 + `StderrFunc()` 日志回调，替代手动 `exec.Cmd` + `lineWriter`
+  - `diagnostics.go`: yt-dlp/ffmpeg 检测使用 `ytdlp.Install()`/`ytdlp.InstallFFmpeg()` (DisableDownload 模式)，替代手动 PATH/WinGet/Scoop 搜索
+  - `service.go`: 移除 `ytdlpPath` 字段和 `HideCommand` hook，改用 go-ytdlp 内部缓存和 Windows CMD 隐藏
+  - `progress.go`: 移除 `lineWriter`（已由 go-ytdlp 的 `timestampWriter` 替代），仅保留正则常量和辅助函数
+  - `desktop/app.go`: 移除 `HideCommand` hook
+- 保留不变：
+  - `jsruntime.go`: Deno/Node 运行时检测逻辑保持独立（go-ytdlp 的 bun 安装是可选的，我们仍需要 Deno/Node 检测用于 YouTube 场景）
+  - `douyin.go`: 抖音专用下载逻辑独立于 yt-dlp，无需改动
+  - `errhint.go`: 错误增强逻辑保持不变
+  - `platform/` 包: 仍被 jsruntime.go 用于 Deno 安装时的 CMD 隐藏
 
 ## 当前推荐推进顺序
 
-1. 先做下载器内核下沉，避免新功能继续堆在现有调用链上。
-2. 评估并引入 go-ytdlp 包，替换自有命令构建与安装更新逻辑。
+1. ~~先做下载器内核下沉，避免新功能继续堆在现有调用链上。~~ ✅
+2. ~~评估并引入 go-ytdlp 包，替换自有命令构建与安装更新逻辑。~~ ✅
 3. 再做首页常用设置下沉，优化高频下载流程。
 4. 然后拆出独立工具中心，收敛低频维护功能。
 5. 最后补齐队列管理增强与 Web 模式体验对齐。

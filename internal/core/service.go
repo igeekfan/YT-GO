@@ -3,9 +3,10 @@ package core
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"sync"
+	"time"
 
+	"github.com/lrstanley/go-ytdlp"
 	"gorm.io/gorm"
 )
 
@@ -14,7 +15,6 @@ type Hooks struct {
 	DownloadUpdate func(*DownloadTask)
 	DownloadRemove func(string)
 	DownloadLog    func(string, string)
-	HideCommand    func(*exec.Cmd)
 }
 
 type Service struct {
@@ -22,7 +22,6 @@ type Service struct {
 	downloads   map[string]*DownloadTask
 	cancelFns   map[string]context.CancelFunc
 	mu          sync.RWMutex
-	ytdlpPath   string
 	db          *gorm.DB
 	downloadSem chan struct{}
 	appVersion  string
@@ -37,7 +36,6 @@ func NewService(appVersion string) *Service {
 		downloadSem: make(chan struct{}, 3),
 		appVersion:  appVersion,
 	}
-	s.ytdlpPath = s.findYtDlp()
 	return s
 }
 
@@ -88,4 +86,21 @@ func (s *Service) emitDownloadLog(taskID string, line string) {
 	if s.hooks.DownloadLog != nil {
 		s.hooks.DownloadLog(taskID, line)
 	}
+}
+
+// resolveYtDlp resolves the yt-dlp executable path using go-ytdlp.
+// It checks the system PATH first, then falls back to go-ytdlp's cache.
+// Does NOT trigger a download — use InstallYtDlp for that.
+func (s *Service) resolveYtDlp() string {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	resolved, err := ytdlp.Install(ctx, &ytdlp.InstallOptions{
+		DisableDownload:      true,
+		DisableSystem:        false,
+		AllowVersionMismatch: true,
+	})
+	if err != nil {
+		return ""
+	}
+	return resolved.Executable
 }
