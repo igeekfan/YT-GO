@@ -59,8 +59,14 @@ func (s *Service) StartDownload(req DownloadRequest) (string, error) {
 	if err := ensureYouTubeJSRuntime(s.i18n, extractURLFromText(req.URL), s.GetSettings()); err != nil {
 		return "", err
 	}
+	// Override output dir with YTGO_DOWNLOAD_DIR if configured (web mode)
+	outputDir := req.OutputDir
+	if s.downloadDir != "" {
+		outputDir = s.downloadDir
+		req.OutputDir = outputDir
+	}
 	taskID := uuid.New().String()
-	task := &DownloadTask{ID: taskID, URL: req.URL, OutputDir: req.OutputDir, Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339)}
+	task := &DownloadTask{ID: taskID, URL: req.URL, OutputDir: outputDir, Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339)}
 	if req.VideoInfo != nil {
 		task.Title = req.VideoInfo.Title
 		task.Thumbnail = req.VideoInfo.Thumbnail

@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile} from '../lib/backend'
+import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
 import DirBrowser from './DirBrowser'
 
 interface DiagnosticInfo {
@@ -314,6 +314,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
 
     const renderDownloadTab = () => (
         <>
+            {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
             <div className="setting-item">
                 <label className="setting-label">{t('settings.outputDir')}</label>
                 <div className="setting-row">
@@ -338,6 +339,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                     <div className="setting-hint">{t('settings.outputDirWebHint')}</div>
                 )}
             </div>
+            )}
             <div className="setting-item">
                 <label className="setting-label">{t('settings.quality')}</label>
                 <select

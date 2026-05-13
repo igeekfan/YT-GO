@@ -848,6 +848,7 @@ function App() {
                 {ytdlp?.available && (videoInfo || playlistInfo) && (
                 <div className="controls-zone">
                     <div className="options-row">
+                        {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
                         <div className="option-group flex-1">
                             <label className="option-label">{t('outputDir.label')}</label>
                             <div className="dir-row">
@@ -869,6 +870,7 @@ function App() {
                                 )}
                             </div>
                         </div>
+                        )}
                     </div>
 
                     {videoInfo && (
