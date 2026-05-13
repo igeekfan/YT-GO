@@ -60,6 +60,14 @@
 
     'action.cancel': 'Cancel',
     'action.close': 'Close',
+
+    'dirBrowser.title': 'Select Directory',
+    'dirBrowser.go': 'Go',
+    'dirBrowser.parent': 'Parent',
+    'dirBrowser.home': 'Home',
+    'dirBrowser.loading': 'Loading...',
+    'dirBrowser.empty': 'No subdirectories found',
+    'dirBrowser.select': 'Select',
     'action.retry': 'Retry',
     'action.redownload': 'Re-download',
     'action.remove': 'Remove',

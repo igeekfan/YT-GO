@@ -7,6 +7,7 @@ import DownloadList from './components/DownloadList'
 import SettingsDialog from './components/SettingsDialog'
 import SetupWizard from './components/SetupWizard'
 import UpdateDialog from './components/UpdateDialog'
+import DirBrowser from './components/DirBrowser'
 import './App.css'
 
 const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
@@ -150,6 +151,7 @@ function App() {
 
     // Update dialog state
     const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+    const [showDirBrowser, setShowDirBrowser] = useState(false)
     const [updateInfo, setUpdateInfo] = useState<{
         hasUpdate: boolean
         currentVersion: string
@@ -851,8 +853,12 @@ function App() {
                                     onChange={e => setOutputDir(e.target.value)}
                                     placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : t('outputDir.placeholder')}
                                 />
-                                {backendMode === 'desktop' && (
+                                {backendMode === 'desktop' ? (
                                     <button className="btn-secondary" onClick={handleSelectFolder}>
+                                        {t('outputDir.browse')}
+                                    </button>
+                                ) : (
+                                    <button className="btn-secondary" onClick={() => setShowDirBrowser(true)}>
                                         {t('outputDir.browse')}
                                     </button>
                                 )}
@@ -1231,6 +1237,19 @@ function App() {
                 onClose={() => setShowUpdateDialog(false)}
                 onOpenReleasePage={handleOpenReleasePage}
                 onCheckUpdate={handleCheckUpdate}
+            />
+            <DirBrowser
+                open={showDirBrowser}
+                initialPath={outputDir}
+                onSelect={dir => {
+                    setOutputDir(dir)
+                    if (currentSettings) {
+                        const next = {...currentSettings, outputDir: dir}
+                        setCurrentSettings(next)
+                        SaveSettings(next).catch(console.error)
+                    }
+                }}
+                onClose={() => setShowDirBrowser(false)}
             />
         </div>
     )

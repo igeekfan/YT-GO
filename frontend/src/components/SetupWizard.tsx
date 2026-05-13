@@ -1,5 +1,6 @@
 import {useState, useEffect} from 'react'
 import {SelectFolder, SelectCookiesFile, CheckYtDlp, GetDepStatus, backendMode, UploadCookiesFile} from '../lib/backend'
+import DirBrowser from './DirBrowser'
 import {useI18n} from '../i18n/context'
 
 interface Props {
@@ -26,6 +27,7 @@ export default function SetupWizard({onComplete}: Props) {
         if (saved) return saved
         return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
     })
+    const [showDirBrowser, setShowDirBrowser] = useState(false)
 
     useEffect(() => {
         CheckYtDlp().then(status => {
@@ -80,6 +82,7 @@ export default function SetupWizard({onComplete}: Props) {
     const totalSteps = 2
 
     return (
+        <>
         <div className="setup-wizard-overlay">
             <div className="setup-wizard">
                 <div className="setup-wizard-header">
@@ -109,7 +112,13 @@ export default function SetupWizard({onComplete}: Props) {
                                     placeholder={t('setup.selectDirPlaceholder')}
                                     readOnly={canBrowseLocalPaths}
                                 />
-                                <button className="btn-secondary" onClick={handleSelectFolder} disabled={!canBrowseLocalPaths}>
+                                <button className="btn-secondary" onClick={() => {
+                                    if (backendMode === 'desktop') {
+                                        handleSelectFolder()
+                                    } else {
+                                        setShowDirBrowser(true)
+                                    }
+                                }}>
                                     {t('outputDir.browse')}
                                 </button>
                             </div>
@@ -301,5 +310,12 @@ export default function SetupWizard({onComplete}: Props) {
                 </div>
             </div>
         </div>
+        <DirBrowser
+            open={showDirBrowser}
+            initialPath={outputDir}
+            onSelect={dir => setOutputDir(dir)}
+            onClose={() => setShowDirBrowser(false)}
+        />
+        </>
     )
 }

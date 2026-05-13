@@ -60,6 +60,14 @@
 
     'action.cancel': '取消',
     'action.close': '关闭',
+
+    'dirBrowser.title': '选择目录',
+    'dirBrowser.go': '前往',
+    'dirBrowser.parent': '上级',
+    'dirBrowser.home': '主目录',
+    'dirBrowser.loading': '加载中...',
+    'dirBrowser.empty': '该目录没有子文件夹',
+    'dirBrowser.select': '选择',
     'action.retry': '重试',
     'action.redownload': '重新下载',
     'action.remove': '删除',

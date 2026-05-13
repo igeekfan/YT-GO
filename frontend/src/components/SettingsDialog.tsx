@@ -1,7 +1,8 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, BrowseDir, UploadCookiesFile} from '../lib/backend'
+import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile} from '../lib/backend'
+import DirBrowser from './DirBrowser'
 
 interface DiagnosticInfo {
     ytdlpPath: string
@@ -72,6 +73,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
     const [depStatus, setDepStatus] = useState<DepStatus | null>(null)
     const [loadingDeps, setLoadingDeps] = useState(false)
+    const [showDirBrowser, setShowDirBrowser] = useState(false)
     const [updateInfo, setUpdateInfo] = useState<{
         hasUpdate: boolean
         currentVersion: string
@@ -319,8 +321,12 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                         onChange={e => update('outputDir', e.target.value)}
                         placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : undefined}
                     />
-                    {backendMode === 'desktop' && (
+                    {backendMode === 'desktop' ? (
                         <button className="btn-secondary btn-sm" onClick={handleSelectFolder}>
+                            {t('outputDir.browse')}
+                        </button>
+                    ) : (
+                        <button className="btn-secondary btn-sm" onClick={() => setShowDirBrowser(true)}>
                             {t('outputDir.browse')}
                         </button>
                     )}
@@ -864,6 +870,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     }
 
     return (
+        <>
         <div className="dialog-overlay" onClick={handleClose}>
             <div className="dialog-content settings-dialog" onClick={e => e.stopPropagation()}>
                 <div className="dialog-header">
@@ -889,6 +896,13 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                 </div>
             </div>
         </div>
+        <DirBrowser
+            open={showDirBrowser}
+            initialPath={settings?.outputDir || ''}
+            onSelect={dir => update('outputDir', dir)}
+            onClose={() => setShowDirBrowser(false)}
+        />
+        </>
     )
 }
 
