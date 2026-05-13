@@ -320,6 +320,10 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 			t.Status = "completed"
 			t.Progress = 100
 			if lastOutputFile != "" {
+				// Ensure outputPath is absolute
+				if !filepath.IsAbs(lastOutputFile) {
+					lastOutputFile = filepath.Join(t.OutputDir, lastOutputFile)
+				}
 				t.OutputPath = lastOutputFile
 			}
 		}

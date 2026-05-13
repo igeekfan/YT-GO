@@ -3,40 +3,29 @@ import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
 import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
 import DirBrowser from './DirBrowser'
+import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter} from '@/components/ui/dialog'
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
+import {Button} from '@/components/ui/button'
+import {Input} from '@/components/ui/input'
+import {Label} from '@/components/ui/label'
+import {Checkbox} from '@/components/ui/checkbox'
+import {Select as SelectComp, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
+import {Badge} from '@/components/ui/badge'
+import {Separator} from '@/components/ui/separator'
+import {ScrollArea} from '@/components/ui/scroll-area'
+import {toast} from 'sonner'
+import {FolderOpen, RefreshCw, Upload, ExternalLink, X, Globe, Heart} from 'lucide-react'
 
 interface DiagnosticInfo {
-    ytdlpPath: string
-    ytdlpVersion: string
-    ytdlpFound: boolean
-    ffmpegPath: string
-    ffmpegVersion: string
-    ffmpegFound: boolean
-    nodeVersion: string
-    appVersion: string
-    testOutput: string
-    error: string
+    ytdlpPath: string; ytdlpVersion: string; ytdlpFound: boolean
+    ffmpegPath: string; ffmpegVersion: string; ffmpegFound: boolean
+    nodeVersion: string; appVersion: string; testOutput: string; error: string
 }
 
-interface AboutInfo {
-    appVersion: string
-    systemVersion: string
-    githubRepo: string
-    githubUrl: string
-    authorEmail: string
-}
+interface AboutInfo { appVersion: string; systemVersion: string; githubRepo: string; githubUrl: string; authorEmail: string }
 
-interface DepItem {
-    found: boolean
-    version: string
-    path: string
-}
-
-interface DepStatus {
-    ytdlp: DepItem
-    ffmpeg: DepItem
-    jsRuntime: DepItem
-    jsRuntimeName: string
-}
+interface DepItem { found: boolean; version: string; path: string }
+interface DepStatus { ytdlp: DepItem; ffmpeg: DepItem; jsRuntime: DepItem; jsRuntimeName: string }
 
 interface Props {
     open: boolean
@@ -51,15 +40,9 @@ const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
 const THEME_OPTIONS = ['dark', 'light']
 const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
 
-type SettingsTab = 'download' | 'media' | 'network' | 'deps' | 'tools' | 'appearance'
-
-const TAB_KEYS: SettingsTab[] = ['download', 'media', 'network', 'deps', 'tools', 'appearance']
-
 function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
-    const [activeTab, setActiveTab] = useState<SettingsTab>('download')
-    const [prevOpen, setPrevOpen] = useState(false)
     const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
     const [aboutInfo, setAboutInfo] = useState<AboutInfo | null>(null)
     const [loadingDiag, setLoadingDiag] = useState(false)
@@ -68,7 +51,6 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     const [isUpdatingDeno, setIsUpdatingDeno] = useState(false)
     const [denoUpdateResult, setDenoUpdateResult] = useState<string | null>(null)
     const [isResetting, setIsResetting] = useState(false)
-    const [resetMessage, setResetMessage] = useState<string | null>(null)
     const [isCheckingYtDlpVersion, setIsCheckingYtDlpVersion] = useState(false)
     const [ytdlpVersionCheck, setYtdlpVersionCheck] = useState<{currentVersion: string; latestVersion: string; isLatest: boolean} | null>(null)
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
@@ -76,167 +58,86 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     const [loadingDeps, setLoadingDeps] = useState(false)
     const [showDirBrowser, setShowDirBrowser] = useState(false)
     const [updateInfo, setUpdateInfo] = useState<{
-        hasUpdate: boolean
-        currentVersion: string
-        latestVersion: string
-        releaseName: string
-        releaseBody: string
-        htmlUrl: string
-        publishedAt: string
+        hasUpdate: boolean; currentVersion: string; latestVersion: string
+        releaseName: string; releaseBody: string; htmlUrl: string; publishedAt: string
     } | null>(null)
 
     const handleCheckYtDlpVersion = async () => {
-        setIsCheckingYtDlpVersion(true)
-        setYtdlpVersionCheck(null)
-        try {
-            const result = await CheckYtDlpVersion()
-            setYtdlpVersionCheck(result as any)
-        } catch (e) {
-            console.error('Failed to check yt-dlp version:', e)
-        } finally {
-            setIsCheckingYtDlpVersion(false)
-        }
+        setIsCheckingYtDlpVersion(true); setYtdlpVersionCheck(null)
+        try { const result = await CheckYtDlpVersion(); setYtdlpVersionCheck(result as any) }
+        catch (e) { console.error('Failed to check yt-dlp version:', e) }
+        finally { setIsCheckingYtDlpVersion(false) }
     }
 
     const handleCheckForUpdate = async () => {
         setIsCheckingUpdate(true)
-        try {
-            const info = await CheckForUpdate()
-            setUpdateInfo(info)
-        } catch (e: any) {
-            setUpdateInfo({
-                hasUpdate: false,
-                currentVersion: '0.0.1',
-                latestVersion: '0.0.0',
-                releaseName: '',
-                releaseBody: e?.message || 'Failed to check for updates',
-                htmlUrl: '',
-                publishedAt: ''
-            })
-        } finally {
-            setIsCheckingUpdate(false)
-        }
+        try { const info = await CheckForUpdate(); setUpdateInfo(info) }
+        catch (e: any) { setUpdateInfo({ hasUpdate: false, currentVersion: '0.0.1', latestVersion: '0.0.0', releaseName: '', releaseBody: e?.message || 'Failed', htmlUrl: '', publishedAt: '' }) }
+        finally { setIsCheckingUpdate(false) }
     }
 
     const handleOpenReleasePage = async () => {
-        try {
-            await OpenReleasePage()
-        } catch (e) {
-            console.error('Failed to open release page:', e)
-        }
+        try { await OpenReleasePage() } catch (e) { console.error('Failed to open release page:', e) }
     }
 
     useEffect(() => {
-        // Only initialize when dialog opens (false → true transition)
-        if (open && !prevOpen) {
-            setSettings(initialSettings)
-            setDiagnostic(null)
-            setActiveTab('download')
-            setUpdateInfo(null)
-            setDepStatus(null)
-            setResetMessage(null)
-            setYtdlpVersionCheck(null)
+        if (open) {
+            setSettings(initialSettings); setDiagnostic(null); setUpdateInfo(null)
+            setDepStatus(null); setYtdlpVersionCheck(null)
             GetAboutInfo().then(setAboutInfo).catch(console.error)
         }
-        setPrevOpen(open)
     }, [open])
 
     useEffect(() => {
-        if (open && activeTab === 'deps' && !depStatus && !loadingDeps) {
-            handleRefreshDeps()
-        }
-    }, [open, activeTab])
+        if (open && !depStatus && !loadingDeps) { handleRefreshDeps() }
+    }, [open])
 
-    useEffect(() => {
-        if (!open || !settings?.theme) return
-        onThemePreview(settings.theme as 'dark' | 'light')
-    }, [open, settings?.theme, onThemePreview])
-
-    useEffect(() => {
-        if (!open || !settings?.language) return
-        onLanguagePreview(settings.language as 'zh-CN' | 'en-US')
-    }, [open, settings?.language, onLanguagePreview])
+    useEffect(() => { if (open && settings?.theme) onThemePreview(settings.theme as 'dark' | 'light') }, [open, settings?.theme, onThemePreview])
+    useEffect(() => { if (open && settings?.language) onLanguagePreview(settings.language as 'zh-CN' | 'en-US') }, [open, settings?.language, onLanguagePreview])
 
     const handleGetDiagnostic = async () => {
         setLoadingDiag(true)
-        try {
-            const info = await GetDiagnosticInfo()
-            setDiagnostic(info as DiagnosticInfo)
-        } catch (e) {
-            console.error('Failed to get diagnostic info:', e)
-        } finally {
-            setLoadingDiag(false)
-        }
+        try { const info = await GetDiagnosticInfo(); setDiagnostic(info as DiagnosticInfo) }
+        catch (e) { console.error('Failed to get diagnostic info:', e) }
+        finally { setLoadingDiag(false) }
     }
 
     const handleRefreshDeps = async () => {
         setLoadingDeps(true)
-        try {
-            const status = await GetDepStatus()
-            setDepStatus(status as DepStatus)
-        } catch (e) {
-            console.error('Failed to get dep status:', e)
-        } finally {
-            setLoadingDeps(false)
-        }
+        try { const status = await GetDepStatus(); setDepStatus(status as DepStatus) }
+        catch (e) { console.error('Failed to get dep status:', e) }
+        finally { setLoadingDeps(false) }
     }
 
     const handleUpdateYtDlp = async () => {
-        setIsUpdatingYtDlp(true)
-        setUpdateResult(null)
+        setIsUpdatingYtDlp(true); setUpdateResult(null)
         try {
-            const result = await UpdateYtDlp()
-            setUpdateResult(result || t('ytdlp.updateSuccess'))
-            // Refresh diagnostic info after update
-            const info = await GetDiagnosticInfo()
-            setDiagnostic(info as DiagnosticInfo)
-        } catch (e: any) {
-            setUpdateResult(t('ytdlp.updateFail') + (e?.message ? `: ${e.message}` : ''))
-        } finally {
-            setIsUpdatingYtDlp(false)
-        }
+            const result = await UpdateYtDlp(); setUpdateResult(result || t('ytdlp.updateSuccess'))
+            const info = await GetDiagnosticInfo(); setDiagnostic(info as DiagnosticInfo)
+        } catch (e: any) { setUpdateResult(t('ytdlp.updateFail') + (e?.message ? `: ${e.message}` : '')) }
+        finally { setIsUpdatingYtDlp(false) }
     }
 
     const handleUpdateDeno = async () => {
-        setIsUpdatingDeno(true)
-        setDenoUpdateResult(null)
+        setIsUpdatingDeno(true); setDenoUpdateResult(null)
         try {
-            const result = await UpdateDeno()
-            setDenoUpdateResult(result || t('dep.denoUpdateSuccess'))
-            const status = await GetDepStatus()
-            setDepStatus(status as DepStatus)
-        } catch (e: any) {
-            setDenoUpdateResult(t('dep.denoUpdateFail') + (e?.message ? `: ${e.message}` : ''))
-        } finally {
-            setIsUpdatingDeno(false)
-        }
+            const result = await UpdateDeno(); setDenoUpdateResult(result || t('dep.denoUpdateSuccess'))
+            const status = await GetDepStatus(); setDepStatus(status as DepStatus)
+        } catch (e: any) { setDenoUpdateResult(t('dep.denoUpdateFail') + (e?.message ? `: ${e.message}` : '')) }
+        finally { setIsUpdatingDeno(false) }
     }
 
     const handleResetSettings = async () => {
         setIsResetting(true)
-        setResetMessage(null)
-        try {
-            await ResetSettings()
-            setResetMessage(t('settings.resetSuccess'))
-        } catch (e: any) {
-            setResetMessage(e?.message ? `${e.message}` : t('settings.resetFailed'))
-        } finally {
-            setIsResetting(false)
-        }
+        try { await ResetSettings(); toast.success(t('settings.resetSuccess')) }
+        catch (e: any) { toast.error(e?.message || t('settings.resetFailed')) }
+        finally { setIsResetting(false) }
     }
 
-    if (!open || !settings) return null
-
-    const handleClose = () => {
-        onClose()
-    }
+    if (!settings) return null
 
     const autoSave = (next: Settings) => {
-        SaveSettings(next).then(() => {
-            onSaved(next)
-        }).catch(e => {
-            console.error('Failed to auto-save settings:', e)
-        })
+        SaveSettings(next).then(() => onSaved(next)).catch(e => console.error('Failed to auto-save settings:', e))
     }
 
     const update = (key: keyof Settings, value: any) => {
@@ -244,669 +145,385 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
             if (!prev) return prev
             const next = {...prev, [key]: value}
             autoSave(next)
-            // Live preview for theme and language
             if (key === 'theme') onThemePreview(value as 'dark' | 'light')
             if (key === 'language') onLanguagePreview(value as 'zh-CN' | 'en-US')
             return next
         })
     }
 
-    const handleSelectFolder = async () => {
-        const dir = await SelectFolder()
-        if (dir) {
-            update('outputDir', dir)
-        }
-    }
-
-    const renderDependencyCard = ({
-        title,
-        status,
-        tone,
-        rows,
-        actions,
-        note,
-        guide,
-    }: {
-        title: string
-        status: string
-        tone: 'ready' | 'missing' | 'loading'
-        rows?: Array<{label: string; value?: string}>
-        actions?: JSX.Element
-        note?: string | null
-        guide?: JSX.Element | null
+    const renderDepCard = ({title, status, tone, rows, actions, note, guide}: {
+        title: string; status: string; tone: 'ready' | 'missing' | 'loading'
+        rows?: Array<{label: string; value?: string}>; actions?: JSX.Element
+        note?: string | null; guide?: JSX.Element | null
     }) => {
         const visibleRows = (rows || []).filter(row => row.value)
-
         return (
-            <div className="dep-card">
-                <div className="dep-card-header">
-                    <div className="dep-card-heading">
-                        <div className="dep-card-title">{title}</div>
-                        <div className="dep-card-subtitle">{t('settings.diagStatus')}</div>
+            <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <div className="font-semibold text-sm">{title}</div>
+                        <div className="text-xs text-muted-foreground">{t('settings.diagStatus')}</div>
                     </div>
-                    <span className={`dep-badge dep-badge-${tone}`}>{status}</span>
+                    <Badge variant={tone === 'ready' ? 'secondary' : tone === 'missing' ? 'destructive' : 'outline'} className="text-xs">
+                        {status}
+                    </Badge>
                 </div>
-
                 {visibleRows.length > 0 && (
-                    <div className="dep-card-grid">
+                    <div className="grid grid-cols-2 gap-2">
                         {visibleRows.map(row => (
-                            <div key={`${title}-${row.label}`} className="dep-meta-card">
-                                <span className="dep-meta-label">{row.label}</span>
-                                <span className="dep-meta-value">{row.value}</span>
+                            <div key={`${title}-${row.label}`} className="rounded-md border p-2 space-y-0.5">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{row.label}</span>
+                                <span className="text-xs break-all">{row.value}</span>
                             </div>
                         ))}
                     </div>
                 )}
-
-                {actions && <div className="dep-card-actions">{actions}</div>}
-
+                {actions}
                 {note && (
-                    <div className="dep-card-note">
-                        <span className="dep-card-note-label">{t('settings.diagOutput')}</span>
-                        <span className="dep-card-note-value">{note}</span>
+                    <div className="rounded-md border p-2">
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('settings.diagOutput')}</span>
+                        <p className="text-xs mt-0.5 whitespace-pre-wrap break-words">{note}</p>
                     </div>
                 )}
-
                 {guide}
             </div>
         )
     }
 
-    const renderDownloadTab = () => (
-        <>
-            {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.outputDir')}</label>
-                <div className="setting-row">
-                    <input
-                        type="text"
-                        className="setting-input flex-1"
-                        value={settings.outputDir}
-                        onChange={e => update('outputDir', e.target.value)}
-                        placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : undefined}
-                    />
-                    {backendMode === 'desktop' ? (
-                        <button className="btn-secondary btn-sm" onClick={handleSelectFolder}>
-                            {t('outputDir.browse')}
-                        </button>
-                    ) : (
-                        <button className="btn-secondary btn-sm" onClick={() => setShowDirBrowser(true)}>
-                            {t('outputDir.browse')}
-                        </button>
-                    )}
-                </div>
-                {backendMode === 'web' && (
-                    <div className="setting-hint">{t('settings.outputDirWebHint')}</div>
-                )}
-            </div>
-            )}
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.quality')}</label>
-                <select
-                    className="setting-select"
-                    value={settings.quality}
-                    onChange={e => update('quality', e.target.value)}
-                >
-                    {QUALITY_OPTIONS.map(q => (
-                        <option key={q} value={q}>{t(`quality.${q}` as any)}</option>
-                    ))}
-                </select>
-            </div>
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.rateLimit')}</label>
-                <input
-                    type="text"
-                    className="setting-input"
-                    value={settings.rateLimit}
-                    onChange={e => update('rateLimit', e.target.value)}
-                    placeholder={t('settings.rateLimitPlaceholder')}
-                />
-            </div>
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.maxConcurrent')}</label>
-                <input
-                    type="number"
-                    className="setting-input setting-input-sm"
-                    value={settings.maxConcurrent}
-                    min={1}
-                    max={10}
-                    onChange={e => update('maxConcurrent', parseInt(e.target.value) || 1)}
-                />
-            </div>
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.filenameTemplate')}</label>
-                <input
-                    type="text"
-                    className="setting-input"
-                    value={settings.filenameTemplate || ''}
-                    onChange={e => update('filenameTemplate', e.target.value)}
-                    placeholder="%(title)s.%(ext)s"
-                />
-            </div>
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.mergeOutputFormat')}</label>
-                <select
-                    className="setting-select"
-                    value={settings.mergeOutputFormat || ''}
-                    onChange={e => update('mergeOutputFormat', e.target.value)}
-                >
-                    <option value="">{t('settings.mergeOutputFormatAuto')}</option>
-                    <option value="mp4">MP4</option>
-                    <option value="mkv">MKV</option>
-                    <option value="webm">WebM</option>
-                </select>
-            </div>
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.audioFormat')}</label>
-                <select
-                    className="setting-select"
-                    value={settings.audioFormat || ''}
-                    onChange={e => update('audioFormat', e.target.value)}
-                >
-                    <option value="">{t('settings.audioFormatDefault')}</option>
-                    <option value="mp3">MP3</option>
-                    <option value="m4a">M4A</option>
-                    <option value="opus">Opus</option>
-                    <option value="flac">FLAC</option>
-                    <option value="wav">WAV</option>
-                </select>
-            </div>
-        </>
-    )
-
-    const renderMediaTab = () => (
-        <>
-            <div className="setting-item setting-item-row">
-                <label className="setting-label">{t('settings.saveDescription')}</label>
-                <input
-                    type="checkbox"
-                    className="setting-checkbox"
-                    checked={settings.saveDescription || false}
-                    onChange={e => update('saveDescription', e.target.checked)}
-                />
-            </div>
-            <div className="setting-item setting-item-row">
-                <label className="setting-label">{t('settings.saveThumbnail')}</label>
-                <input
-                    type="checkbox"
-                    className="setting-checkbox"
-                    checked={settings.saveThumbnail || false}
-                    onChange={e => update('saveThumbnail', e.target.checked)}
-                />
-            </div>
-            <div className="setting-item setting-item-row">
-                <label className="setting-label">{t('settings.writeSubtitles')}</label>
-                <input
-                    type="checkbox"
-                    className="setting-checkbox"
-                    checked={settings.writeSubtitles || false}
-                    onChange={e => update('writeSubtitles', e.target.checked)}
-                />
-            </div>
-            {settings.writeSubtitles && (
-                <>
-                    <div className="setting-item">
-                        <label className="setting-label">{t('settings.subtitleLangs')}</label>
-                        <input
-                            type="text"
-                            className="setting-input"
-                            value={settings.subtitleLangs || ''}
-                            onChange={e => update('subtitleLangs', e.target.value)}
-                            placeholder={t('settings.subtitleLangsPlaceholder')}
-                        />
-                    </div>
-                    <div className="setting-item setting-item-row">
-                        <label className="setting-label">{t('settings.embedSubtitles')}</label>
-                        <input
-                            type="checkbox"
-                            className="setting-checkbox"
-                            checked={settings.embedSubtitles || false}
-                            onChange={e => update('embedSubtitles', e.target.checked)}
-                        />
-                    </div>
-                </>
-            )}
-            <div className="setting-item setting-item-row">
-                <label className="setting-label">{t('settings.embedChapters')}</label>
-                <input
-                    type="checkbox"
-                    className="setting-checkbox"
-                    checked={settings.embedChapters || false}
-                    onChange={e => update('embedChapters', e.target.checked)}
-                />
-            </div>
-            <div className="setting-item setting-item-row">
-                <label className="setting-label">{t('settings.sponsorBlock')}</label>
-                <input
-                    type="checkbox"
-                    className="setting-checkbox"
-                    checked={settings.sponsorBlock || false}
-                    onChange={e => update('sponsorBlock', e.target.checked)}
-                />
-            </div>
-        </>
-    )
-
-    const renderNetworkTab = () => (
-        <>
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.proxy')}</label>
-                <input
-                    type="text"
-                    className="setting-input"
-                    value={settings.proxy}
-                    onChange={e => update('proxy', e.target.value)}
-                    placeholder={t('settings.proxyPlaceholder')}
-                />
-            </div>
-            
-            {/* Cookies - Option 1: From browser (desktop only) */}
-            {backendMode === 'desktop' && (
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.cookiesFrom')}</label>
-                <select
-                    className="setting-select"
-                    value={settings.cookiesFrom || ''}
-                    onChange={e => {
-                        const val = e.target.value
-                        setSettings(prev => {
-                            if (!prev) return prev
-                            const next = {...prev, cookiesFrom: val, cookiesFile: val ? '' : prev.cookiesFile}
-                            autoSave(next)
-                            return next
-                        })
-                    }}
-                >
-                    <option value="">{t('settings.cookiesFromNone')}</option>
-                    <option value="chrome">Chrome</option>
-                    <option value="firefox">Firefox</option>
-                    <option value="edge">Edge</option>
-                    <option value="opera">Opera</option>
-                    <option value="brave">Brave</option>
-                    <option value="vivaldi">Vivaldi</option>
-                    <option value="safari">Safari</option>
-                </select>
-            </div>
-            )}
-
-            {/* Divider - only show when neither is selected */}
-            {(!settings.cookiesFrom && !settings.cookiesFile) && (
-                <div className="setting-divider">
-                    <span>{t('setup.or')}</span>
-                </div>
-            )}
-
-            {/* Cookies - Option 2: From file - hidden when browser is selected */}
-            {settings.cookiesFrom ? null : (
-                <div className="setting-item">
-                    <label className="setting-label">{t('settings.cookiesFile')}</label>
-                    <div className="setting-row">
-                        <input
-                            type="text"
-                            className="setting-input flex-1"
-                            value={settings.cookiesFile || ''}
-                            onChange={e => {
-                                const val = e.target.value
-                                setSettings(prev => {
-                                    if (!prev) return prev
-                                    const next = {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom}
-                                    autoSave(next)
-                                    return next
-                                })
-                            }}
-                            placeholder={t('settings.cookiesFilePlaceholder')}
-                        />
-                        {backendMode === 'desktop' ? (
-                            <button
-                                className="btn-secondary btn-sm"
-                                onClick={async () => {
-                                    const file = await SelectCookiesFile()
-                                    if (file) {
-                                        setSettings(prev => {
-                                            if (!prev) return prev
-                                            const next = {...prev, cookiesFile: file, cookiesFrom: ''}
-                                            autoSave(next)
-                                            return next
-                                        })
-                                    }
-                                }}
-                            >
-                                {t('outputDir.browse')}
-                            </button>
-                        ) : (
-                            <button
-                                className="btn-secondary btn-sm"
-                                onClick={() => {
-                                    const input = document.createElement('input')
-                                    input.type = 'file'
-                                    input.accept = '.txt,.cookies'
-                                    input.onchange = async () => {
-                                        const file = input.files?.[0]
-                                        if (!file) return
-                                        try {
-                                            const result = await UploadCookiesFile(file)
-                                            setSettings(prev => {
-                                                if (!prev) return prev
-                                                const next = {...prev, cookiesFile: result.path, cookiesFrom: ''}
-                                                autoSave(next)
-                                                return next
-                                            })
-                                        } catch (err) {
-                                            console.error('Failed to upload cookies file:', err)
-                                        }
-                                    }
-                                    input.click()
-                                }}
-                            >
-                                {t('action.upload')}
-                            </button>
-                        )}
-                    </div>
-                    {backendMode === 'web' && (
-                        <div className="setting-hint">{t('settings.cookiesFileWebHint')}</div>
-                    )}
-                    {backendMode === 'desktop' && (
-                    <div className="setting-hint">
-                        <a 
-                            href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            {t('setup.getExtension')}
-                        </a>
-                    </div>
-                    )}
-                </div>
-            )}
-        </>
-    )
-
-    const renderDepsTab = () => (
-        <>
-            <div className="setting-item">
-                <div className="tools-btn-row">
-                    <button
-                        className="btn-secondary btn-sm"
-                        onClick={handleRefreshDeps}
-                        disabled={loadingDeps}
-                    >
-                        {loadingDeps ? t('dep.checking') : t('dep.refresh')}
-                    </button>
-                </div>
-            </div>
-
-            <div className="dep-panel">
-                {renderDependencyCard({
-                    title: 'yt-dlp',
-                    status: !depStatus
-                        ? t('dep.checking')
-                        : loadingDeps && !depStatus
-                        ? t('dep.checking')
-                        : depStatus?.ytdlp.found
-                            ? `✓ ${t('dep.found')}`
-                            : `✗ ${t('dep.notFound')}`,
-                    tone: !depStatus ? 'loading' : depStatus?.ytdlp.found ? 'ready' : 'missing',
-                    rows: [
-                        {label: t('settings.diagVersion'), value: depStatus?.ytdlp.version},
-                        {label: t('settings.diagPath'), value: depStatus?.ytdlp.path},
-                    ],
-                    actions: (
-                        <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
-                            <button
-                                className="btn-secondary btn-sm"
-                                onClick={handleCheckYtDlpVersion}
-                                disabled={isCheckingYtDlpVersion || !depStatus?.ytdlp.found}
-                            >
-                                {isCheckingYtDlpVersion ? t('dep.ytdlpCheckingVersion') : t('dep.ytdlpCheckVersion')}
-                            </button>
-                            <button
-                                className="btn-secondary btn-sm"
-                                onClick={handleUpdateYtDlp}
-                                disabled={isUpdatingYtDlp}
-                            >
-                                {isUpdatingYtDlp ? t('settings.ytdlpUpdating') : t('settings.ytdlpUpdate')}
-                            </button>
-                            {ytdlpVersionCheck && (
-                                <span className={`dep-version-status ${ytdlpVersionCheck.isLatest ? 'dep-version-latest' : 'dep-version-outdated'}`}>
-                                    {ytdlpVersionCheck.isLatest
-                                        ? t('dep.ytdlpLatest')
-                                        : `${t('dep.ytdlpOutdated')}: ${ytdlpVersionCheck.latestVersion}`
-                                    }
-                                </span>
-                            )}
-                        </div>
-                    ),
-                    note: updateResult,
-                })}
-
-                {renderDependencyCard({
-                    title: 'FFmpeg',
-                    status: !depStatus ? t('dep.checking') : depStatus.ffmpeg.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`,
-                    tone: !depStatus ? 'loading' : depStatus.ffmpeg.found ? 'ready' : 'missing',
-                    rows: [
-                        {label: t('settings.diagVersion'), value: depStatus?.ffmpeg.version},
-                        {label: t('settings.diagPath'), value: depStatus?.ffmpeg.path},
-                    ],
-                    guide: depStatus && !depStatus.ffmpeg.found ? (
-                        <div className="dep-card-callout">
-                            <div className="dep-card-callout-title">{t('dep.ffmpegInstallGuide')}</div>
-                            <code className="install-code">{t('dep.ffmpegWindows')}</code>
-                            <code className="install-code">{t('dep.ffmpegMac')}</code>
-                        </div>
-                    ) : null,
-                })}
-
-                {renderDependencyCard({
-                    title: `${t('dep.jsRuntime')} (Deno / Node)`,
-                    status: !depStatus
-                        ? t('dep.checking')
-                        : depStatus.jsRuntime.found
-                        ? `✓ ${depStatus.jsRuntimeName || 'deno/node'} ${t('dep.found')}`
-                        : `✗ ${t('dep.notFound')}`,
-                    tone: !depStatus ? 'loading' : depStatus.jsRuntime.found ? 'ready' : 'missing',
-                    rows: [
-                        {label: t('settings.diagVersion'), value: depStatus?.jsRuntime.version},
-                        {label: t('settings.diagPath'), value: depStatus?.jsRuntime.path},
-                    ],
-                    actions: (
-                        <button
-                            className="btn-secondary btn-sm"
-                            onClick={handleUpdateDeno}
-                            disabled={isUpdatingDeno}
-                        >
-                            {isUpdatingDeno ? t('dep.denoUpdating') : t('dep.denoManage')}
-                        </button>
-                    ),
-                    note: denoUpdateResult,
-                    guide: depStatus && !depStatus.jsRuntime.found ? (
-                        <div className="dep-card-callout">
-                            <div className="dep-card-callout-title">{t('dep.denoInstallGuide')}</div>
-                            <code className="install-code">{t('dep.denoWindows')}</code>
-                            <code className="install-code">{t('dep.denoMac')}</code>
-                        </div>
-                    ) : null,
-                })}
-            </div>
-        </>
-    )
-
-    const renderToolsTab = () => (
-        <>
-            {/* App Update */}
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.appUpdate')}</label>
-                <div className="tools-btn-row">
-                    <button
-                        className="btn-primary btn-sm"
-                        onClick={handleCheckForUpdate}
-                        disabled={isCheckingUpdate}
-                    >
-                        {isCheckingUpdate ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
-                    </button>
-                </div>
-                {updateInfo && (
-                    <div className="diagnostic-info" style={{marginTop: 12}}>
-                        {updateInfo.hasUpdate ? (
-                            <>
-                                <div className="diag-item">
-                                    <span className="diag-label">{t('settings.diagCurrent')}</span>
-                                    <span className="diag-value">v{updateInfo.currentVersion}</span>
-                                </div>
-                                <div className="diag-item">
-                                    <span className="diag-label">{t('settings.diagLatest')}</span>
-                                    <span className="diag-value text-green-400">v{updateInfo.latestVersion}</span>
-                                </div>
-                                <button
-                                    className="btn-primary btn-sm"
-                                    style={{marginTop: 8}}
-                                    onClick={handleOpenReleasePage}
-                                >
-                                    {t('settings.appUpdateDownload')}
-                                </button>
-                            </>
-                        ) : (
-                            <div className="diag-item">
-                                <span className="diag-value text-green-400">✓ {t('settings.appUpdateUpToDate')} (v{updateInfo.currentVersion})</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-            {/* App version */}
-            {diagnostic && diagnostic.appVersion && (
-                <div className="setting-item setting-item-row">
-                    <label className="setting-label">{t('settings.appVersion')}</label>
-                    <span className="diag-value">v{diagnostic.appVersion}</span>
-                </div>
-            )}
-            {/* Reset settings section */}
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.reset')}</label>
-                <div className="tools-btn-row">
-                    <button
-                        className="btn-secondary btn-sm"
-                        onClick={handleResetSettings}
-                        disabled={isResetting}
-                    >
-                        {isResetting ? t('settings.resetting') : t('settings.reset')}
-                    </button>
-                </div>
-                {resetMessage && (
-                    <div className="dep-card-note" style={{marginTop: 8}}>
-                        <span className="dep-card-note-value">{resetMessage}</span>
-                    </div>
-                )}
-            </div>
-            {aboutInfo && (
-                <div className="setting-item">
-                    <label className="setting-label">{t('settings.about')}</label>
-                    <div className="diagnostic-info about-info">
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.appVersion')}:</span>
-                            <span className="diag-value">v{aboutInfo.appVersion}</span>
-                        </div>
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.systemVersion')}:</span>
-                            <span className="diag-value">{aboutInfo.systemVersion}</span>
-                        </div>
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.github')}:</span>
-                            <a className="diag-link" href={aboutInfo.githubUrl} target="_blank" rel="noopener noreferrer">
-                                {aboutInfo.githubRepo}
-                            </a>
-                        </div>
-                        <div className="diag-item">
-                            <span className="diag-label">{t('settings.authorEmail')}:</span>
-                            <a className="diag-link" href={`mailto:${aboutInfo.authorEmail}`}>
-                                {aboutInfo.authorEmail}
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
-    )
-
-    const renderAppearanceTab = () => (
-        <>
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.theme')}</label>
-                <select
-                    className="setting-select"
-                    value={settings.theme || 'dark'}
-                    onChange={e => update('theme', e.target.value)}
-                >
-                    {THEME_OPTIONS.map(th => (
-                        <option key={th} value={th}>{t(`app.theme.${th}` as any)}</option>
-                    ))}
-                </select>
-            </div>
-            <div className="setting-item">
-                <label className="setting-label">{t('settings.language')}</label>
-                <select
-                    className="setting-select"
-                    value={settings.language || lang}
-                    onChange={e => update('language', e.target.value)}
-                >
-                    {LANGUAGE_OPTIONS.map(l => (
-                        <option key={l} value={l}>{l === 'zh-CN' ? t('settings.langZh') : t('settings.langEn')}</option>
-                    ))}
-                </select>
-            </div>
-            <div className="setting-item setting-item-row">
-                <label className="setting-label">{t('settings.notifications')}</label>
-                <input
-                    type="checkbox"
-                    className="setting-checkbox"
-                    checked={settings.notifications}
-                    onChange={e => update('notifications', e.target.checked)}
-                />
-            </div>
-        </>
-    )
-
-    const tabContent: Record<SettingsTab, () => JSX.Element> = {
-        download: renderDownloadTab,
-        media: renderMediaTab,
-        network: renderNetworkTab,
-        deps: renderDepsTab,
-        tools: renderToolsTab,
-        appearance: renderAppearanceTab,
-    }
-
     return (
         <>
-        <div className="dialog-overlay" onClick={handleClose}>
-            <div className="dialog-content settings-dialog" onClick={e => e.stopPropagation()}>
-                <div className="dialog-header">
-                    <h2>{t('settings.title')}</h2>
-                    <button className="btn-ghost btn-sm" onClick={handleClose}>✕</button>
-                </div>
-                <div className="settings-tabs">
-                    {TAB_KEYS.map(tab => (
-                        <button
-                            key={tab}
-                            className={`settings-tab${activeTab === tab ? ' settings-tab-active' : ''}`}
-                            onClick={() => setActiveTab(tab)}
-                        >
-                            {t(`settings.tab.${tab}` as any)}
-                        </button>
-                    ))}
-                </div>
-                <div className="dialog-body">
-                    {tabContent[activeTab]()}
-                </div>
-                <div className="dialog-footer">
-                    <button className="btn-secondary" onClick={handleClose}>{t('action.close')}</button>
-                </div>
-            </div>
-        </div>
-        <DirBrowser
-            open={showDirBrowser}
-            initialPath={settings?.outputDir || ''}
-            onSelect={dir => update('outputDir', dir)}
-            onClose={() => setShowDirBrowser(false)}
-        />
+        <Dialog open={open} onOpenChange={(v: boolean) => { if (!v) onClose() }}>
+            <DialogContent className="max-w-2xl w-full h-[640px] max-h-[90vh] flex flex-col p-0 gap-0">
+                <DialogHeader className="px-6 py-4 border-b">
+                    <DialogTitle>{t('settings.title')}</DialogTitle>
+                </DialogHeader>
+                <Tabs defaultValue="download" className="flex-1 flex flex-col min-h-0">
+                    <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-6">
+                        {(['download', 'media', 'network', 'deps', 'tools', 'appearance', 'about'] as const).map(tab => (
+                            <TabsTrigger key={tab} value={tab} className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none px-3 py-2.5 text-xs">
+                                {t(`settings.tab.${tab}` as any)}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+
+                    <ScrollArea className="flex-1 min-h-0">
+                        <div className="p-6 space-y-4">
+                            {/* Download Tab */}
+                            <TabsContent value="download" className="mt-0 space-y-4">
+                                {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">{t('settings.outputDir')}</Label>
+                                        <div className="flex gap-2">
+                                            <Input type="text" value={settings.outputDir} onChange={e => update('outputDir', e.target.value)}
+                                                placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : undefined} />
+                                            <Button variant="outline" size="sm" onClick={backendMode === 'desktop' ? async () => { const dir = await SelectFolder(); if (dir) update('outputDir', dir) } : () => setShowDirBrowser(true)}>
+                                                <FolderOpen className="h-4 w-4 mr-1" />{t('outputDir.browse')}
+                                            </Button>
+                                        </div>
+                                        {backendMode === 'web' && <p className="text-xs text-muted-foreground">{t('settings.outputDirWebHint')}</p>}
+                                    </div>
+                                )}
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.quality')}</Label>
+                                    <SelectComp value={settings.quality} onValueChange={(v: string) => update('quality', v)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>{QUALITY_OPTIONS.map(q => <SelectItem key={q} value={q}>{t(`quality.${q}` as any)}</SelectItem>)}</SelectContent>
+                                    </SelectComp>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.rateLimit')}</Label>
+                                    <Input type="text" value={settings.rateLimit} onChange={e => update('rateLimit', e.target.value)} placeholder={t('settings.rateLimitPlaceholder')} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.maxConcurrent')}</Label>
+                                    <Input type="number" value={settings.maxConcurrent} min={1} max={10} onChange={e => update('maxConcurrent', parseInt(e.target.value) || 1)} className="w-20" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.filenameTemplate')}</Label>
+                                    <Input type="text" value={settings.filenameTemplate || ''} onChange={e => update('filenameTemplate', e.target.value)} placeholder="%(title)s.%(ext)s" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.mergeOutputFormat')}</Label>
+                                    <SelectComp value={settings.mergeOutputFormat || '_auto'} onValueChange={(v: string) => update('mergeOutputFormat', v === '_auto' ? '' : v)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="_auto">{t('settings.mergeOutputFormatAuto')}</SelectItem>
+                                            <SelectItem value="mp4">MP4</SelectItem>
+                                            <SelectItem value="mkv">MKV</SelectItem>
+                                            <SelectItem value="webm">WebM</SelectItem>
+                                        </SelectContent>
+                                    </SelectComp>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.audioFormat')}</Label>
+                                    <SelectComp value={settings.audioFormat || '_default'} onValueChange={(v: string) => update('audioFormat', v === '_default' ? '' : v)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="_default">{t('settings.audioFormatDefault')}</SelectItem>
+                                            <SelectItem value="mp3">MP3</SelectItem>
+                                            <SelectItem value="m4a">M4A</SelectItem>
+                                            <SelectItem value="opus">Opus</SelectItem>
+                                            <SelectItem value="flac">FLAC</SelectItem>
+                                            <SelectItem value="wav">WAV</SelectItem>
+                                        </SelectContent>
+                                    </SelectComp>
+                                </div>
+                            </TabsContent>
+
+                            {/* Media Tab */}
+                            <TabsContent value="media" className="mt-0 space-y-3">
+                                {([
+                                    { key: 'saveDescription', label: t('settings.saveDescription') },
+                                    { key: 'saveThumbnail', label: t('settings.saveThumbnail') },
+                                    { key: 'writeSubtitles', label: t('settings.writeSubtitles') },
+                                    ...(settings.writeSubtitles ? [
+                                        { key: 'embedSubtitles', label: t('settings.embedSubtitles') },
+                                    ] : []),
+                                    { key: 'embedChapters', label: t('settings.embedChapters') },
+                                    { key: 'sponsorBlock', label: t('settings.sponsorBlock') },
+                                ] as const).map(opt => (
+                                    <label key={opt.key} className="flex items-center justify-between cursor-pointer">
+                                        <span className="text-sm cursor-pointer">{opt.label}</span>
+                                        <Checkbox checked={!!settings[opt.key as keyof Settings]}
+                                            onCheckedChange={(checked: boolean) => update(opt.key as keyof Settings, !!checked)} />
+                                    </label>
+                                ))}
+                                {settings.writeSubtitles && (
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">{t('settings.subtitleLangs')}</Label>
+                                        <Input type="text" value={settings.subtitleLangs || ''} onChange={e => update('subtitleLangs', e.target.value)} placeholder={t('settings.subtitleLangsPlaceholder')} />
+                                    </div>
+                                )}
+                            </TabsContent>
+
+                            {/* Network Tab */}
+                            <TabsContent value="network" className="mt-0 space-y-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.proxy')}</Label>
+                                    <Input type="text" value={settings.proxy} onChange={e => update('proxy', e.target.value)} placeholder={t('settings.proxyPlaceholder')} />
+                                </div>
+                                {backendMode === 'desktop' && (
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">{t('settings.cookiesFrom')}</Label>
+                                        <SelectComp value={settings.cookiesFrom || '_none'} onValueChange={(val: string) => {
+                                            const v = val === '_none' ? '' : val
+                                            setSettings(prev => {
+                                                if (!prev) return prev
+                                                const next = {...prev, cookiesFrom: v, cookiesFile: v ? '' : prev.cookiesFile}
+                                                autoSave(next); return next
+                                            })
+                                        }}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="_none">{t('settings.cookiesFromNone')}</SelectItem>
+                                                {['chrome', 'firefox', 'edge', 'opera', 'brave', 'vivaldi', 'safari'].map(b => <SelectItem key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</SelectItem>)}
+                                            </SelectContent>
+                                        </SelectComp>
+                                    </div>
+                                )}
+                                {(!settings.cookiesFrom && !settings.cookiesFile) && <Separator><span className="text-xs text-muted-foreground">{t('setup.or')}</span></Separator>}
+                                {!settings.cookiesFrom && (
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">{t('settings.cookiesFile')}</Label>
+                                        <div className="flex gap-2">
+                                            <Input type="text" value={settings.cookiesFile || ''} onChange={e => {
+                                                const val = e.target.value
+                                                setSettings(prev => {
+                                                    if (!prev) return prev
+                                                    const next = {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom}
+                                                    autoSave(next); return next
+                                                })
+                                            }} placeholder={t('settings.cookiesFilePlaceholder')} />
+                                            {backendMode === 'desktop' ? (
+                                                <Button variant="outline" size="sm" onClick={async () => {
+                                                    const file = await SelectCookiesFile()
+                                                    if (file) setSettings(prev => { if (!prev) return prev; const next = {...prev, cookiesFile: file, cookiesFrom: ''}; autoSave(next); return next })
+                                                }}>{t('outputDir.browse')}</Button>
+                                            ) : (
+                                                <Button variant="outline" size="sm" onClick={() => {
+                                                    const input = document.createElement('input'); input.type = 'file'; input.accept = '.txt,.cookies'
+                                                    input.onchange = async () => {
+                                                        const file = input.files?.[0]; if (!file) return
+                                                        try { const result = await UploadCookiesFile(file); setSettings(prev => { if (!prev) return prev; const next = {...prev, cookiesFile: result.path, cookiesFrom: ''}; autoSave(next); return next }) }
+                                                        catch (err) { console.error('Failed to upload cookies file:', err) }
+                                                    }; input.click()
+                                                }}><Upload className="h-4 w-4 mr-1" />{t('action.upload')}</Button>
+                                            )}
+                                        </div>
+                                        {backendMode === 'web' && <p className="text-xs text-muted-foreground">{t('settings.cookiesFileWebHint')}</p>}
+                                        {backendMode === 'desktop' && (
+                                            <a className="text-xs text-primary hover:underline" href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener noreferrer">
+                                                {t('setup.getExtension')} <ExternalLink className="h-3 w-3 inline" />
+                                            </a>
+                                        )}
+                                    </div>
+                                )}
+                            </TabsContent>
+
+                            {/* Deps Tab */}
+                            <TabsContent value="deps" className="mt-0 space-y-4">
+                                <Button variant="outline" size="sm" onClick={handleRefreshDeps} disabled={loadingDeps}>
+                                    <RefreshCw className={`h-4 w-4 mr-1 ${loadingDeps ? 'animate-spin' : ''}`} />
+                                    {loadingDeps ? t('dep.checking') : t('dep.refresh')}
+                                </Button>
+                                <div className="space-y-4">
+                                    {renderDepCard({
+                                        title: 'yt-dlp', status: !depStatus ? t('dep.checking') : depStatus.ytdlp.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`,
+                                        tone: !depStatus ? 'loading' : depStatus.ytdlp.found ? 'ready' : 'missing',
+                                        rows: [{label: t('settings.diagVersion'), value: depStatus?.ytdlp.version}, {label: t('settings.diagPath'), value: depStatus?.ytdlp.path}],
+                                        actions: (
+                                            <div className="flex gap-2 flex-wrap items-center">
+                                                <Button variant="outline" size="sm" onClick={handleCheckYtDlpVersion} disabled={isCheckingYtDlpVersion || !depStatus?.ytdlp.found}>
+                                                    {isCheckingYtDlpVersion ? t('dep.ytdlpCheckingVersion') : t('dep.ytdlpCheckVersion')}
+                                                </Button>
+                                                <Button variant="outline" size="sm" onClick={handleUpdateYtDlp} disabled={isUpdatingYtDlp}>
+                                                    {isUpdatingYtDlp ? t('settings.ytdlpUpdating') : t('settings.ytdlpUpdate')}
+                                                </Button>
+                                                {ytdlpVersionCheck && (
+                                                    <Badge variant={ytdlpVersionCheck.isLatest ? 'secondary' : 'destructive'} className="text-xs">
+                                                        {ytdlpVersionCheck.isLatest ? t('dep.ytdlpLatest') : `${t('dep.ytdlpOutdated')}: ${ytdlpVersionCheck.latestVersion}`}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        ), note: updateResult,
+                                    })}
+                                    {renderDepCard({
+                                        title: 'FFmpeg', status: !depStatus ? t('dep.checking') : depStatus.ffmpeg.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`,
+                                        tone: !depStatus ? 'loading' : depStatus.ffmpeg.found ? 'ready' : 'missing',
+                                        rows: [{label: t('settings.diagVersion'), value: depStatus?.ffmpeg.version}, {label: t('settings.diagPath'), value: depStatus?.ffmpeg.path}],
+                                        guide: depStatus && !depStatus.ffmpeg.found ? (
+                                            <div className="rounded-md border border-dashed p-3 space-y-2">
+                                                <div className="text-xs font-medium">{t('dep.ffmpegInstallGuide')}</div>
+                                                <code className="block text-xs bg-muted p-1.5 rounded">{t('dep.ffmpegWindows')}</code>
+                                                <code className="block text-xs bg-muted p-1.5 rounded">{t('dep.ffmpegMac')}</code>
+                                            </div>
+                                        ) : null,
+                                    })}
+                                    {renderDepCard({
+                                        title: `${t('dep.jsRuntime')} (Deno / Node)`, status: !depStatus ? t('dep.checking') : depStatus.jsRuntime.found ? `✓ ${depStatus.jsRuntimeName || 'deno/node'} ${t('dep.found')}` : `✗ ${t('dep.notFound')}`,
+                                        tone: !depStatus ? 'loading' : depStatus.jsRuntime.found ? 'ready' : 'missing',
+                                        rows: [{label: t('settings.diagVersion'), value: depStatus?.jsRuntime.version}, {label: t('settings.diagPath'), value: depStatus?.jsRuntime.path}],
+                                        actions: (
+                                            <Button variant="outline" size="sm" onClick={handleUpdateDeno} disabled={isUpdatingDeno}>
+                                                {isUpdatingDeno ? t('dep.denoUpdating') : t('dep.denoManage')}
+                                            </Button>
+                                        ), note: denoUpdateResult,
+                                        guide: depStatus && !depStatus.jsRuntime.found ? (
+                                            <div className="rounded-md border border-dashed p-3 space-y-2">
+                                                <div className="text-xs font-medium">{t('dep.denoInstallGuide')}</div>
+                                                <code className="block text-xs bg-muted p-1.5 rounded">{t('dep.denoWindows')}</code>
+                                                <code className="block text-xs bg-muted p-1.5 rounded">{t('dep.denoMac')}</code>
+                                            </div>
+                                        ) : null,
+                                    })}
+                                </div>
+                            </TabsContent>
+
+                            {/* Tools Tab */}
+                            <TabsContent value="tools" className="mt-0 space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.appUpdate')}</Label>
+                                    <Button size="sm" onClick={handleCheckForUpdate} disabled={isCheckingUpdate}>
+                                        <RefreshCw className={`h-4 w-4 mr-1 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                                        {isCheckingUpdate ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
+                                    </Button>
+                                    {updateInfo && (
+                                        <div className="rounded-md border p-3 text-xs space-y-1">
+                                            {updateInfo.hasUpdate ? (
+                                                <>
+                                                    <div className="flex gap-2"><span className="text-muted-foreground">{t('settings.diagCurrent')}</span><span>v{updateInfo.currentVersion}</span></div>
+                                                    <div className="flex gap-2"><span className="text-muted-foreground">{t('settings.diagLatest')}</span><span className="text-green-500">v{updateInfo.latestVersion}</span></div>
+                                                    <Button size="sm" className="mt-2" onClick={handleOpenReleasePage}>{t('settings.appUpdateDownload')}</Button>
+                                                </>
+                                            ) : (
+                                                <span className="text-green-500">✓ {t('settings.appUpdateUpToDate')} (v{updateInfo.currentVersion})</span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                <Separator />
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.reset')}</Label>
+                                    <Button variant="outline" size="sm" onClick={handleResetSettings} disabled={isResetting}>
+                                        {isResetting ? t('settings.resetting') : t('settings.reset')}
+                                    </Button>
+                                </div>
+                            </TabsContent>
+
+                            {/* Appearance Tab */}
+                            <TabsContent value="appearance" className="mt-0 space-y-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.theme')}</Label>
+                                    <SelectComp value={settings.theme || 'dark'} onValueChange={(v: string) => update('theme', v)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>{THEME_OPTIONS.map(th => <SelectItem key={th} value={th}>{t(`app.theme.${th}` as any)}</SelectItem>)}</SelectContent>
+                                    </SelectComp>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.language')}</Label>
+                                    <SelectComp value={settings.language || lang} onValueChange={(v: string) => update('language', v)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="zh-CN">{t('settings.langZh')}</SelectItem>
+                                            <SelectItem value="en-US">{t('settings.langEn')}</SelectItem>
+                                        </SelectContent>
+                                    </SelectComp>
+                                </div>
+                                <label className="flex items-center justify-between cursor-pointer">
+                                    <span className="text-sm cursor-pointer">{t('settings.notifications')}</span>
+                                    <Checkbox checked={!!settings.notifications} onCheckedChange={(checked: boolean) => update('notifications', !!checked)} />
+                                </label>
+                            </TabsContent>
+
+                            {/* About Tab */}
+                            <TabsContent value="about" className="mt-0">
+                                <div className="flex flex-col items-center py-6 space-y-5">
+                                    {/* App Icon */}
+                                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-600 shadow-lg">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                                            <path d="M8 5v14l11-7z"/>
+                                        </svg>
+                                    </div>
+                                    <div className="text-center space-y-1">
+                                        <h2 className="text-xl font-bold">YT-GO</h2>
+                                        {aboutInfo && <p className="text-xs text-muted-foreground">v{aboutInfo.appVersion}</p>}
+                                    </div>
+                                    {aboutInfo && (
+                                        <div className="w-full max-w-sm space-y-3">
+                                            <div className="rounded-lg border p-3 space-y-2.5">
+                                                <div className="flex items-center gap-2">
+                                                    <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                    <span className="text-xs text-muted-foreground min-w-16">{t('settings.github')}</span>
+                                                    <a className="text-sm text-primary hover:underline break-all" href={aboutInfo.githubUrl} target="_blank" rel="noopener noreferrer">
+                                                        {aboutInfo.githubRepo} <ExternalLink className="h-3 w-3 inline" />
+                                                    </a>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-muted-foreground min-w-20 ml-6">{t('settings.systemVersion')}</span>
+                                                    <span className="text-xs break-all">{aboutInfo.systemVersion}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-muted-foreground min-w-20 ml-6">{t('settings.authorEmail')}</span>
+                                                    <a className="text-xs text-primary hover:underline" href={`mailto:${aboutInfo.authorEmail}`}>{aboutInfo.authorEmail}</a>
+                                                </div>
+                                            </div>
+                                            <div className="text-center text-xs text-muted-foreground space-y-1 pt-2">
+                                                <p className="flex items-center justify-center gap-1"><Heart className="h-3 w-3 text-red-500" /> {t('about.openSource')}</p>
+                                                <p>{t('about.feedback')}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </TabsContent>
+                        </div>
+                    </ScrollArea>
+                </Tabs>
+                <DialogFooter className="px-6 py-3 border-t">
+                    <Button variant="outline" onClick={onClose}>{t('action.close')}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        <DirBrowser open={showDirBrowser} initialPath={settings?.outputDir || ''} onSelect={dir => update('outputDir', dir)} onClose={() => setShowDirBrowser(false)} />
         </>
     )
 }

@@ -2,18 +2,21 @@ import {useState, useEffect} from 'react'
 import {SelectFolder, SelectCookiesFile, CheckYtDlp, GetDepStatus, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
 import DirBrowser from './DirBrowser'
 import {useI18n} from '../i18n/context'
-
-interface Props {
-    onComplete: (outputDir: string, cookiesFrom: string, cookiesFile: string, proxy: string, language: 'zh-CN' | 'en-US', theme: 'dark' | 'light') => void
-}
+import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter} from '@/components/ui/dialog'
+import {Button} from '@/components/ui/button'
+import {Input} from '@/components/ui/input'
+import {Label} from '@/components/ui/label'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
+import {Separator} from '@/components/ui/separator'
+import {Badge} from '@/components/ui/badge'
+import {FolderOpen, Upload, ExternalLink, CheckCircle2, AlertTriangle} from 'lucide-react'
 
 const THEME_OPTIONS = ['dark', 'light'] as const
 const LANGUAGE_OPTIONS = ['zh-CN', 'en-US'] as const
 
-export default function SetupWizard({onComplete}: Props) {
+export default function SetupWizard({onComplete}: {onComplete: (outputDir: string, cookiesFrom: string, cookiesFile: string, proxy: string, language: 'zh-CN' | 'en-US', theme: 'dark' | 'light') => void}) {
     const {t, lang, setLang} = useI18n()
     const canBrowseLocalPaths = backendMode === 'desktop'
-    const canSelectCookies = true // both desktop (browse) and web (upload) support cookies
     const [step, setStep] = useState(1)
     const [outputDir, setOutputDir] = useState('')
     const [cookiesFrom, setCookiesFrom] = useState('')
@@ -29,177 +32,109 @@ export default function SetupWizard({onComplete}: Props) {
     })
     const [showDirBrowser, setShowDirBrowser] = useState(false)
 
-    // In web mode with fixed download dir, pre-fill and skip directory step
     const webConfig = getWebConfig()
     const hasFixedDir = backendMode === 'web' && webConfig?.hasFixedDir
 
     useEffect(() => {
-        // Auto-fill output dir from web config
-        if (hasFixedDir && webConfig?.downloadDir) {
-            setOutputDir(webConfig.downloadDir)
-        }
+        if (hasFixedDir && webConfig?.downloadDir) setOutputDir(webConfig.downloadDir)
     }, [hasFixedDir, webConfig])
 
-    // totalSteps: if hasFixedDir, skip directory selection (step 1 only has language/theme)
     const totalSteps = hasFixedDir ? 1 : 2
 
     useEffect(() => {
-        CheckYtDlp().then(status => {
-            setYtdlpOk(status.available)
-        }).catch(() => {})
-        GetDepStatus().then(status => {
-            setDenoOk(status.jsRuntime.found)
-        }).catch(() => {})
+        CheckYtDlp().then(status => setYtdlpOk(status.available)).catch(() => {})
+        GetDepStatus().then(status => setDenoOk(status.jsRuntime.found)).catch(() => {})
     }, [])
 
+    useEffect(() => { setLanguage(lang) }, [lang])
     useEffect(() => {
-        setLanguage(lang)
-    }, [lang])
-
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme)
+        const root = document.documentElement
+        if (theme === 'dark') root.classList.add('dark'); else root.classList.remove('dark')
         localStorage.setItem('YT-GOto-theme', theme)
     }, [theme])
 
-    const handleSelectFolder = async () => {
-        const dir = await SelectFolder()
-        if (dir) setOutputDir(dir)
-    }
-
     const handleSelectCookiesFile = async () => {
         if (backendMode === 'desktop') {
-            const file = await SelectCookiesFile()
-            if (file) setCookiesFile(file)
+            const file = await SelectCookiesFile(); if (file) setCookiesFile(file)
         } else {
-            // Web mode: upload cookies file
-            const input = document.createElement('input')
-            input.type = 'file'
-            input.accept = '.txt,.cookies'
+            const input = document.createElement('input'); input.type = 'file'; input.accept = '.txt,.cookies'
             input.onchange = async () => {
-                const file = input.files?.[0]
-                if (!file) return
-                try {
-                    const result = await UploadCookiesFile(file)
-                    setCookiesFile(result.path)
-                } catch (err) {
-                    console.error('Failed to upload cookies file:', err)
-                }
-            }
-            input.click()
+                const file = input.files?.[0]; if (!file) return
+                try { const result = await UploadCookiesFile(file); setCookiesFile(result.path) }
+                catch (err) { console.error('Failed to upload cookies file:', err) }
+            }; input.click()
         }
-    }
-
-    const handleComplete = () => {
-        onComplete(outputDir, cookiesFrom, cookiesFile, proxy, language, theme)
     }
 
     return (
         <>
-        <div className="setup-wizard-overlay">
-            <div className="setup-wizard">
-                <div className="setup-wizard-header">
-                    <div className="setup-wizard-title">
-                        {step === 1 
-                            ? t('setup.step1Title')
-                            : t('setup.step2Title')
-                        }
-                    </div>
-                    <div className="setup-wizard-progress">
-                        {step} / {totalSteps}
-                    </div>
-                </div>
+        <Dialog open={true} onOpenChange={() => {}}>
+            <DialogContent className="max-w-lg" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center justify-between">
+                        {step === 1 ? t('setup.step1Title') : t('setup.step2Title')}
+                        <Badge variant="secondary" className="text-xs ml-2">{step} / {totalSteps}</Badge>
+                    </DialogTitle>
+                </DialogHeader>
 
-                <div className="setup-wizard-content">
+                <div className="space-y-4 py-2">
                     {step === 1 && (
-                        <div className="setup-step">
+                        <div className="space-y-4">
                             {!hasFixedDir && (
-                            <>
-                            <p className="setup-desc">
-                                {t('setup.selectDir')}
-                            </p>
-                            <div className="setup-input-group">
-                                <input
-                                    type="text"
-                                    className="setup-input"
-                                    value={outputDir}
-                                    onChange={e => setOutputDir(e.target.value)}
-                                    placeholder={t('setup.selectDirPlaceholder')}
-                                    readOnly={canBrowseLocalPaths}
-                                />
-                                <button className="btn-secondary" onClick={() => {
-                                    if (backendMode === 'desktop') {
-                                        handleSelectFolder()
-                                    } else {
-                                        setShowDirBrowser(true)
-                                    }
-                                }}>
-                                    {t('outputDir.browse')}
-                                </button>
-                            </div>
-                            </>
+                                <>
+                                    <p className="text-sm text-muted-foreground">{t('setup.selectDir')}</p>
+                                    <div className="flex gap-2">
+                                        <Input type="text" value={outputDir} onChange={e => setOutputDir(e.target.value)}
+                                            placeholder={t('setup.selectDirPlaceholder')} readOnly={canBrowseLocalPaths} />
+                                        <Button variant="outline" onClick={() => { if (backendMode === 'desktop') SelectFolder().then(dir => { if (dir) setOutputDir(dir) }); else setShowDirBrowser(true) }}>
+                                            <FolderOpen className="h-4 w-4 mr-1" />{t('outputDir.browse')}
+                                        </Button>
+                                    </div>
+                                </>
                             )}
-                            {hasFixedDir && (
-                            <p className="setup-desc">
-                                {t('setup.fixedDirHint')}
-                            </p>
-                            )}
-                            <div className="setup-field">
-                                <label className="setup-label">{t('settings.language')}</label>
-                                <select
-                                    className="setup-select"
-                                    value={language}
-                                    onChange={e => {
-                                        const nextLang = e.target.value as 'zh-CN' | 'en-US'
-                                        setLanguage(nextLang)
-                                        setLang(nextLang)
-                                    }}
-                                >
-                                    {LANGUAGE_OPTIONS.map(item => (
-                                        <option key={item} value={item}>
-                                            {item === 'zh-CN' ? t('settings.langZh') : t('settings.langEn')}
-                                        </option>
-                                    ))}
-                                </select>
-                                <p className="setup-hint">{t('setup.languageDesc')}</p>
+                            {hasFixedDir && <p className="text-sm text-muted-foreground">{t('setup.fixedDirHint')}</p>}
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">{t('settings.language')}</Label>
+                                <Select value={language} onValueChange={(v: string) => { const l = v as 'zh-CN' | 'en-US'; setLanguage(l); setLang(l) }}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {LANGUAGE_OPTIONS.map(item => <SelectItem key={item} value={item}>{item === 'zh-CN' ? t('settings.langZh') : t('settings.langEn')}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">{t('setup.languageDesc')}</p>
                             </div>
-                            <div className="setup-field">
-                                <label className="setup-label">{t('settings.theme')}</label>
-                                <select
-                                    className="setup-select"
-                                    value={theme}
-                                    onChange={e => setTheme(e.target.value as 'dark' | 'light')}
-                                >
-                                    {THEME_OPTIONS.map(item => (
-                                        <option key={item} value={item}>
-                                            {t(`app.theme.${item}` as any)}
-                                        </option>
-                                    ))}
-                                </select>
-                                <p className="setup-hint">{t('setup.themeDesc')}</p>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">{t('settings.theme')}</Label>
+                                <Select value={theme} onValueChange={(v: string) => setTheme(v as 'dark' | 'light')}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {THEME_OPTIONS.map(item => <SelectItem key={item} value={item}>{t(`app.theme.${item}` as any)}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">{t('setup.themeDesc')}</p>
                             </div>
+
                             {ytdlpOk && (
-                                <div className="setup-ytdlp-ok">
-                                    ✓ {t('setup.ytReady')}
+                                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-2">
+                                    <CheckCircle2 className="h-4 w-4" /> {t('setup.ytReady')}
                                 </div>
                             )}
                             {denoOk === true && (
-                                <div className="setup-ytdlp-ok">
-                                    ✓ {t('setup.denoReady')}
+                                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-2">
+                                    <CheckCircle2 className="h-4 w-4" /> {t('setup.denoReady')}
                                 </div>
                             )}
                             {denoOk === false && (
-                                <div className="setup-deno-guide">
-                                    <div className="setup-deno-title">⚡ {t('setup.denoNotFound')}</div>
-                                    <p className="setup-hint">{t('setup.denoDesc')}</p>
-                                    <div className="setup-install-cmds">
-                                        <div className="setup-install-cmd">
-                                            <span className="setup-install-label">Windows (PowerShell):</span>
-                                            <code className="install-code">irm https://deno.land/install.ps1 | iex</code>
-                                        </div>
-                                        <div className="setup-install-cmd">
-                                            <span className="setup-install-label">macOS / Linux:</span>
-                                            <code className="install-code">curl -fsSL https://deno.land/install.sh | sh</code>
-                                        </div>
+                                <div className="rounded-md border border-yellow-300 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/30 p-3 space-y-2">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                                        <AlertTriangle className="h-4 w-4" /> {t('setup.denoNotFound')}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">{t('setup.denoDesc')}</p>
+                                    <div className="space-y-1.5">
+                                        <div><span className="text-[10px] text-muted-foreground uppercase">Windows (PowerShell)</span><code className="block text-xs bg-muted p-1.5 rounded mt-0.5">irm https://deno.land/install.ps1 | iex</code></div>
+                                        <div><span className="text-[10px] text-muted-foreground uppercase">macOS / Linux</span><code className="block text-xs bg-muted p-1.5 rounded mt-0.5">curl -fsSL https://deno.land/install.sh | sh</code></div>
                                     </div>
                                 </div>
                             )}
@@ -207,136 +142,74 @@ export default function SetupWizard({onComplete}: Props) {
                     )}
 
                     {step === 2 && (
-                        <div className="setup-step">
-                            <p className="setup-desc">
-                                {t('setup.cookiesDesc')}
-                            </p>
-                            
-                            {/* Option 1: Import from browser (desktop only) */}
+                        <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">{t('setup.cookiesDesc')}</p>
+
                             {backendMode === 'desktop' && (
-                            <div className="setup-field">
-                                <label className="setup-label">{t('settings.cookiesFrom')}</label>
-                                <select
-                                    className="setup-select"
-                                    value={cookiesFrom}
-                                    onChange={e => {
-                                        setCookiesFrom(e.target.value)
-                                        if (e.target.value) setCookiesFile('')
-                                    }}
-                                >
-                                    <option value="">{t('settings.cookiesFromNone')}</option>
-                                    <option value="chrome">Chrome</option>
-                                    <option value="firefox">Firefox</option>
-                                    <option value="edge">Edge</option>
-                                    <option value="opera">Opera</option>
-                                    <option value="brave">Brave</option>
-                                    <option value="vivaldi">Vivaldi</option>
-                                    <option value="safari">Safari</option>
-                                </select>
-                                <p className="setup-hint">{t('settings.cookiesFromHint')}</p>
-                            </div>
-                            )}
-
-                            {/* Divider - only show when neither is selected */}
-                            {!cookiesFrom && !cookiesFile && (
-                                <div className="setup-divider">
-                                    <span>{t('setup.or')}</span>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.cookiesFrom')}</Label>
+                                    <Select value={cookiesFrom || '_none'} onValueChange={(v: string) => { const val = v === '_none' ? '' : v; setCookiesFrom(val); if (val) setCookiesFile('') }}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="_none">{t('settings.cookiesFromNone')}</SelectItem>
+                                            {['chrome', 'firefox', 'edge', 'opera', 'brave', 'vivaldi', 'safari'].map(b => <SelectItem key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">{t('settings.cookiesFromHint')}</p>
                                 </div>
                             )}
 
-                            {/* Option 2: Import from file - hidden when browser is selected */}
-                            {cookiesFrom ? null : (
-                                <div className="setup-field">
-                                    <label className="setup-label">{t('settings.cookiesFile')}</label>
-                                    <div className="setup-input-group">
-                                        <input
-                                            type="text"
-                                            className="setup-input"
-                                            value={cookiesFile}
-                                            onChange={e => {
-                                                setCookiesFile(e.target.value)
-                                                if (e.target.value) setCookiesFrom('')
-                                            }}
-                                            placeholder={t('settings.cookiesFilePlaceholder')}
-                                            readOnly={canBrowseLocalPaths}
-                                        />
-                                        <button
-                                            className="btn-secondary"
-                                            onClick={handleSelectCookiesFile}
-                                            disabled={!canSelectCookies}
-                                        >
-                                            {t('outputDir.browse')}
-                                        </button>
+                            {!cookiesFrom && !cookiesFile && <Separator><span className="text-xs text-muted-foreground">{t('setup.or')}</span></Separator>}
+
+                            {!cookiesFrom && (
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.cookiesFile')}</Label>
+                                    <div className="flex gap-2">
+                                        <Input type="text" value={cookiesFile} onChange={e => { setCookiesFile(e.target.value); if (e.target.value) setCookiesFrom('') }}
+                                            placeholder={t('settings.cookiesFilePlaceholder')} readOnly={canBrowseLocalPaths} />
+                                        <Button variant="outline" onClick={handleSelectCookiesFile}>
+                                            {backendMode === 'desktop' ? <><FolderOpen className="h-4 w-4 mr-1" />{t('outputDir.browse')}</> : <><Upload className="h-4 w-4 mr-1" />{t('action.upload')}</>}
+                                        </Button>
                                     </div>
-                                    <p className="setup-hint">{t('settings.cookiesFileHint')}</p>
-                                    
-                                    {/* How to export instructions */}
-                                    <div className="setup-howto">
-                                        <details>
-                                            <summary>{t('setup.howtoTitle')}</summary>
-                                            <div className="setup-howto-content">
-                                                <p>{t('setup.howtoStep1')}:</p>
-                                                <ul>
-                                                    <li><a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener">{t('setup.howtoChrome')}</a></li>
-                                                    <li>{t('setup.howtoFirefox')}</li>
-                                                </ul>
-                                                <p>{t('setup.howtoStep2')}</p>
-                                                <p>{t('setup.howtoStep3')}</p>
-                                            </div>
-                                        </details>
-                                    </div>
+                                    <p className="text-xs text-muted-foreground">{t('settings.cookiesFileHint')}</p>
+                                    <details className="mt-2">
+                                        <summary className="text-xs text-primary cursor-pointer hover:underline">{t('setup.howtoTitle')}</summary>
+                                        <div className="mt-2 rounded-md border p-3 text-xs text-muted-foreground space-y-1.5">
+                                            <p>{t('setup.howtoStep1')}:</p>
+                                            <ul className="list-disc pl-4 space-y-0.5">
+                                                <li><a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener" className="text-primary hover:underline">{t('setup.howtoChrome')} <ExternalLink className="h-3 w-3 inline" /></a></li>
+                                                <li>{t('setup.howtoFirefox')}</li>
+                                            </ul>
+                                            <p>{t('setup.howtoStep2')}</p>
+                                            <p>{t('setup.howtoStep3')}</p>
+                                        </div>
+                                    </details>
                                 </div>
                             )}
 
-                            {/* Proxy */}
-                            <div className="setup-divider" style={{marginTop: 24}} />
-                            <div className="setup-field">
-                                <label className="setup-label">{t('setup.proxy')}</label>
-                                <input
-                                    type="text"
-                                    className="setup-input"
-                                    value={proxy}
-                                    onChange={e => setProxy(e.target.value)}
-                                    placeholder="http://127.0.0.1:7890"
-                                />
-                                <p className="setup-hint">{t('settings.proxyHint')}</p>
+                            <Separator />
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">{t('setup.proxy')}</Label>
+                                <Input type="text" value={proxy} onChange={e => setProxy(e.target.value)} placeholder="http://127.0.0.1:7890" />
+                                <p className="text-xs text-muted-foreground">{t('settings.proxyHint')}</p>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="setup-wizard-footer">
+                <DialogFooter>
                     {!hasFixedDir && step > 1 && (
-                        <button className="btn-secondary" onClick={() => setStep(step - 1)}>
-                            {t('setup.back')}
-                        </button>
+                        <Button variant="outline" onClick={() => setStep(step - 1)}>{t('setup.back')}</Button>
                     )}
                     {!hasFixedDir && step < totalSteps ? (
-                        <button 
-                            className="btn-primary" 
-                            onClick={() => setStep(step + 1)}
-                            disabled={step === 1 && !outputDir}
-                        >
-                            {t('setup.next')}
-                        </button>
+                        <Button onClick={() => setStep(step + 1)} disabled={step === 1 && !outputDir}>{t('setup.next')}</Button>
                     ) : (
-                        <button 
-                            className="btn-primary" 
-                            onClick={handleComplete}
-                            disabled={!hasFixedDir && !outputDir}
-                        >
-                            {t('setup.done')}
-                        </button>
+                        <Button onClick={() => onComplete(outputDir, cookiesFrom, cookiesFile, proxy, language, theme)} disabled={!hasFixedDir && !outputDir}>{t('setup.done')}</Button>
                     )}
-                </div>
-            </div>
-        </div>
-        <DirBrowser
-            open={showDirBrowser}
-            initialPath={outputDir}
-            onSelect={dir => setOutputDir(dir)}
-            onClose={() => setShowDirBrowser(false)}
-        />
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        <DirBrowser open={showDirBrowser} initialPath={outputDir} onSelect={dir => setOutputDir(dir)} onClose={() => setShowDirBrowser(false)} />
         </>
     )
 }

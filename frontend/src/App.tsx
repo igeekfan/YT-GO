@@ -1,7 +1,7 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, backendMode, fetchWebConfig, getWebConfig} from './lib/backend'
+import {CheckYtDlp, UpdateYtDlp, InstallYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, backendMode, fetchWebConfig, getWebConfig} from './lib/backend'
 import {EventsOn} from './lib/runtime'
-import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
+import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions} from './types'
 import {useI18n} from './i18n/context'
 import {formatDuration, formatFileSize} from './lib/formatUtils'
 import DownloadList from './components/DownloadList'
@@ -9,7 +9,20 @@ import SettingsDialog from './components/SettingsDialog'
 import SetupWizard from './components/SetupWizard'
 import UpdateDialog from './components/UpdateDialog'
 import DirBrowser from './components/DirBrowser'
-import './App.css'
+import {Button} from '@/components/ui/button'
+import {Input} from '@/components/ui/input'
+import {Badge} from '@/components/ui/badge'
+import {Checkbox} from '@/components/ui/checkbox'
+import {Label} from '@/components/ui/label'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
+import {Separator} from '@/components/ui/separator'
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
+import {toast} from 'sonner'
+import {
+    Search, X, Sun, Moon, Settings as SettingsIcon, RefreshCw,
+    Play, Download, ChevronDown, ChevronRight, Info, FolderOpen
+} from 'lucide-react'
 
 function parseResolutionHeight(res: string): number {
     const m = res.match(/(\d+)p/)
@@ -21,45 +34,35 @@ function parseResolutionHeight(res: string): number {
 
 function formatOptionLabel(format: FormatInfo['formats'][number]): string {
     const parts: string[] = []
-    // Type badge
     if (format.hasVideo && format.hasAudio) parts.push('[V+A]')
     else if (format.hasVideo) parts.push('[V]')
     else if (format.hasAudio) parts.push('[A]')
-    // Resolution or audio indicator
     if (format.resolution && format.resolution !== 'audio only') {
         parts.push(format.resolution)
     } else if (format.hasAudio && !format.hasVideo) {
         parts.push('audio')
     }
-    // FPS
     if (format.fps && format.fps > 0 && format.hasVideo) {
         parts.push(`${format.fps}fps`)
     }
-    // Container
     if (format.ext) parts.push(format.ext)
-    // Codec info
     const codecs: string[] = []
     if (format.vcodec && format.vcodec !== 'none') codecs.push(format.vcodec.split('.')[0])
     if (format.acodec && format.acodec !== 'none') codecs.push(format.acodec.split('.')[0])
     if (codecs.length > 0) parts.push(codecs.join('+'))
-    // File size
     if (format.filesize) parts.push(formatFileSize(format.filesize))
-    // Note
     if (format.note) parts.push(`(${format.note})`)
     return parts.join(' | ')
 }
 
 function sortFormats(formats: FormatInfo['formats'][number][]): FormatInfo['formats'][number][] {
     return [...formats].sort((a, b) => {
-        // First: video+audio > video > audio
         const aScore = (a.hasVideo ? 2 : 0) + (a.hasAudio ? 1 : 0)
         const bScore = (b.hasVideo ? 2 : 0) + (b.hasAudio ? 1 : 0)
         if (aScore !== bScore) return bScore - aScore
-        // Then: higher resolution first
         const aHeight = parseResolutionHeight(a.resolution || '')
         const bHeight = parseResolutionHeight(b.resolution || '')
         if (aHeight !== bHeight) return bHeight - aHeight
-        // Then: higher bitrate/filesize first
         if ((b.filesize || 0) !== (a.filesize || 0)) return (b.filesize || 0) - (a.filesize || 0)
         return (b.tbr || 0) - (a.tbr || 0)
     })
@@ -80,25 +83,12 @@ function getConsoleLogType(line: string): 'error' | 'warning' | 'command' | 'inf
 function shouldTryPlaylistFallback(error: unknown): boolean {
     const message = String((error as any)?.message || error || '').toLowerCase()
     if (!message) return true
-
     const nonFallbackSignals = [
-        'js runtime',
-        'deno',
-        'node.js',
-        'sign in to confirm',
-        'not a bot',
-        'dpapi',
-        'cookies',
-        'storyboard',
-        'rejected the current access',
+        'js runtime', 'deno', 'node.js', 'sign in to confirm', 'not a bot',
+        'dpapi', 'cookies', 'storyboard', 'rejected the current access',
         'requires valid login cookies',
-        // Chinese patterns (for users with zh-CN backend)
-        '请安装 deno',
-        'node.js lts',
-        'youtube 拒绝了当前访问',
-        '抖音需要有效的登录 cookies',
+        '请安装 deno', 'node.js lts', 'youtube 拒绝了当前访问', '抖音需要有效的登录 cookies',
     ]
-
     return !nonFallbackSignals.some(signal => message.includes(signal))
 }
 
@@ -126,18 +116,15 @@ function App() {
     const [isGettingInfo, setIsGettingInfo] = useState(false)
     const [isStarting, setIsStarting] = useState(false)
     const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
+    const [isInstallingYtDlp, setIsInstallingYtDlp] = useState(false)
     const [downloads, setDownloads] = useState<DownloadTask[]>([])
     const [currentSettings, setCurrentSettings] = useState<Settings | null>(null)
-    const [toast, setToast] = useState<string | null>(null)
     const [showSettings, setShowSettings] = useState(false)
     const [showSetupWizard, setShowSetupWizard] = useState(false)
     const [notificationsEnabled, setNotificationsEnabled] = useState(false)
     const [consoleLogs, setConsoleLogs] = useState<string[]>([])
     const [showConsole, setShowConsole] = useState(false)
-
     const consoleEndRef = useRef<HTMLDivElement>(null)
-
-    // Update dialog state
     const [showUpdateDialog, setShowUpdateDialog] = useState(false)
     const [showDirBrowser, setShowDirBrowser] = useState(false)
     const [updateInfo, setUpdateInfo] = useState<{
@@ -152,6 +139,16 @@ function App() {
     const [updateLoading, setUpdateLoading] = useState(false)
     const [updateError, setUpdateError] = useState<string | null>(null)
 
+    // Per-download options
+    const [dlOptSaveThumbnail, setDlOptSaveThumbnail] = useState(false)
+    const [dlOptSaveDescription, setDlOptSaveDescription] = useState(false)
+    const [dlOptEmbedChapters, setDlOptEmbedChapters] = useState(false)
+    const [dlOptWriteSubtitles, setDlOptWriteSubtitles] = useState(false)
+    const [dlOptEmbedSubtitles, setDlOptEmbedSubtitles] = useState(false)
+    const [dlOptSponsorBlock, setDlOptSponsorBlock] = useState(false)
+    const [selectedSubtitleLangs, setSelectedSubtitleLangs] = useState<Set<string>>(new Set())
+    const [subtitleSearch, setSubtitleSearch] = useState('')
+
     const handleCheckUpdate = useCallback(async () => {
         setUpdateLoading(true)
         setUpdateError(null)
@@ -160,7 +157,6 @@ function App() {
             const info = await CheckForUpdate()
             setUpdateInfo(info)
         } catch (e: any) {
-            console.error('Failed to check for updates:', e)
             setUpdateError(e?.message || t('update.error'))
         } finally {
             setUpdateLoading(false)
@@ -168,34 +164,14 @@ function App() {
     }, [])
 
     const handleOpenReleasePage = useCallback(async () => {
-        try {
-            await OpenReleasePage()
-        } catch (e) {
-            console.error('Failed to open release page:', e)
-        }
-    }, [])
-
-    // Per-download options (override global settings)
-    const [dlOptSaveThumbnail, setDlOptSaveThumbnail] = useState(false)
-    const [dlOptSaveDescription, setDlOptSaveDescription] = useState(false)
-    const [dlOptEmbedChapters, setDlOptEmbedChapters] = useState(false)
-    const [dlOptWriteSubtitles, setDlOptWriteSubtitles] = useState(false)
-    const [dlOptEmbedSubtitles, setDlOptEmbedSubtitles] = useState(false)
-    const [dlOptSponsorBlock, setDlOptSponsorBlock] = useState(false)
-    const [selectedSubtitleLangs, setSelectedSubtitleLangs] = useState<Set<string>>(new Set())
-
-    const showToast = useCallback((msg: string) => {
-        setToast(msg)
-        setTimeout(() => setToast(null), 3000)
+        try { await OpenReleasePage() } catch (e) { console.error('Failed to open release page:', e) }
     }, [])
 
     const persistSettingsPatch = useCallback((patch: Partial<Settings>) => {
         setCurrentSettings(prev => {
             if (!prev) return prev
             const next = {...prev, ...patch}
-            SaveSettings(next).catch(error => {
-                console.error('Failed to persist settings patch:', error)
-            })
+            SaveSettings(next).catch(error => console.error('Failed to persist settings patch:', error))
             return next
         })
     }, [])
@@ -209,17 +185,13 @@ function App() {
         setNotificationsEnabled(settings.notifications || false)
     }, [setLang])
 
-    // Request notification permission and send completion notification
     const sendNotification = useCallback((title: string, body: string) => {
         if (!notificationsEnabled) return
         if ('Notification' in window) {
-            if (Notification.permission === 'granted') {
-                new Notification(title, { body })
-            } else if (Notification.permission !== 'denied') {
+            if (Notification.permission === 'granted') new Notification(title, { body })
+            else if (Notification.permission !== 'denied') {
                 Notification.requestPermission().then(permission => {
-                    if (permission === 'granted') {
-                        new Notification(title, { body })
-                    }
+                    if (permission === 'granted') new Notification(title, { body })
                 })
             }
         }
@@ -228,66 +200,59 @@ function App() {
     const handleUpdateYtDlp = async () => {
         setIsUpdatingYtDlp(true)
         try {
-            const result = await UpdateYtDlp()
-            showToast(t('ytdlp.updateSuccess'))
-            // Re-check version after update
+            await UpdateYtDlp()
+            toast.success(t('ytdlp.updateSuccess'))
             const status = await CheckYtDlp()
             setYtdlp(status)
         } catch (e: any) {
-            showToast(t('ytdlp.updateFail') + (e?.message ? `: ${e.message}` : ''))
+            toast.error(t('ytdlp.updateFail') + (e?.message ? `: ${e.message}` : ''))
         } finally {
             setIsUpdatingYtDlp(false)
         }
     }
 
+    const handleInstallYtDlp = async () => {
+        setIsInstallingYtDlp(true)
+        try {
+            await InstallYtDlp()
+            toast.success(t('ytdlp.installSuccess'))
+            const status = await CheckYtDlp()
+            setYtdlp(status)
+        } catch (e: any) {
+            toast.error(t('ytdlp.installFail') + (e?.message ? `: ${e.message}` : ''))
+        } finally {
+            setIsInstallingYtDlp(false)
+        }
+    }
+
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme)
+        const root = document.documentElement
+        if (theme === 'dark') root.classList.add('dark')
+        else root.classList.remove('dark')
         localStorage.setItem('YT-GOto-theme', theme)
     }, [theme])
 
     useEffect(() => {
         const init = async () => {
-            // Fetch web config first (must complete before first-run check)
-            if (backendMode === 'web') {
-                await fetchWebConfig().catch(console.error)
-            }
-
+            if (backendMode === 'web') await fetchWebConfig().catch(console.error)
             CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
-
-            // In web mode, skip SetupWizard entirely
-            // (directory is server-side, settings configurable via Settings dialog)
             if (backendMode === 'web') return
-
-            // Desktop mode: check if first run or needs cookie configuration
             IsFirstRun().then((firstRun: boolean) => {
-                if (firstRun) {
-                    setShowSetupWizard(true)
-                    return
-                }
-                // Check if cookies need to be configured
+                if (firstRun) { setShowSetupWizard(true); return }
                 NeedsCookieConfig().then((needsCookie: boolean) => {
-                    if (needsCookie) {
-                        setShowSetupWizard(true)
-                    }
+                    if (needsCookie) setShowSetupWizard(true)
                 }).catch(() => {})
-            }).catch(() => {
-                // If check fails, show wizard anyway
-                setShowSetupWizard(true)
-            })
+            }).catch(() => { setShowSetupWizard(true) })
         }
-
         init()
-        
         GetSettings().then(s => {
             applySettingsToUI(s)
-            // Initialize per-download options from global settings
             setDlOptSaveThumbnail(s.saveThumbnail || false)
             setDlOptSaveDescription(s.saveDescription || false)
             setDlOptEmbedChapters(s.embedChapters || false)
             setDlOptWriteSubtitles(s.writeSubtitles || false)
             setDlOptEmbedSubtitles(s.embedSubtitles || false)
             setDlOptSponsorBlock(s.sponsorBlock || false)
-            // Request notification permission if enabled
             if (s.notifications && 'Notification' in window && Notification.permission === 'default') {
                 Notification.requestPermission()
             }
@@ -300,11 +265,8 @@ function App() {
         setLang(nextLanguage)
         setCurrentSettings(prev => prev ? {...prev, language: nextLanguage} : prev)
         if (currentSettings) {
-            try {
-                await SaveSettings({...currentSettings, language: nextLanguage})
-            } catch (e) {
-                console.error('Failed to persist language:', e)
-            }
+            try { await SaveSettings({...currentSettings, language: nextLanguage}) }
+            catch (e) { console.error('Failed to persist language:', e) }
         }
     }
 
@@ -313,11 +275,8 @@ function App() {
         setTheme(nextTheme)
         setCurrentSettings(prev => prev ? {...prev, theme: nextTheme} : prev)
         if (currentSettings) {
-            try {
-                await SaveSettings({...currentSettings, theme: nextTheme})
-            } catch (e) {
-                console.error('Failed to persist theme:', e)
-            }
+            try { await SaveSettings({...currentSettings, theme: nextTheme}) }
+            catch (e) { console.error('Failed to persist theme:', e) }
         }
     }
 
@@ -331,27 +290,19 @@ function App() {
         setSelectedAudioFormat('')
         setSelectedPlaylistItems(new Set())
         setSelectedSubtitleLangs(new Set())
+        setSubtitleSearch('')
         setFormatExpanded(false)
     }, [])
 
-    // Listen for download updates and send notifications
     useEffect(() => {
         const off = EventsOn('download:update', (task: DownloadTask) => {
             setDownloads(prev => {
                 const idx = prev.findIndex(d => d.id === task.id)
                 const wasCompleted = idx >= 0 && prev[idx].status === 'completed'
-                const nowCompleted = task.status === 'completed'
-
-                // Send notification if just completed
-                if (!wasCompleted && nowCompleted) {
+                if (!wasCompleted && task.status === 'completed') {
                     sendNotification(t('notification.downloadComplete'), task.title || task.url)
                 }
-
-                if (idx >= 0) {
-                    const next = [...prev]
-                    next[idx] = task
-                    return next
-                }
+                if (idx >= 0) { const next = [...prev]; next[idx] = task; return next }
                 return [task, ...prev]
             })
         })
@@ -365,7 +316,6 @@ function App() {
         return () => { if (typeof off === 'function') off() }
     }, [])
 
-    // Listen for app:log events (console output from backend)
     useEffect(() => {
         const off = EventsOn('app:log', (msg: string) => {
             const timestamp = new Date().toLocaleTimeString()
@@ -378,34 +328,23 @@ function App() {
         return () => { if (typeof off === 'function') off() }
     }, [])
 
-    // Auto check for updates on startup (with delay)
     useEffect(() => {
-        const timer = setTimeout(() => {
-            handleCheckUpdate()
-        }, 3000) // Delay 3 seconds to let app fully load
+        const timer = setTimeout(() => { handleCheckUpdate() }, 3000)
         return () => clearTimeout(timer)
     }, [handleCheckUpdate])
 
-    const dismissUpdateBanner = () => {
-        setShowUpdateDialog(false)
-    }
-
-
-
-    const hasCustomFormatSelection = !!selectedFormat || !!selectedVideoFormat || !!selectedAudioFormat
     const videoOnlyFormats = formatInfo?.formats.filter(f => f.hasVideo && !f.hasAudio) || []
     const audioOnlyFormats = formatInfo?.formats.filter(f => f.hasAudio && !f.hasVideo) || []
     const collectionKind = playlistInfo?.kind === 'channel' ? 'channel' : 'playlist'
     const hasSeparateTrackFormats = videoOnlyFormats.length > 0 && audioOnlyFormats.length > 0
-    const combineVideoFormats = videoOnlyFormats
-        .sort((a, b) => {
-            const aH = parseResolutionHeight(a.resolution || '')
-            const bH = parseResolutionHeight(b.resolution || '')
-            if (aH !== bH) return bH - aH
-            return (b.filesize || 0) - (a.filesize || 0)
-        })
-    const combineAudioFormats = audioOnlyFormats
-        .sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0))
+    const combineVideoFormats = videoOnlyFormats.sort((a, b) => {
+        const aH = parseResolutionHeight(a.resolution || '')
+        const bH = parseResolutionHeight(b.resolution || '')
+        if (aH !== bH) return bH - aH
+        return (b.filesize || 0) - (a.filesize || 0)
+    })
+    const combineAudioFormats = audioOnlyFormats.sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0))
+    const hasCustomFormatSelection = !!selectedFormat || !!selectedVideoFormat || !!selectedAudioFormat
 
     const resolveDownloadQuality = () => {
         if (formatMode === 'single' && selectedFormat && formatInfo) {
@@ -445,16 +384,11 @@ function App() {
 
     const handleSelectBestQuality = () => {
         if (!formatInfo) return
-        // Prefer combined V+A streams
         const combined = sortFormats(formatInfo.formats.filter(f => f.hasVideo && f.hasAudio))
         if (combined.length > 0) {
-            setFormatMode('single')
-            setSelectedFormat(combined[0].formatId)
-            setSelectedVideoFormat('')
-            setSelectedAudioFormat('')
-            return
+            setFormatMode('single'); setSelectedFormat(combined[0].formatId)
+            setSelectedVideoFormat(''); setSelectedAudioFormat(''); return
         }
-        // Fallback: separate V + A tracks (common for YouTube 1080p+)
         const vFormats = videoOnlyFormats.sort((a, b) => {
             const aH = parseResolutionHeight(a.resolution || '')
             const bH = parseResolutionHeight(b.resolution || '')
@@ -463,8 +397,7 @@ function App() {
         })
         const aFormats = audioOnlyFormats.sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0))
         if (vFormats.length > 0 || aFormats.length > 0) {
-            setFormatMode('combine')
-            setSelectedFormat('')
+            setFormatMode('combine'); setSelectedFormat('')
             setSelectedVideoFormat(vFormats.length > 0 ? vFormats[0].formatId : '')
             setSelectedAudioFormat(aFormats.length > 0 ? aFormats[0].formatId : '')
         }
@@ -472,121 +405,75 @@ function App() {
 
     const handleGetInfo = async () => {
         if (!url.trim()) return
-        setIsGettingInfo(true)
-        setIsGettingFormats(false)
-        setVideoInfo(null)
-        setPlaylistInfo(null)
-        setFormatInfo(null)
-        setFormatMode('single')
-        setSelectedFormat('')
-        setSelectedVideoFormat('')
-        setSelectedAudioFormat('')
-        setFormatExpanded(false)
-        setSelectedPlaylistItems(new Set())
-        setSelectedSubtitleLangs(new Set())
+        setIsGettingInfo(true); setIsGettingFormats(false)
+        setVideoInfo(null); setPlaylistInfo(null); setFormatInfo(null)
+        setFormatMode('single'); setSelectedFormat(''); setSelectedVideoFormat(''); setSelectedAudioFormat('')
+        setFormatExpanded(false); setSelectedPlaylistItems(new Set()); setSelectedSubtitleLangs(new Set())
         try {
             const info = await GetVideoInfo(url.trim())
-            setVideoInfo(info)
-            setFormatExpanded(true)
-            // Auto-fetch available formats after getting video info
+            setVideoInfo(info); setFormatExpanded(true)
             setIsGettingFormats(true)
-            try {
-                const formats = await GetFormats(url.trim())
-                setFormatInfo(formats)
-            } catch {
-                // Ignore format fetch errors - user can still use presets
-            } finally {
-                setIsGettingFormats(false)
-            }
+            try { const formats = await GetFormats(url.trim()); setFormatInfo(formats) }
+            catch { /* Ignore format fetch errors */ }
+            finally { setIsGettingFormats(false) }
         } catch (e: any) {
             if (!shouldTryPlaylistFallback(e)) {
-                showToast(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
-                return
+                toast.error(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : '')); return
             }
-            // Try as playlist if single video fetch fails or URL looks like a playlist
             try {
                 const plist = await GetPlaylistInfo(url.trim())
                 if (plist && plist.count > 0) {
                     setPlaylistInfo(plist)
                     setSelectedPlaylistItems(new Set(plist.videos.map((_: any, i: number) => i)))
                 } else {
-                    showToast(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
+                    toast.error(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
                 }
             } catch {
-                showToast(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
+                toast.error(t('toast.getInfoFail') + (e?.message ? `: ${e.message}` : ''))
             }
-        } finally {
-            setIsGettingInfo(false)
-        }
+        } finally { setIsGettingInfo(false) }
     }
 
     const handleGetFormats = async () => {
         if (!url.trim()) return
-        setIsGettingFormats(true)
-        setFormatExpanded(true)
+        setIsGettingFormats(true); setFormatExpanded(true)
         try {
             const info = await GetFormats(url.trim())
-            setFormatInfo(info)
-            setSelectedFormat('')
-            setSelectedVideoFormat('')
-            setSelectedAudioFormat('')
+            setFormatInfo(info); setSelectedFormat(''); setSelectedVideoFormat(''); setSelectedAudioFormat('')
         } catch (e: any) {
-            showToast(t('toast.getFormatsFail') + (e?.message ? `: ${e.message}` : ''))
-        } finally {
-            setIsGettingFormats(false)
-        }
+            toast.error(t('toast.getFormatsFail') + (e?.message ? `: ${e.message}` : ''))
+        } finally { setIsGettingFormats(false) }
     }
 
     const handleDownload = async () => {
         if (!url.trim()) return
-        if (!outputDir) {
-            showToast(t('download.noDir'))
-            return
-        }
-        if (formatMode === 'combine' && !hasSeparateTrackFormats) {
-            showToast(t('format.combineUnavailable'))
-            return
-        }
+        if (!outputDir) { toast.error(t('download.noDir')); return }
+        if (formatMode === 'combine' && !hasSeparateTrackFormats) { toast.error(t('format.combineUnavailable')); return }
         setIsStarting(true)
         try {
             const downloadQuality = resolveDownloadQuality()
             await StartDownload({
-                url: url.trim(),
-                outputDir,
-                quality: downloadQuality,
+                url: url.trim(), outputDir, quality: downloadQuality,
                 videoInfo: videoInfo ? {
-                    url: videoInfo.url,
-                    id: videoInfo.id,
-                    title: videoInfo.title,
-                    thumbnail: videoInfo.thumbnail,
-                    duration: videoInfo.duration,
-                    uploader: videoInfo.uploader,
-                    platform: videoInfo.platform,
+                    url: videoInfo.url, id: videoInfo.id, title: videoInfo.title,
+                    thumbnail: videoInfo.thumbnail, duration: videoInfo.duration,
+                    uploader: videoInfo.uploader, platform: videoInfo.platform,
                 } : undefined,
                 options: buildDownloadOptions(),
             })
-            showToast(t('toast.downloadQueued'))
+            toast.success(t('toast.downloadQueued'))
         } catch (e: any) {
-            showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
-        } finally {
-            setIsStarting(false)
-        }
+            toast.error(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
+        } finally { setIsStarting(false) }
     }
 
     const handleDownloadAll = async () => {
         if (!playlistInfo || !outputDir) {
-            if (!outputDir) showToast(t('download.noDir'))
-            return
+            if (!outputDir) toast.error(t('download.noDir')); return
         }
         if (formatMode === 'combine') {
-            if (!hasSeparateTrackFormats) {
-                showToast(t('format.combineUnavailable'))
-                return
-            }
-            if (!selectedVideoFormat && !selectedAudioFormat) {
-                showToast(t('toast.selectAnyTrack'))
-                return
-            }
+            if (!hasSeparateTrackFormats) { toast.error(t('format.combineUnavailable')); return }
+            if (!selectedVideoFormat && !selectedAudioFormat) { toast.error(t('toast.selectAnyTrack')); return }
         }
         setIsStarting(true)
         try {
@@ -597,31 +484,21 @@ function App() {
                 const video = playlistInfo.videos[i]
                 if (video.url) {
                     await StartDownload({
-                        url: video.url,
-                        outputDir,
-                        quality: downloadQuality,
+                        url: video.url, outputDir, quality: downloadQuality,
                         videoInfo: video ? {
-                            url: video.url,
-                            id: video.id,
-                            title: video.title,
-                            thumbnail: video.thumbnail,
-                            duration: video.duration,
-                            uploader: video.uploader,
-                            platform: video.platform,
+                            url: video.url, id: video.id, title: video.title,
+                            thumbnail: video.thumbnail, duration: video.duration,
+                            uploader: video.uploader, platform: video.platform,
                         } : undefined,
                         options: buildDownloadOptions(),
                     })
                     startedCount++
                 }
             }
-            if (startedCount > 0) {
-                showToast(t('toast.downloadQueuedCount', {count: String(startedCount)}))
-            }
+            if (startedCount > 0) toast.success(t('toast.downloadQueuedCount', {count: String(startedCount)}))
         } catch (e: any) {
-            showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
-        } finally {
-            setIsStarting(false)
-        }
+            toast.error(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
+        } finally { setIsStarting(false) }
     }
 
     const handleSelectFolder = async () => {
@@ -629,588 +506,486 @@ function App() {
         if (dir) setOutputDir(dir)
     }
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') handleGetInfo()
-    }
-
     return (
-        <div className="app-root">
+        <div className="min-h-screen bg-background">
             {/* Header */}
-            <header className="app-header">
-                <div className="header-brand">
-                    <span className="app-logo">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <header className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b bg-background/80 backdrop-blur-sm px-4">
+                <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/>
                         </svg>
-                    </span>
-                    <span className="app-title">{t('app.title')}</span>
+                    </div>
+                    <span className="text-sm font-bold tracking-tight">{t('app.title')}</span>
                 </div>
-                <div className="header-status">
+                <div className="flex-1 flex items-center gap-2 pl-2">
                     {ytdlp && (
-                        <span className={`ytdlp-badge ${ytdlp.available ? 'ytdlp-ok' : 'ytdlp-missing'}`}>
-                            {ytdlp.available
-                                ? t('ytdlp.version', {version: ytdlp.version})
-                                : t('ytdlp.notFound')}
-                        </span>
+                        <Badge variant={ytdlp.available ? 'secondary' : 'destructive'} className="text-xs">
+                            {ytdlp.available ? t('ytdlp.version', {version: ytdlp.version}) : t('ytdlp.notFound')}
+                        </Badge>
                     )}
                     {ytdlp?.available && (
-                        <button
-                            className="btn-ghost btn-xs ytdlp-update-btn"
-                            onClick={handleUpdateYtDlp}
-                            disabled={isUpdatingYtDlp}
-                            title={t('ytdlp.update')}
-                        >
-                            {isUpdatingYtDlp ? '⏳' : '↻'}
-                        </button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleUpdateYtDlp} disabled={isUpdatingYtDlp}>
+                                    <RefreshCw className={`h-3.5 w-3.5 ${isUpdatingYtDlp ? 'animate-spin' : ''}`} />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{t('ytdlp.update')}</TooltipContent>
+                        </Tooltip>
                     )}
                 </div>
-                <div className="header-actions">
-                    <button
-                        className="header-btn"
-                        onClick={handleQuickLanguageToggle}
-                    >
+                <div className="flex items-center gap-0.5 shrink-0">
+                    <Button variant="ghost" size="sm" onClick={handleQuickLanguageToggle} className="text-xs h-7 px-2">
                         {lang === 'zh-CN' ? 'EN' : '中'}
-                    </button>
-                    <button
-                        className="header-btn"
-                        onClick={handleQuickThemeToggle}
-                        title={theme === 'dark' ? t('app.theme.light') : t('app.theme.dark')}
-                    >
-                        {theme === 'dark' ? '☀' : '☽'}
-                    </button>
-                    <button
-                        className="header-btn"
-                        onClick={() => setShowSettings(true)}
-                        title={t('settings.title')}
-                    >
-                        ⚙
-                    </button>
+                    </Button>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleQuickThemeToggle}>
+                                {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{theme === 'dark' ? t('app.theme.light') : t('app.theme.dark')}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowSettings(true)}>
+                                <SettingsIcon className="h-3.5 w-3.5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{t('settings.title')}</TooltipContent>
+                    </Tooltip>
                 </div>
             </header>
 
-            {/* Workspace */}
-            <main className="app-workspace">
-                {/* Zone 1: Command */}
-                <div className="cmd-zone">
-                    {ytdlp && !ytdlp.available && (
-                        <div className="ytdlp-install-guide">
-                            <div className="install-guide-icon">⚠️</div>
-                            <h3>{t('ytdlp.notFound')}</h3>
-                            <p>{t('ytdlp.installGuide')}</p>
-                            <div className="install-commands">
-                                <div className="install-method">
-                                    <strong>{t('install.windowsWinget')}:</strong>
-                                    <code>winget install yt-dlp</code>
-                                </div>
-                                <div className="install-method">
-                                    <strong>{t('install.windowsScoop')}:</strong>
-                                    <code>scoop install yt-dlp</code>
-                                </div>
-                                <div className="install-method">
-                                    <strong>{t('install.macHomebrew')}:</strong>
-                                    <code>brew install yt-dlp</code>
-                                </div>
-                                <div className="install-method">
-                                    <strong>{t('install.linuxPip')}:</strong>
-                                    <code>pip install yt-dlp</code>
-                                </div>
-                            </div>
-                            <p className="install-note">{t('ytdlp.installNote')}</p>
-                            <button className="btn-primary" onClick={() => CheckYtDlp().then(setYtdlp)}>
-                                {t('ytdlp.recheck')}
-                            </button>
+            {/* Main workspace */}
+            <main className="mx-auto max-w-3xl px-4 py-5 flex flex-col gap-4">
+                {/* yt-dlp Install Guide */}
+                {ytdlp && !ytdlp.available && (
+                    <div className="rounded-lg border bg-card p-6 text-center space-y-4">
+                        <div className="text-4xl">⚠️</div>
+                        <h3 className="text-lg font-semibold">{t('ytdlp.notFound')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('ytdlp.installGuide')}</p>
+                        <div className="rounded-lg border bg-muted/50 p-4 text-left space-y-3">
+                            <div><span className="text-xs text-muted-foreground font-medium">{t('install.windowsWinget')}</span><code className="mt-1 block rounded-md bg-background p-2 text-xs text-primary">winget install yt-dlp</code></div>
+                            <div><span className="text-xs text-muted-foreground font-medium">{t('install.windowsScoop')}</span><code className="mt-1 block rounded-md bg-background p-2 text-xs text-primary">scoop install yt-dlp</code></div>
+                            <div><span className="text-xs text-muted-foreground font-medium">{t('install.macHomebrew')}</span><code className="mt-1 block rounded-md bg-background p-2 text-xs text-primary">brew install yt-dlp</code></div>
+                            <div><span className="text-xs text-muted-foreground font-medium">{t('install.linuxPip')}</span><code className="mt-1 block rounded-md bg-background p-2 text-xs text-primary">pip install yt-dlp</code></div>
                         </div>
-                    )}
-                    {ytdlp?.available && (
-                        <div className="cmd-bar">
-                            <div className="url-input-wrap">
-                                <input
-                                    className="url-input"
-                                    type="text"
-                                    value={url}
-                                    onChange={e => setUrl(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder={t('url.placeholder')}
-                                    disabled={isGettingInfo}
-                                />
-                                {url && (
-                                    <button
-                                        type="button"
-                                        className="url-clear-btn"
-                                        onClick={clearCurrentInput}
-                                        title={t('action.clear')}
-                                        aria-label={t('action.clear')}
-                                    >
-                                        ×
-                                    </button>
-                                )}
-                            </div>
-                            <button
-                                className="btn-primary"
-                                onClick={handleGetInfo}
-                                disabled={isGettingInfo || !url.trim()}
-                            >
-                                {isGettingInfo ? t('url.gettingInfo') : t('url.getInfo')}
-                            </button>
+                        <p className="text-xs text-muted-foreground">{t('ytdlp.installNote')}</p>
+                        <div className="flex items-center justify-center gap-3">
+                            <Button onClick={handleInstallYtDlp} disabled={isInstallingYtDlp}>
+                                {isInstallingYtDlp ? t('ytdlp.installing') : t('ytdlp.autoInstall')}
+                            </Button>
+                            <Button variant="outline" onClick={() => CheckYtDlp().then(setYtdlp)}>{t('ytdlp.recheck')}</Button>
                         </div>
-                    )}
-                </div>
-
-
-
-                {/* Zone 2: Result */}
-                {ytdlp?.available && (videoInfo || playlistInfo) && (
-                <div className="result-zone">
-                    {videoInfo && (
-                        <div className="video-card">
-                            {videoInfo.thumbnail && (
-                                <img
-                                    src={videoInfo.thumbnail}
-                                    alt={videoInfo.title}
-                                    className="video-thumb"
-                                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                                />
-                            )}
-                            <div className="video-meta">
-                                <div className="video-title">{videoInfo.title}</div>
-                                <div className="video-details">
-                                    {videoInfo.duration > 0 && (
-                                        <span>{t('video.duration')}: {formatDuration(videoInfo.duration)}</span>
-                                    )}
-                                    {videoInfo.uploader && (
-                                        <span>{t('video.uploader')}: {videoInfo.uploader}</span>
-                                    )}
-                                    {videoInfo.platform && (
-                                        <span>{t('video.platform')}: {videoInfo.platform}</span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Playlist info preview */}
-                    {playlistInfo && (
-                        <>
-                        <div className="video-card playlist-card">
-                            <div className="playlist-icon">
-                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-                                    <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
-                                    <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-                                </svg>
-                            </div>
-                            <div className="video-meta">
-                                <div className="video-title">
-                                    {t(`collection.${collectionKind}.detected` as any)}{playlistInfo.title ? `: ${playlistInfo.title}` : ''}
-                                </div>
-                                <div className="video-details">
-                                    <span>{t(`collection.${collectionKind}.count` as any, {count: String(playlistInfo.count)})}</span>
-                                    {playlistInfo.uploader && (
-                                        <span>{t('playlist.uploader')}: {playlistInfo.uploader}</span>
-                                    )}
-                                    <span>{t('collection.selected', {count: String(selectedPlaylistItems.size)})}</span>
-                                </div>
-                            </div>
-                        </div>
-                        {/* Playlist item selector */}
-                        <div className="playlist-selector">
-                            <div className="playlist-selector-header">
-                                <button
-                                    className="btn-ghost btn-sm"
-                                    onClick={() => setSelectedPlaylistItems(new Set(playlistInfo.videos.map((_: any, i: number) => i)))}
-                                >
-                                    {t('collection.selectAll')}
-                                </button>
-                                <button
-                                    className="btn-ghost btn-sm"
-                                    onClick={() => setSelectedPlaylistItems(new Set())}
-                                >
-                                    {t('collection.selectNone')}
-                                </button>
-                            </div>
-                            <div className="playlist-selector-list">
-                                {playlistInfo.videos.map((video, idx) => (
-                                    <label key={idx} className="playlist-selector-item">
-                                        <input
-                                            type="checkbox"
-                                            className="setting-checkbox"
-                                            checked={selectedPlaylistItems.has(idx)}
-                                            onChange={e => {
-                                                const next = new Set(selectedPlaylistItems)
-                                                if (e.target.checked) next.add(idx)
-                                                else next.delete(idx)
-                                                setSelectedPlaylistItems(next)
-                                            }}
-                                        />
-                                        <span className="playlist-selector-idx">{idx + 1}</span>
-                                        <span className="playlist-selector-title">{video.title || video.url || video.id}</span>
-                                        {video.duration > 0 && (
-                                            <span className="playlist-selector-duration">{formatDuration(video.duration)}</span>
-                                        )}
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                        </>
-                    )}
-                </div>
+                    </div>
                 )}
 
-                {/* Zone 3: Controls */}
-                {ytdlp?.available && (videoInfo || playlistInfo) && (
-                <div className="controls-zone">
-                    <div className="options-row">
-                        {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
-                        <div className="option-group flex-1">
-                            <label className="option-label">{t('outputDir.label')}</label>
-                            <div className="dir-row">
-                                <input
-                                    className="dir-input"
-                                    type="text"
-                                    value={outputDir}
-                                    onChange={e => setOutputDir(e.target.value)}
-                                    placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : t('outputDir.placeholder')}
-                                />
-                                {backendMode === 'desktop' ? (
-                                    <button className="btn-secondary" onClick={handleSelectFolder}>
-                                        {t('outputDir.browse')}
-                                    </button>
-                                ) : (
-                                    <button className="btn-secondary" onClick={() => setShowDirBrowser(true)}>
-                                        {t('outputDir.browse')}
-                                    </button>
-                                )}
-                            </div>
+                {/* URL Input */}
+                {ytdlp?.available && (
+                    <div className="flex gap-2 items-center">
+                        <div className="relative flex-1">
+                            <Input
+                                type="text"
+                                value={url}
+                                onChange={e => setUrl(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleGetInfo() }}
+                                placeholder={t('url.placeholder')}
+                                disabled={isGettingInfo}
+                                className="pr-8"
+                            />
+                            {url && (
+                                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6" onClick={clearCurrentInput}>
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            )}
                         </div>
-                        )}
+                        <Button onClick={handleGetInfo} disabled={isGettingInfo || !url.trim()}>
+                            {isGettingInfo ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+                            {isGettingInfo ? t('url.gettingInfo') : t('url.getInfo')}
+                        </Button>
                     </div>
+                )}
 
-                    {videoInfo && (
-                        <div className="format-section">
-                            <button
-                                className="format-section-toggle"
-                                onClick={() => setFormatExpanded(v => !v)}
-                            >
-                                <span className="format-toggle-arrow">{formatExpanded ? '▼' : '▶'}</span>
-                                <span className="format-toggle-label">{t('format.label')}</span>
-                                {!formatExpanded && hasCustomFormatSelection && (
-                                    <span className="format-toggle-summary">
-                                        {selectedFormat && formatInfo
-                                            ? formatOptionLabel(formatInfo.formats.find(f => f.formatId === selectedFormat)!)
-                                            : (selectedVideoFormat || selectedAudioFormat)
-                                                ? `${selectedVideoFormat ? t('format.video') : ''}${selectedVideoFormat && selectedAudioFormat ? ' + ' : ''}${selectedAudioFormat ? t('format.audio') : ''}`
-                                                : ''}
-                                    </span>
+                {/* Video/Playlist Info */}
+                {ytdlp?.available && (videoInfo || playlistInfo) && (
+                    <div className="space-y-3">
+                        {videoInfo && (
+                            <div className="flex gap-4 rounded-lg border bg-card p-3">
+                                {videoInfo.thumbnail && (
+                                    <img src={videoInfo.thumbnail} alt={videoInfo.title} className="w-36 h-20 object-cover rounded-md shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                                 )}
-                            </button>
-                            {formatExpanded && (
-                            <>
-                            {formatInfo ? (
-                                <div className="format-list-container">
-                                    <div className="format-list-header">
-                                        <select
-                                            className="select-input format-mode-select"
-                                            value={formatMode}
-                                            onChange={e => {
-                                                const nextMode = e.target.value as 'single' | 'combine' | 'audio-only' | 'video-only'
-                                                setFormatMode(nextMode)
-                                                setSelectedFormat('')
-                                                setSelectedVideoFormat('')
-                                                setSelectedAudioFormat('')
-                                            }}
-                                        >
-                                            <option value="single">{t('format.mode.single')}</option>
-                                            <option value="combine">{t('format.mode.combine')}</option>
-                                            <option value="audio-only">{t('format.mode.audioOnly')}</option>
-                                            <option value="video-only">{t('format.mode.videoOnly')}</option>
-                                        </select>
-                                        <button className="btn-best-quality" onClick={handleSelectBestQuality}>
-                                            {t('format.bestQuality')}
-                                        </button>
+                                <div className="flex-1 min-w-0 space-y-1">
+                                    <div className="font-semibold text-sm line-clamp-2">{videoInfo.title}</div>
+                                    <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+                                        {videoInfo.duration > 0 && <span>{t('video.duration')}: {formatDuration(videoInfo.duration)}</span>}
+                                        {videoInfo.uploader && <span>{t('video.uploader')}: {videoInfo.uploader}</span>}
+                                        {videoInfo.platform && <span>{t('video.platform')}: {videoInfo.platform}</span>}
                                     </div>
-                                    {formatMode === 'single' ? (
-                                        <div className="format-list">
-                                            {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio))
-                                                .map(f => (
-                                                    <label key={f.formatId} className={`format-list-item${selectedFormat === f.formatId ? ' selected' : ''}`}>
-                                                        <input
-                                                            type="radio"
-                                                            name="format-single"
-                                                            checked={selectedFormat === f.formatId}
-                                                            onChange={() => {
-                                                                setSelectedFormat(f.formatId)
-                                                                setSelectedVideoFormat('')
-                                                                setSelectedAudioFormat('')
-                                                            }}
-                                                        />
-                                                        <span className="format-item-text">{formatOptionLabel(f)}</span>
-                                                    </label>
-                                                ))}
-                                        </div>
-                                    ) : formatMode === 'audio-only' ? (
-                                        <div className="format-list">
-                                            <label className={`format-list-item${!selectedAudioFormat ? ' selected' : ''}`}>
-                                                <input type="radio" name="format-audio-only" checked={!selectedAudioFormat} onChange={() => setSelectedAudioFormat('')} />
-                                                <span className="format-item-text">{t('format.auto')}</span>
-                                            </label>
-                                            {audioOnlyFormats.sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0)).map(f => (
-                                                <label key={f.formatId} className={`format-list-item${selectedAudioFormat === f.formatId ? ' selected' : ''}`}>
-                                                    <input type="radio" name="format-audio-only" checked={selectedAudioFormat === f.formatId} onChange={() => {
-                                                        setSelectedAudioFormat(f.formatId)
-                                                        setSelectedVideoFormat('')
-                                                        setSelectedFormat('')
-                                                    }} />
-                                                    <span className="format-item-text">{formatOptionLabel(f)}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    ) : formatMode === 'video-only' ? (
-                                        <div className="format-list">
-                                            <label className={`format-list-item${!selectedVideoFormat ? ' selected' : ''}`}>
-                                                <input type="radio" name="format-video-only" checked={!selectedVideoFormat} onChange={() => setSelectedVideoFormat('')} />
-                                                <span className="format-item-text">{t('format.auto')}</span>
-                                            </label>
-                                            {videoOnlyFormats.sort((a, b) => {
-                                                const aH = parseResolutionHeight(a.resolution || '')
-                                                const bH = parseResolutionHeight(b.resolution || '')
-                                                if (aH !== bH) return bH - aH
-                                                return (b.filesize || 0) - (a.filesize || 0)
-                                            }).map(f => (
-                                                <label key={f.formatId} className={`format-list-item${selectedVideoFormat === f.formatId ? ' selected' : ''}`}>
-                                                    <input type="radio" name="format-video-only" checked={selectedVideoFormat === f.formatId} onChange={() => {
-                                                        setSelectedVideoFormat(f.formatId)
-                                                        setSelectedAudioFormat('')
-                                                        setSelectedFormat('')
-                                                    }} />
-                                                    <span className="format-item-text">{formatOptionLabel(f)}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    ) : hasSeparateTrackFormats ? (
-                                        <div className="format-combine-grid">
-                                            <div className="format-combine-group">
-                                                <span className="format-sub-label">{t('format.video')}</span>
-                                                <div className="format-list">
-                                                    <label className={`format-list-item${!selectedVideoFormat ? ' selected' : ''}`}>
-                                                        <input type="radio" name="format-video" checked={!selectedVideoFormat} onChange={() => setSelectedVideoFormat('')} />
-                                                        <span className="format-item-text">{t('format.selectVideo')}</span>
-                                                    </label>
-                                                    {combineVideoFormats.map(f => (
-                                                        <label key={f.formatId} className={`format-list-item${selectedVideoFormat === f.formatId ? ' selected' : ''}`}>
-                                                            <input type="radio" name="format-video" checked={selectedVideoFormat === f.formatId} onChange={() => setSelectedVideoFormat(f.formatId)} />
-                                                            <span className="format-item-text">{formatOptionLabel(f)}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="format-combine-group">
-                                                <span className="format-sub-label">{t('format.audio')}</span>
-                                                <div className="format-list">
-                                                    <label className={`format-list-item${!selectedAudioFormat ? ' selected' : ''}`}>
-                                                        <input type="radio" name="format-audio" checked={!selectedAudioFormat} onChange={() => setSelectedAudioFormat('')} />
-                                                        <span className="format-item-text">{t('format.selectAudio')}</span>
-                                                    </label>
-                                                    {combineAudioFormats.map(f => (
-                                                        <label key={f.formatId} className={`format-list-item${selectedAudioFormat === f.formatId ? ' selected' : ''}`}>
-                                                            <input type="radio" name="format-audio" checked={selectedAudioFormat === f.formatId} onChange={() => setSelectedAudioFormat(f.formatId)} />
-                                                            <span className="format-item-text">{formatOptionLabel(f)}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="format-empty-hint">{t('format.combineUnavailable')}</div>
-                                    )}
                                 </div>
-                            ) : (
-                                <div className="format-row">
-                                    {isGettingFormats ? (
-                                        <span className="format-loading">{t('format.loading')}</span>
-                                    ) : (
-                                        <button
-                                            className="btn-secondary"
-                                            onClick={handleGetFormats}
-                                            disabled={isGettingFormats}
-                                        >
-                                            {isGettingFormats ? t('format.loading') : t('format.detect')}
-                                        </button>
-                                    )}
+                            </div>
+                        )}
+
+                        {playlistInfo && (
+                            <>
+                                <div className="flex gap-4 rounded-lg border bg-card p-3">
+                                    <div className="w-12 h-12 flex items-center justify-center rounded-md bg-primary/10 shrink-0">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                                    </div>
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                        <div className="font-semibold text-sm">
+                                            {t(`collection.${collectionKind}.detected` as any)}{playlistInfo.title ? `: ${playlistInfo.title}` : ''}
+                                        </div>
+                                        <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+                                            <span>{t(`collection.${collectionKind}.count` as any, {count: String(playlistInfo.count)})}</span>
+                                            {playlistInfo.uploader && <span>{t('playlist.uploader')}: {playlistInfo.uploader}</span>}
+                                            <span>{t('collection.selected', {count: String(selectedPlaylistItems.size)})}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
+                                <div className="rounded-lg border overflow-hidden">
+                                    <div className="flex gap-2 p-2 border-b bg-muted/30">
+                                        <Button variant="ghost" size="sm" onClick={() => setSelectedPlaylistItems(new Set(playlistInfo.videos.map((_: any, i: number) => i)))}>
+                                            {t('collection.selectAll')}
+                                        </Button>
+                                        <Button variant="ghost" size="sm" onClick={() => setSelectedPlaylistItems(new Set())}>
+                                            {t('collection.selectNone')}
+                                        </Button>
+                                    </div>
+                                    <div className="max-h-60 overflow-y-auto">
+                                        {playlistInfo.videos.map((video, idx) => (
+                                            <label key={idx} className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm">
+                                                <Checkbox
+                                                    checked={selectedPlaylistItems.has(idx)}
+                                                    onCheckedChange={(checked: boolean) => {
+                                                        const next = new Set(selectedPlaylistItems)
+                                                        if (checked) next.add(idx); else next.delete(idx)
+                                                        setSelectedPlaylistItems(next)
+                                                    }}
+                                                />
+                                                <span className="text-xs text-muted-foreground w-6 text-right shrink-0">{idx + 1}</span>
+                                                <span className="flex-1 min-w-0 truncate">{video.title || video.url || video.id}</span>
+                                                {video.duration > 0 && <span className="text-xs text-muted-foreground shrink-0">{formatDuration(video.duration)}</span>}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
                             </>
-                            )}
-                        </div>
-                    )}
+                        )}
+                    </div>
+                )}
 
-                    {/* Per-download options panel (shown after video info is fetched) */}
-                    {videoInfo && (
-                        <div className="download-options-panel">
-                            <div className="download-options-title">⚙ {t('downloadOpt.title')}</div>
-                            <div className="download-options-grid">
-                                <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptSaveThumbnail} onChange={e => {
-                                        const checked = e.target.checked
-                                        setDlOptSaveThumbnail(checked)
-                                        persistSettingsPatch({saveThumbnail: checked})
-                                    }} />
-                                    {t('downloadOpt.saveThumbnail')}
-                                </label>
-                                <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptSaveDescription} onChange={e => {
-                                        const checked = e.target.checked
-                                        setDlOptSaveDescription(checked)
-                                        persistSettingsPatch({saveDescription: checked})
-                                    }} />
-                                    {t('downloadOpt.saveDescription')}
-                                </label>
-                                <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptEmbedChapters} onChange={e => {
-                                        const checked = e.target.checked
-                                        setDlOptEmbedChapters(checked)
-                                        persistSettingsPatch({embedChapters: checked})
-                                    }} />
-                                    {t('downloadOpt.embedChapters')}
-                                </label>
-                                <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptWriteSubtitles} onChange={e => {
-                                        const checked = e.target.checked
-                                        setDlOptWriteSubtitles(checked)
-                                        persistSettingsPatch({writeSubtitles: checked})
-                                    }} />
-                                    {t('downloadOpt.writeSubtitles')}
-                                </label>
-                                {dlOptWriteSubtitles && (
-                                    <label className="download-opt-item">
-                                        <input type="checkbox" checked={dlOptEmbedSubtitles} onChange={e => {
-                                            const checked = e.target.checked
-                                            setDlOptEmbedSubtitles(checked)
-                                            persistSettingsPatch({embedSubtitles: checked})
-                                        }} />
-                                        {t('downloadOpt.embedSubtitles')}
-                                    </label>
-                                )}
-                                <label className="download-opt-item">
-                                    <input type="checkbox" checked={dlOptSponsorBlock} onChange={e => {
-                                        const checked = e.target.checked
-                                        setDlOptSponsorBlock(checked)
-                                        persistSettingsPatch({sponsorBlock: checked})
-                                    }} />
-                                    {t('downloadOpt.sponsorBlock')}
-                                    <span className="sponsorblock-tooltip">
-                                        <span className="tooltip-icon">?</span>
-                                        <span className="tooltip-text">{t('downloadOpt.sponsorBlockDesc')}</span>
-                                    </span>
-                                </label>
+                {/* Controls Zone */}
+                {ytdlp?.available && (videoInfo || playlistInfo) && (
+                    <div className="rounded-lg border bg-card p-4 space-y-4">
+                        {/* Output Directory */}
+                        {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{t('outputDir.label')}</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="text"
+                                        value={outputDir}
+                                        onChange={e => setOutputDir(e.target.value)}
+                                        placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : t('outputDir.placeholder')}
+                                    />
+                                    {backendMode === 'desktop' ? (
+                                        <Button variant="outline" size="sm" onClick={handleSelectFolder}>
+                                            <FolderOpen className="h-4 w-4 mr-1" />{t('outputDir.browse')}
+                                        </Button>
+                                    ) : (
+                                        <Button variant="outline" size="sm" onClick={() => setShowDirBrowser(true)}>
+                                            <FolderOpen className="h-4 w-4 mr-1" />{t('outputDir.browse')}
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
-                            {/* Subtitle language picker */}
-                            {dlOptWriteSubtitles && (
-                                <div className="subtitle-picker">
-                                    <div className="subtitle-picker-label">{t('downloadOpt.subtitleLangs')}</div>
-                                    {videoInfo.subtitles && videoInfo.subtitles.length > 0 ? (
-                                        <div className="subtitle-picker-list">
-                                            {videoInfo.subtitles.map(sub => (
-                                                <label key={sub.code} className="subtitle-picker-item">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedSubtitleLangs.has(sub.code)}
-                                                        onChange={e => {
+                        )}
+
+                        {/* Format Section */}
+                        {videoInfo && (
+                            <Collapsible open={formatExpanded} onOpenChange={setFormatExpanded}>
+                                <CollapsibleTrigger className="flex items-center gap-2 w-full rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted/50 transition-colors">
+                                    {formatExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    <span>{t('format.label')}</span>
+                                    {!formatExpanded && hasCustomFormatSelection && (
+                                        <span className="text-xs text-primary truncate ml-2">
+                                            {selectedFormat && formatInfo
+                                                ? formatOptionLabel(formatInfo.formats.find(f => f.formatId === selectedFormat)!)
+                                                : (selectedVideoFormat || selectedAudioFormat)
+                                                    ? `${selectedVideoFormat ? t('format.video') : ''}${selectedVideoFormat && selectedAudioFormat ? ' + ' : ''}${selectedAudioFormat ? t('format.audio') : ''}`
+                                                    : ''}
+                                        </span>
+                                    )}
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-2 space-y-3">
+                                    {formatInfo ? (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2">
+                                                <Select value={formatMode} onValueChange={(val: string) => {
+                                                    const nextMode = val as 'single' | 'combine' | 'audio-only' | 'video-only'
+                                                    setFormatMode(nextMode)
+                                                    setSelectedFormat(''); setSelectedVideoFormat(''); setSelectedAudioFormat('')
+                                                }}>
+                                                    <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="single">{t('format.mode.single')}</SelectItem>
+                                                        <SelectItem value="combine">{t('format.mode.combine')}</SelectItem>
+                                                        <SelectItem value="audio-only">{t('format.mode.audioOnly')}</SelectItem>
+                                                        <SelectItem value="video-only">{t('format.mode.videoOnly')}</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <Button variant="outline" size="sm" onClick={handleSelectBestQuality}>
+                                                    {t('format.bestQuality')}
+                                                </Button>
+                                            </div>
+
+                                            {formatMode === 'single' && (
+                                                <div className="max-h-52 overflow-y-auto rounded-md border">
+                                                    {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio)).map(f => (
+                                                        <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                            <input type="radio" name="format-single" checked={selectedFormat === f.formatId}
+                                                                onChange={() => { setSelectedFormat(f.formatId); setSelectedVideoFormat(''); setSelectedAudioFormat('') }}
+                                                                className="mt-0.5 accent-primary" />
+                                                            <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {formatMode === 'audio-only' && (
+                                                <div className="max-h-52 overflow-y-auto rounded-md border">
+                                                    <label className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedAudioFormat ? 'bg-primary/5' : ''}`}>
+                                                        <input type="radio" name="format-audio-only" checked={!selectedAudioFormat} onChange={() => setSelectedAudioFormat('')} className="mt-0.5 accent-primary" />
+                                                        <span>{t('format.auto')}</span>
+                                                    </label>
+                                                    {audioOnlyFormats.sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0)).map(f => (
+                                                        <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedAudioFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                            <input type="radio" name="format-audio-only" checked={selectedAudioFormat === f.formatId}
+                                                                onChange={() => { setSelectedAudioFormat(f.formatId); setSelectedVideoFormat(''); setSelectedFormat('') }}
+                                                                className="mt-0.5 accent-primary" />
+                                                            <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {formatMode === 'video-only' && (
+                                                <div className="max-h-52 overflow-y-auto rounded-md border">
+                                                    <label className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedVideoFormat ? 'bg-primary/5' : ''}`}>
+                                                        <input type="radio" name="format-video-only" checked={!selectedVideoFormat} onChange={() => setSelectedVideoFormat('')} className="mt-0.5 accent-primary" />
+                                                        <span>{t('format.auto')}</span>
+                                                    </label>
+                                                    {videoOnlyFormats.sort((a, b) => {
+                                                        const aH = parseResolutionHeight(a.resolution || '')
+                                                        const bH = parseResolutionHeight(b.resolution || '')
+                                                        if (aH !== bH) return bH - aH
+                                                        return (b.filesize || 0) - (a.filesize || 0)
+                                                    }).map(f => (
+                                                        <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedVideoFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                            <input type="radio" name="format-video-only" checked={selectedVideoFormat === f.formatId}
+                                                                onChange={() => { setSelectedVideoFormat(f.formatId); setSelectedAudioFormat(''); setSelectedFormat('') }}
+                                                                className="mt-0.5 accent-primary" />
+                                                            <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {formatMode === 'combine' && hasSeparateTrackFormats ? (
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{t('format.video')}</Label>
+                                                        <div className="max-h-52 overflow-y-auto rounded-md border">
+                                                            <label className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedVideoFormat ? 'bg-primary/5' : ''}`}>
+                                                                <input type="radio" name="format-video" checked={!selectedVideoFormat} onChange={() => setSelectedVideoFormat('')} className="mt-0.5 accent-primary" />
+                                                                <span>{t('format.selectVideo')}</span>
+                                                            </label>
+                                                            {combineVideoFormats.map(f => (
+                                                                <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedVideoFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                                    <input type="radio" name="format-video" checked={selectedVideoFormat === f.formatId} onChange={() => setSelectedVideoFormat(f.formatId)} className="mt-0.5 accent-primary" />
+                                                                    <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{t('format.audio')}</Label>
+                                                        <div className="max-h-52 overflow-y-auto rounded-md border">
+                                                            <label className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedAudioFormat ? 'bg-primary/5' : ''}`}>
+                                                                <input type="radio" name="format-audio" checked={!selectedAudioFormat} onChange={() => setSelectedAudioFormat('')} className="mt-0.5 accent-primary" />
+                                                                <span>{t('format.selectAudio')}</span>
+                                                            </label>
+                                                            {combineAudioFormats.map(f => (
+                                                                <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedAudioFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                                    <input type="radio" name="format-audio" checked={selectedAudioFormat === f.formatId} onChange={() => setSelectedAudioFormat(f.formatId)} className="mt-0.5 accent-primary" />
+                                                                    <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : formatMode === 'combine' && !hasSeparateTrackFormats ? (
+                                                <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                                                    {t('format.combineUnavailable')}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            {isGettingFormats ? (
+                                                <span className="text-sm text-muted-foreground">{t('format.loading')}</span>
+                                            ) : (
+                                                <Button variant="outline" size="sm" onClick={handleGetFormats} disabled={isGettingFormats}>
+                                                    {isGettingFormats ? t('format.loading') : t('format.detect')}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
+                        )}
+
+                        {/* Download Options */}
+                        {videoInfo && (
+                            <div className="rounded-lg border p-3 space-y-3">
+                                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                    <SettingsIcon className="h-3.5 w-3.5" /> {t('downloadOpt.title')}
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+                                    {([
+                                        { key: 'saveThumbnail', checked: dlOptSaveThumbnail, set: setDlOptSaveThumbnail, label: t('downloadOpt.saveThumbnail') },
+                                        { key: 'saveDescription', checked: dlOptSaveDescription, set: setDlOptSaveDescription, label: t('downloadOpt.saveDescription') },
+                                        { key: 'embedChapters', checked: dlOptEmbedChapters, set: setDlOptEmbedChapters, label: t('downloadOpt.embedChapters') },
+                                        { key: 'writeSubtitles', checked: dlOptWriteSubtitles, set: setDlOptWriteSubtitles, label: t('downloadOpt.writeSubtitles') },
+                                        ...(dlOptWriteSubtitles ? [{ key: 'embedSubtitles', checked: dlOptEmbedSubtitles, set: setDlOptEmbedSubtitles, label: t('downloadOpt.embedSubtitles') }] : []),
+                                        { key: 'sponsorBlock', checked: dlOptSponsorBlock, set: setDlOptSponsorBlock, label: t('downloadOpt.sponsorBlock') },
+                                    ] as const).map(opt => (
+                                        <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
+                                            <Checkbox checked={opt.checked}
+                                                onCheckedChange={(checked: boolean) => {
+                                                    const val = !!checked; opt.set(val)
+                                                    persistSettingsPatch({[opt.key]: val} as any)
+                                                }} />
+                                            <span className="text-xs font-normal">
+                                                {opt.label}
+                                            </span>
+                                            {opt.key === 'sponsorBlock' && (
+                                                <Tooltip>
+                                                    <TooltipTrigger><Info className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+                                                    <TooltipContent className="max-w-xs">{t('downloadOpt.sponsorBlockDesc')}</TooltipContent>
+                                                </Tooltip>
+                                            )}
+                                        </label>
+                                    ))}
+                                </div>
+
+                                {dlOptWriteSubtitles && videoInfo.subtitles && videoInfo.subtitles.length > 0 && (
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">{t('downloadOpt.subtitleLangs')}</Label>
+                                        <Input
+                                            type="text"
+                                            value={subtitleSearch}
+                                            onChange={e => setSubtitleSearch(e.target.value)}
+                                            placeholder={t('downloadOpt.subtitleSearch')}
+                                            className="h-7 text-xs"
+                                        />
+                                        <div className="max-h-28 overflow-y-auto rounded-md border">
+                                            {videoInfo.subtitles
+                                                .filter(sub => {
+                                                    if (!subtitleSearch.trim()) return true
+                                                    const q = subtitleSearch.toLowerCase()
+                                                    return (sub.name || '').toLowerCase().includes(q) || sub.code.toLowerCase().includes(q)
+                                                })
+                                                .map(sub => (
+                                                <label key={sub.code} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer text-xs border-b last:border-b-0">
+                                                    <Checkbox checked={selectedSubtitleLangs.has(sub.code)}
+                                                        onCheckedChange={(checked: boolean) => {
                                                             const next = new Set(selectedSubtitleLangs)
-                                                            if (e.target.checked) next.add(sub.code)
-                                                            else next.delete(sub.code)
+                                                            if (checked) next.add(sub.code); else next.delete(sub.code)
                                                             setSelectedSubtitleLangs(next)
-                                                        }}
-                                                    />
-                                                    {sub.name || sub.code}
-                                                    <span className="subtitle-picker-badge">
+                                                        }} />
+                                                    <span className="flex-1">{sub.name || sub.code}</span>
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                                                         {sub.auto ? t('downloadOpt.subtitleAuto') : t('downloadOpt.subtitleManual')}
-                                                    </span>
+                                                    </Badge>
                                                 </label>
                                             ))}
                                         </div>
-                                    ) : (
-                                        <div className="subtitle-picker-empty">{t('downloadOpt.noSubtitles')}</div>
-                                    )}
+                                    </div>
+                                )}
+                                {dlOptWriteSubtitles && (!videoInfo.subtitles || videoInfo.subtitles.length === 0) && (
+                                    <p className="text-xs text-muted-foreground">{t('downloadOpt.noSubtitles')}</p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 flex-wrap items-center">
+                            {backendMode === 'web' && !getWebConfig()?.hasFixedDir && !outputDir && (
+                                <div className="flex items-center gap-2 mr-auto text-yellow-500 text-sm">
+                                    <span>{t('web.noDirHint')}</span>
+                                    <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
+                                        {t('web.openSettings')}
+                                    </Button>
+                                </div>
+                            )}
+                            <Button onClick={handleDownload} disabled={isStarting || !url.trim() || !outputDir} className="ml-auto">
+                                {isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                                {isStarting ? t('download.downloading') : t('download.start')}
+                            </Button>
+                            {playlistInfo && playlistInfo.count > 0 && (
+                                <Button onClick={handleDownloadAll} disabled={isStarting || !outputDir || selectedPlaylistItems.size === 0}>
+                                    {isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                                    {isStarting ? t('playlist.startingAll') : `${t(`collection.${collectionKind}.downloadAll` as any)} (${selectedPlaylistItems.size})`}
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Console & Downloads */}
+                <div className="space-y-3">
+                    {consoleLogs.length > 0 && (
+                        <div className="rounded-lg border overflow-hidden">
+                            <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
+                                <Button variant="ghost" size="sm" onClick={() => setShowConsole(!showConsole)} className="text-xs">
+                                    {showConsole ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
+                                    {t('console.title')} ({consoleLogs.length})
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => { setConsoleLogs([]); setShowConsole(false) }} className="text-xs">
+                                    {t('console.clear')}
+                                </Button>
+                            </div>
+                            {showConsole && (
+                                <div className="max-h-72 overflow-y-auto overflow-x-hidden">
+                                    <pre className="bg-muted/20 p-3 text-xs font-mono leading-relaxed whitespace-pre-wrap break-words">
+                                        {consoleLogs.map((line, i) => (
+                                            <div key={i} className={`px-2 py-0.5 border-l-2 rounded-r-sm ${
+                                                getConsoleLogType(line) === 'error' ? 'border-l-red-500 bg-red-500/5 text-red-400' :
+                                                getConsoleLogType(line) === 'warning' ? 'border-l-yellow-500 bg-yellow-500/5 text-yellow-400' :
+                                                getConsoleLogType(line) === 'command' ? 'border-l-blue-500 bg-blue-500/5 text-blue-400' :
+                                                'border-l-transparent'
+                                            }`}>{line}</div>
+                                        ))}
+                                        <div ref={consoleEndRef} />
+                                    </pre>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    <div className="action-bar">
-                        {backendMode === 'web' && !getWebConfig()?.hasFixedDir && !outputDir && (
-                            <div className="web-nodir-hint">
-                                <span>{t('web.noDirHint')}</span>
-                                <button className="btn-secondary btn-sm" onClick={() => setShowSettings(true)}>
-                                    {t('web.openSettings')}
-                                </button>
-                            </div>
-                        )}
-                        <button
-                            className="btn-primary download-btn"
-                            onClick={handleDownload}
-                            disabled={isStarting || !url.trim() || !outputDir}
-                        >
-                            {isStarting ? t('download.downloading') : t('download.start')}
-                        </button>
-                        {playlistInfo && playlistInfo.count > 0 && (
-                            <button
-                                className="btn-primary download-btn"
-                                onClick={handleDownloadAll}
-                                disabled={isStarting || !outputDir || selectedPlaylistItems.size === 0}
-                            >
-                                {isStarting ? t('playlist.startingAll') : `${t(`collection.${collectionKind}.downloadAll` as any)} (${selectedPlaylistItems.size})`}
-                            </button>
-                        )}
-                    </div>
-                </div>
-                )}
-
-                {/* Zone 4: Queue */}
-                <div className="queue-zone">
-                {/* Console logs */}
-                {consoleLogs.length > 0 && (
-                    <div className="console-panel">
-                        <div className="console-header">
-                            <button
-                                className="btn-ghost btn-sm"
-                                onClick={() => setShowConsole(!showConsole)}
-                            >
-                                {showConsole ? '▼' : '▶'} {t('console.title')} ({consoleLogs.length})
-                            </button>
-                            <button
-                                className="btn-ghost btn-sm"
-                                onClick={() => { setConsoleLogs([]); setShowConsole(false) }}
-                            >
-                                {t('console.clear')}
-                            </button>
-                        </div>
-                        {showConsole && (
-                            <pre className="console-content">
-                                {consoleLogs.map((line, i) => (
-                                    <div key={i} className={`log-line log-line-${getConsoleLogType(line)}`}>{line}</div>
-                                ))}
-                                <div ref={consoleEndRef} />
-                            </pre>
-                        )}
-                    </div>
-                )}
-
-                {/* Downloads list */}
-                <DownloadList downloads={downloads} onUpdate={setDownloads} />
+                    <DownloadList downloads={downloads} onUpdate={setDownloads} />
                 </div>
             </main>
 
-            {/* Toast */}
-            {toast && <div className="toast">{toast}</div>}
-
-            {/* Settings Dialog */}
+            {/* Dialogs */}
             <SettingsDialog
-                open={showSettings}
-                initialSettings={currentSettings}
+                open={showSettings} initialSettings={currentSettings}
                 onClose={() => setShowSettings(false)}
                 onSaved={(s) => {
                     applySettingsToUI(s)
-                    // Request notification permission if newly enabled
                     if (s.notifications && 'Notification' in window && Notification.permission === 'default') {
                         Notification.requestPermission()
                     }
@@ -1219,55 +994,32 @@ function App() {
                 onLanguagePreview={setLang}
             />
 
-            {/* Setup Wizard */}
             {showSetupWizard && (
                 <SetupWizard
-                    onComplete={async (outputDir: string, cookiesFrom: string, cookiesFile: string, proxy: string, language: 'zh-CN' | 'en-US', theme: 'dark' | 'light') => {
+                    onComplete={async (outputDir, cookiesFrom, cookiesFile, proxy, language, theme) => {
                         const settings: Settings = {
-                            outputDir,
-                            quality: 'best',
-                            language,
-                            theme,
-                            proxy,
-                            rateLimit: '',
-                            maxConcurrent: 3,
-                            notifications: true,
-                            saveDescription: false,
-                            saveThumbnail: false,
-                            writeSubtitles: false,
-                            subtitleLangs: '',
-                            embedSubtitles: false,
-                            embedChapters: false,
-                            sponsorBlock: false,
-                            filenameTemplate: '',
-                            mergeOutputFormat: '',
-                            audioFormat: '',
-                            cookiesFrom,
-                            cookiesFile,
+                            outputDir, quality: 'best', language, theme, proxy, rateLimit: '',
+                            maxConcurrent: 3, notifications: true, saveDescription: false, saveThumbnail: false,
+                            writeSubtitles: false, subtitleLangs: '', embedSubtitles: false, embedChapters: false,
+                            sponsorBlock: false, filenameTemplate: '', mergeOutputFormat: '', audioFormat: '',
+                            cookiesFrom, cookiesFile,
                         }
                         await SaveSettings(settings)
-                        setCurrentSettings(settings)
-                        setOutputDir(outputDir)
-                        setTheme(theme)
-                        setLang(language)
+                        setCurrentSettings(settings); setOutputDir(outputDir); setTheme(theme); setLang(language)
                         setShowSetupWizard(false)
                     }}
                 />
             )}
 
-            {/* Update Dialog */}
             <UpdateDialog
-                open={showUpdateDialog}
-                updateInfo={updateInfo}
-                loading={updateLoading}
-                error={updateError}
+                open={showUpdateDialog} updateInfo={updateInfo} loading={updateLoading} error={updateError}
                 onClose={() => setShowUpdateDialog(false)}
                 onOpenReleasePage={handleOpenReleasePage}
                 onCheckUpdate={handleCheckUpdate}
             />
+
             <DirBrowser
-                open={showDirBrowser}
-                initialPath={outputDir}
+                open={showDirBrowser} initialPath={outputDir}
                 onSelect={dir => {
                     setOutputDir(dir)
                     if (currentSettings) {

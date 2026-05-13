@@ -1,12 +1,14 @@
 import {useState, useEffect, useCallback} from 'react'
 import {BrowseDir, BrowseDirResult} from '../lib/backend'
 import {useI18n} from '../i18n/context'
+import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter} from '@/components/ui/dialog'
+import {Button} from '@/components/ui/button'
+import {Input} from '@/components/ui/input'
+import {ScrollArea} from '@/components/ui/scroll-area'
+import {FolderOpen, ArrowUp, Home, Folder} from 'lucide-react'
 
 interface Props {
-    open: boolean
-    initialPath: string
-    onSelect: (path: string) => void
-    onClose: () => void
+    open: boolean; initialPath: string; onSelect: (path: string) => void; onClose: () => void
 }
 
 function DirBrowser({open, initialPath, onSelect, onClose}: Props) {
@@ -22,117 +24,71 @@ function DirBrowser({open, initialPath, onSelect, onClose}: Props) {
         setLoading(true)
         try {
             const result = await BrowseDir(path)
-            setCurrentPath(result.path)
-            setDirs(result.dirs || [])
-            setParentPath(result.parent || '')
-            setManualPath(result.path)
+            setCurrentPath(result.path); setDirs(result.dirs || [])
+            setParentPath(result.parent || ''); setManualPath(result.path)
             if (result.homeDir) setHomeDir(result.homeDir)
-        } catch {
-            setDirs([])
-        } finally {
-            setLoading(false)
-        }
+        } catch { setDirs([]) }
+        finally { setLoading(false) }
     }, [])
 
-    useEffect(() => {
-        if (open) {
-            loadDir(initialPath || homeDir || '/')
-        }
-    }, [open, initialPath, homeDir, loadDir])
-
-    if (!open) return null
+    useEffect(() => { if (open) loadDir(initialPath || homeDir || '/') }, [open, initialPath, homeDir, loadDir])
 
     const handleNavigate = (dir: string) => {
-        const newPath = currentPath === '/' ? `/${dir}` : `${currentPath}/${dir}`
-        loadDir(newPath)
+        loadDir(currentPath === '/' ? `/${dir}` : `${currentPath}/${dir}`)
     }
 
-    const handleGoParent = () => {
-        if (parentPath && parentPath !== currentPath) {
-            loadDir(parentPath)
-        }
-    }
-
-    const handleGoHome = () => {
-        if (homeDir) loadDir(homeDir)
-    }
-
-    const handleManualGo = () => {
-        const path = manualPath.trim()
-        if (path) loadDir(path)
-    }
-
-    const handleSelect = () => {
-        onSelect(currentPath)
-        onClose()
-    }
+    const handleSelect = () => { onSelect(currentPath); onClose() }
 
     return (
-        <div className="dialog-overlay" onClick={onClose}>
-            <div className="dir-browser" onClick={e => e.stopPropagation()}>
-                <div className="dir-browser-header">
-                    <h3>{t('dirBrowser.title')}</h3>
-                    <button className="btn-ghost btn-sm" onClick={onClose}>✕</button>
+        <Dialog open={open} onOpenChange={(v: boolean) => { if (!v) onClose() }}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{t('dirBrowser.title')}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                    <div className="flex gap-2">
+                        <Input type="text" value={manualPath} onChange={e => setManualPath(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { const p = manualPath.trim(); if (p) loadDir(p) } }}
+                            placeholder="/path/to/directory" className="font-mono text-xs" />
+                        <Button variant="outline" size="sm" onClick={() => { const p = manualPath.trim(); if (p) loadDir(p) }}>
+                            {t('dirBrowser.go')}
+                        </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => { if (parentPath && parentPath !== currentPath) loadDir(parentPath) }}
+                            disabled={!parentPath || parentPath === currentPath} className="text-xs">
+                            <ArrowUp className="h-3 w-3 mr-1" />{t('dirBrowser.parent')}
+                        </Button>
+                        {homeDir && (
+                            <Button variant="ghost" size="sm" onClick={() => loadDir(homeDir)} className="text-xs">
+                                <Home className="h-3 w-3 mr-1" />{t('dirBrowser.home')}
+                            </Button>
+                        )}
+                        <span className="flex-1 text-right text-xs text-muted-foreground font-mono truncate">{currentPath}</span>
+                    </div>
+                    <ScrollArea className="h-64 rounded-md border">
+                        {loading ? (
+                            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">{t('dirBrowser.loading')}</div>
+                        ) : dirs.length === 0 ? (
+                            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">{t('dirBrowser.empty')}</div>
+                        ) : (
+                            <div className="p-1">
+                                {dirs.map(dir => (
+                                    <Button key={dir} variant="ghost" className="w-full justify-start text-sm h-8 font-normal"
+                                        onClick={() => handleNavigate(dir)}>
+                                        <Folder className="h-4 w-4 mr-2 text-muted-foreground" />{dir}
+                                    </Button>
+                                ))}
+                            </div>
+                        )}
+                    </ScrollArea>
                 </div>
-
-                <div className="dir-browser-path">
-                    <input
-                        className="dir-browser-path-input"
-                        type="text"
-                        value={manualPath}
-                        onChange={e => setManualPath(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleManualGo() }}
-                        placeholder="/path/to/directory"
-                    />
-                    <button className="btn-secondary btn-sm" onClick={handleManualGo}>
-                        {t('dirBrowser.go')}
-                    </button>
-                </div>
-
-                <div className="dir-browser-nav">
-                    <button
-                        className="btn-ghost btn-sm"
-                        onClick={handleGoParent}
-                        disabled={!parentPath || parentPath === currentPath}
-                    >
-                        ↑ {t('dirBrowser.parent')}
-                    </button>
-                    {homeDir && (
-                        <button className="btn-ghost btn-sm" onClick={handleGoHome}>
-                            🏠 {t('dirBrowser.home')}
-                        </button>
-                    )}
-                    <span className="dir-browser-current">{currentPath}</span>
-                </div>
-
-                <div className="dir-browser-list">
-                    {loading ? (
-                        <div className="dir-browser-loading">{t('dirBrowser.loading')}</div>
-                    ) : dirs.length === 0 ? (
-                        <div className="dir-browser-empty">{t('dirBrowser.empty')}</div>
-                    ) : (
-                        dirs.map(dir => (
-                            <button
-                                key={dir}
-                                className="dir-browser-item"
-                                onClick={() => handleNavigate(dir)}
-                            >
-                                📁 {dir}
-                            </button>
-                        ))
-                    )}
-                </div>
-
-                <div className="dir-browser-footer">
-                    <button className="btn-secondary" onClick={onClose}>
-                        {t('action.cancel')}
-                    </button>
-                    <button className="btn-primary" onClick={handleSelect}>
-                        {t('dirBrowser.select')} "{currentPath}"
-                    </button>
-                </div>
-            </div>
-        </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose}>{t('action.cancel')}</Button>
+                    <Button onClick={handleSelect}>{t('dirBrowser.select')} "{currentPath}"</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
 
