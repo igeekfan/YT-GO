@@ -69,7 +69,7 @@ func (s *Service) GetDepStatus() DepStatus {
 	ffPath, ffVersion, ffFound := detectFFmpeg()
 	status.FFmpeg = DepItem{Found: ffFound, Version: ffVersion, Path: ffPath}
 
-	denoProbe := probeDenoRuntime()
+	denoProbe := probeDenoRuntime(s.i18n)
 	if denoProbe.Found {
 		version := denoProbe.Version
 		if version == "" {
@@ -81,7 +81,7 @@ func (s *Service) GetDepStatus() DepStatus {
 		status.JSRuntime = DepItem{Found: denoProbe.Supported, Version: version, Path: denoProbe.Path}
 		status.JSRuntimeName = "deno"
 	} else {
-		nodeProbe := probeNodeRuntime()
+		nodeProbe := probeNodeRuntime(s.i18n)
 		if nodeProbe.Found {
 			version := nodeProbe.Version
 			if version == "" {

@@ -99,7 +99,7 @@ func isNodeVersionSufficient(nodePath string) bool {
 }
 
 // probeDenoRuntime probes for deno and checks if it meets version requirements.
-func probeDenoRuntime() runtimeProbe {
+func probeDenoRuntime(i *I18n) runtimeProbe {
 	probe := runtimeProbe{Name: "deno"}
 	denoPath, err := exec.LookPath("deno")
 	if err != nil || denoPath == "" {
@@ -113,7 +113,7 @@ func probeDenoRuntime() runtimeProbe {
 	platform.HideCmdWindow(denoCmd)
 	out, runErr := denoCmd.CombinedOutput()
 	if runErr != nil {
-		probe.Reason = fmt.Sprintf("当前检测到 Deno 路径 %s，但无法正常执行。", denoPath)
+		probe.Reason = fmt.Sprintf(i.T("runtime.deno.found_but_failed"), denoPath)
 		return probe
 	}
 	firstLine := strings.TrimSpace(strings.SplitN(toUTF8(out), "\n", 2)[0])
@@ -127,12 +127,12 @@ func probeDenoRuntime() runtimeProbe {
 	if detectedVersion == "" {
 		detectedVersion = firstLine
 	}
-	probe.Reason = fmt.Sprintf("当前检测到 Deno %s，但版本过低，yt-dlp EJS 至少需要 Deno %d.0.0。", detectedVersion, minimumDenoMajor)
+	probe.Reason = fmt.Sprintf(i.T("runtime.deno.too_old"), detectedVersion, minimumDenoMajor)
 	return probe
 }
 
 // probeNodeRuntime probes for node and checks if it meets version requirements.
-func probeNodeRuntime() runtimeProbe {
+func probeNodeRuntime(i *I18n) runtimeProbe {
 	probe := runtimeProbe{Name: "node"}
 	nodePath, err := exec.LookPath("node")
 	if err != nil || nodePath == "" {
@@ -146,7 +146,7 @@ func probeNodeRuntime() runtimeProbe {
 	platform.HideCmdWindow(nodeCmd)
 	out, runErr := nodeCmd.CombinedOutput()
 	if runErr != nil {
-		probe.Reason = fmt.Sprintf("当前检测到 Node.js 路径 %s，但无法正常执行。", nodePath)
+		probe.Reason = fmt.Sprintf(i.T("runtime.node.found_but_failed"), nodePath)
 		return probe
 	}
 	version := strings.TrimSpace(toUTF8(out))
@@ -160,18 +160,18 @@ func probeNodeRuntime() runtimeProbe {
 	if detectedVersion == "" {
 		detectedVersion = version
 	}
-	probe.Reason = fmt.Sprintf("当前检测到 Node.js %s，但版本过低，yt-dlp EJS 至少需要 Node.js %d.0.0。", detectedVersion, minimumNodeMajor)
+	probe.Reason = fmt.Sprintf(i.T("runtime.node.too_old"), detectedVersion, minimumNodeMajor)
 	return probe
 }
 
 // detectPreferredJSRuntime detects the best available JS runtime for yt-dlp.
-func detectPreferredJSRuntime() jsRuntimeSelection {
-	denoProbe := probeDenoRuntime()
+func detectPreferredJSRuntime(i *I18n) jsRuntimeSelection {
+	denoProbe := probeDenoRuntime(i)
 	if denoProbe.Supported {
 		return jsRuntimeSelection{Arg: denoProbe.Arg, Name: denoProbe.Name, Version: denoProbe.Version, Path: denoProbe.Path, Found: true}
 	}
 
-	nodeProbe := probeNodeRuntime()
+	nodeProbe := probeNodeRuntime(i)
 	if nodeProbe.Supported {
 		return jsRuntimeSelection{Arg: nodeProbe.Arg, Name: nodeProbe.Name, Version: nodeProbe.Version, Path: nodeProbe.Path, Found: true}
 	}
@@ -184,36 +184,36 @@ func detectPreferredJSRuntime() jsRuntimeSelection {
 		reasons = append(reasons, nodeProbe.Reason)
 	}
 	if len(reasons) == 0 {
-		reasons = append(reasons, "当前未检测到可用的 Deno 或 Node.js。")
+		reasons = append(reasons, i.T("runtime.none_found"))
 	}
 	return jsRuntimeSelection{Reason: strings.Join(reasons, " ")}
 }
 
 // getPreferredJSRuntime returns the --js-runtimes argument value for yt-dlp.
-func getPreferredJSRuntime() string {
-	return detectPreferredJSRuntime().Arg
+func getPreferredJSRuntime(i *I18n) string {
+	return detectPreferredJSRuntime(i).Arg
 }
 
 // ensureYouTubeJSRuntime checks if a YouTube URL has a usable JS runtime; returns error if not.
-func ensureYouTubeJSRuntime(rawURL string, settings Settings) error {
+func ensureYouTubeJSRuntime(i *I18n, rawURL string, settings Settings) error {
 	if !isYouTubeURL(rawURL) {
 		return nil
 	}
-	selection := detectPreferredJSRuntime()
+	selection := detectPreferredJSRuntime(i)
 	if selection.Found {
 		return nil
 	}
-	cookieHint := describeCookieSource(settings)
+	cookieHint := describeCookieSource(i, settings)
 	reason := selection.Reason
 	if reason == "" {
-		reason = "当前缺少可用的 JS runtime。"
+		reason = i.T("runtime.missing_generic")
 	}
-	return fmt.Errorf("当前链接属于 YouTube，yt-dlp 需要可用的 JS runtime 才能完成签名/JS challenge 求解。%s%s请升级到 Deno >= %d.0.0（推荐）或 Node.js >= %d.0.0，并在安装后完全重启应用再重试。", cookieHint, reason, minimumDenoMajor, minimumNodeMajor)
+	return fmt.Errorf(i.T("runtime.youtube.need_js"), cookieHint, reason, minimumDenoMajor, minimumNodeMajor)
 }
 
 // getNodeVersion returns a human-readable JS runtime version string.
 func getNodeVersion() string {
-	denoProbe := probeDenoRuntime()
+	denoProbe := probeDenoRuntime(fallbackI18n())
 	if denoProbe.Found {
 		version := denoProbe.Version
 		if version == "" {
@@ -248,7 +248,7 @@ func getNodeVersion() string {
 
 // UpdateDeno installs or upgrades deno.
 func (s *Service) UpdateDeno() (string, error) {
-	denoProbe := probeDenoRuntime()
+	denoProbe := probeDenoRuntime(s.i18n)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -294,4 +294,9 @@ func (s *Service) UpdateDeno() (string, error) {
 		output = output + "\n\nPlease restart the app to refresh runtime detection."
 	}
 	return output, nil
+}
+
+// fallbackI18n returns a default I18n instance for contexts without a Service (e.g. diagnostics).
+func fallbackI18n() *I18n {
+	return NewI18n()
 }

@@ -1,12 +1,5 @@
 package core
 
-type Lang string
-
-const (
-	LangZhCN Lang = "zh-CN"
-	LangEnUS Lang = "en-US"
-)
-
 type YtDlpStatus struct {
 	Available bool   `json:"available"`
 	Version   string `json:"version"`

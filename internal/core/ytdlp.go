@@ -20,7 +20,7 @@ func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
 		return VideoInfo{}, fmt.Errorf("yt-dlp not found")
 	}
 	settings := s.GetSettings()
-	if err := ensureYouTubeJSRuntime(videoURL, settings); err != nil {
+	if err := ensureYouTubeJSRuntime(s.i18n, videoURL, settings); err != nil {
 		s.emitLog("[GetVideoInfo] preflight failed: %v", err)
 		return VideoInfo{}, err
 	}
@@ -37,7 +37,7 @@ func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
 	s.logCmd("GetVideoInfo", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		errMsg := normalizeYtDlpError(toUTF8(out), settings)
+		errMsg := normalizeYtDlpError(s.i18n, toUTF8(out), settings)
 		s.emitLog("[GetVideoInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return VideoInfo{}, fmt.Errorf("%s", errMsg)
@@ -150,7 +150,7 @@ func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 		return PlaylistInfo{}, fmt.Errorf("yt-dlp not found")
 	}
 	settings := s.GetSettings()
-	if err := ensureYouTubeJSRuntime(videoURL, settings); err != nil {
+	if err := ensureYouTubeJSRuntime(s.i18n, videoURL, settings); err != nil {
 		s.emitLog("[GetPlaylistInfo] preflight failed: %v", err)
 		return PlaylistInfo{}, err
 	}
@@ -167,7 +167,7 @@ func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 	s.logCmd("GetPlaylistInfo", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		errMsg := normalizeYtDlpError(toUTF8(out), settings)
+		errMsg := normalizeYtDlpError(s.i18n, toUTF8(out), settings)
 		s.emitLog("[GetPlaylistInfo] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return PlaylistInfo{}, fmt.Errorf("%s", errMsg)
@@ -246,7 +246,7 @@ func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {
 		return FormatInfo{}, fmt.Errorf("yt-dlp not found")
 	}
 	settings := s.GetSettings()
-	if err := ensureYouTubeJSRuntime(videoURL, settings); err != nil {
+	if err := ensureYouTubeJSRuntime(s.i18n, videoURL, settings); err != nil {
 		s.emitLog("[GetFormats] preflight failed: %v", err)
 		return FormatInfo{}, err
 	}
@@ -263,7 +263,7 @@ func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {
 	s.logCmd("GetFormats", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		errMsg := normalizeYtDlpError(toUTF8(out), settings)
+		errMsg := normalizeYtDlpError(s.i18n, toUTF8(out), settings)
 		s.emitLog("[GetFormats] failed: err=%v, output=%s", err, errMsg)
 		if errMsg != "" {
 			return FormatInfo{}, fmt.Errorf("%s", errMsg)

@@ -54,7 +54,7 @@ func (s *Service) StartDownload(req DownloadRequest) (string, error) {
 	if s.ytdlpPath == "" && !isDouyinURL(req.URL) {
 		return "", fmt.Errorf("yt-dlp not found")
 	}
-	if err := ensureYouTubeJSRuntime(extractURLFromText(req.URL), s.GetSettings()); err != nil {
+	if err := ensureYouTubeJSRuntime(s.i18n, extractURLFromText(req.URL), s.GetSettings()); err != nil {
 		return "", err
 	}
 	taskID := uuid.New().String()

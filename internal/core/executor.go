@@ -45,7 +45,7 @@ func (s *Service) ytdlpCmd(ctx context.Context, args ...string) *exec.Cmd {
 
 // ytdlpMediaCmd builds a yt-dlp command with JS runtime auto-detection.
 func (s *Service) ytdlpMediaCmd(ctx context.Context, args ...string) *exec.Cmd {
-	if jsRuntime := getPreferredJSRuntime(); jsRuntime != "" {
+	if jsRuntime := getPreferredJSRuntime(s.i18n); jsRuntime != "" {
 		args = append([]string{"--js-runtimes", jsRuntime}, args...)
 	}
 	return s.ytdlpCmd(ctx, args...)
