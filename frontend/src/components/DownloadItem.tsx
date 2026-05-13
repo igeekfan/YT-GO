@@ -1,7 +1,7 @@
 ﻿import {useState, useEffect, useRef} from 'react'
 import {DownloadTask} from '../types'
 import {useI18n} from '../i18n/context'
-import {OpenFile, OpenFolder, CancelDownload, RemoveDownload} from '../lib/backend'
+import {OpenFile, OpenFolder, CancelDownload, RemoveDownload, backendMode, getDownloadFileURL} from '../lib/backend'
 import {EventsOn} from '../lib/runtime'
 
 interface Props {
@@ -28,6 +28,8 @@ const STATUS_COLORS: Record<string, string> = {
     error: 'bg-red-500/20 text-red-400',
     cancelled: 'bg-gray-500/20 text-gray-400',
 }
+
+const isDesktop = backendMode === 'desktop'
 
 function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Props) {
     const {t} = useI18n()
@@ -156,12 +158,26 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
                 )}
                 {task.status === 'completed' && (
                     <>
-                        <button className="btn-ghost btn-sm" onClick={handleOpenFile}>
-                            {t('action.open')}
-                        </button>
-                        <button className="btn-ghost btn-sm" onClick={handleOpenFolder}>
-                            {t('action.openFolder')}
-                        </button>
+                        {isDesktop ? (
+                            <>
+                                <button className="btn-ghost btn-sm" onClick={handleOpenFile}>
+                                    {t('action.open')}
+                                </button>
+                                <button className="btn-ghost btn-sm" onClick={handleOpenFolder}>
+                                    {t('action.openFolder')}
+                                </button>
+                            </>
+                        ) : (
+                            <a
+                                className="btn-ghost btn-sm"
+                                href={getDownloadFileURL(task.id)}
+                                download
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                {t('action.download')}
+                            </a>
+                        )}
                         <button className="btn-ghost btn-sm" onClick={() => onRedownload(task)}>
                             {t('action.redownload')}
                         </button>

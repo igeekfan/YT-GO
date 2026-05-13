@@ -2,7 +2,11 @@ package httpapi
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"YT-GO/internal/core"
@@ -45,11 +49,15 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/update", s.handleUpdate)
 	s.mux.HandleFunc("/api/ytdlp/status", s.handleYtDlpStatus)
 	s.mux.HandleFunc("/api/ytdlp/update", s.handleYtDlpUpdate)
+	s.mux.HandleFunc("/api/ytdlp/install", s.handleYtDlpInstall)
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
 	s.mux.HandleFunc("/api/settings/first-run", s.handleFirstRun)
 	s.mux.HandleFunc("/api/settings/needs-cookie", s.handleNeedsCookie)
 	s.mux.HandleFunc("/api/settings/reset", s.handleResetSettings)
+	s.mux.HandleFunc("/api/settings/browse-dir", s.handleBrowseDir)
+	s.mux.HandleFunc("/api/cookies/upload", s.handleCookiesUpload)
 	s.mux.HandleFunc("/api/diagnostics", s.handleDiagnostics)
+	s.mux.HandleFunc("/api/diagnostics/deps", s.handleDeps)
 	s.mux.HandleFunc("/api/diagnostics/deno/update", s.handleDenoUpdate)
 	s.mux.HandleFunc("/api/video/info", s.handleVideoInfo)
 	s.mux.HandleFunc("/api/video/formats", s.handleFormats)
@@ -135,6 +143,19 @@ func (s *Server) handleYtDlpUpdate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"output": output})
 }
 
+func (s *Server) handleYtDlpInstall(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w, http.MethodPost)
+		return
+	}
+	output, err := s.service.InstallYtDlp()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error(), "output": output})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"output": output})
+}
+
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -183,12 +204,137 @@ func (s *Server) handleResetSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// handleBrowseDir returns subdirectories of a given path for web mode directory browsing.
+// POST body: {"path": "/home/user"} → {"path": "/home/user", "dirs": ["Downloads", "Videos", ...]}
+func (s *Server) handleBrowseDir(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w, http.MethodPost)
+		return
+	}
+
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	dir := req.Path
+	if dir == "" {
+		dir, _ = os.UserHomeDir()
+		if dir == "" {
+			dir = "/"
+		}
+	}
+
+	// Clean and validate the path
+	dir = filepath.Clean(dir)
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"path": dir,
+			"dirs": []string{},
+		})
+		return
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"path": dir,
+			"dirs": []string{},
+		})
+		return
+	}
+
+	var dirs []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			name := entry.Name()
+			// Skip hidden directories
+			if !strings.HasPrefix(name, ".") {
+				dirs = append(dirs, name)
+			}
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"path":    dir,
+		"parent":  filepath.Dir(dir),
+		"dirs":    dirs,
+		"homeDir": func() string { h, _ := os.UserHomeDir(); return h }(),
+	})
+}
+
+// handleCookiesUpload accepts a cookies file upload for web mode.
+// The file is saved to the data directory and the path is returned.
+func (s *Server) handleCookiesUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w, http.MethodPost)
+		return
+	}
+
+	// Max 1MB cookies file
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("failed to read uploaded file: %w", err))
+		return
+	}
+	defer file.Close()
+
+	// Save to data directory
+	dataDir := s.service.GetDataDir()
+	if dataDir == "" {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("data directory not configured"))
+		return
+	}
+
+	cookiesDir := filepath.Join(dataDir, "cookies")
+	if err := os.MkdirAll(cookiesDir, 0755); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create cookies directory: %w", err))
+		return
+	}
+
+	// Use original filename but sanitize it
+	safeName := filepath.Base(header.Filename)
+	safeName = strings.ReplaceAll(safeName, " ", "_")
+	destPath := filepath.Join(cookiesDir, safeName)
+
+	dst, err := os.Create(destPath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create file: %w", err))
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to save file: %w", err))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"path": destPath,
+		"name": safeName,
+	})
+}
+
 func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeMethodNotAllowed(w, http.MethodGet)
 		return
 	}
 	writeJSON(w, http.StatusOK, s.service.GetDiagnosticInfo())
+}
+
+func (s *Server) handleDeps(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.service.GetDepStatus())
 }
 
 func (s *Server) handleDenoUpdate(w http.ResponseWriter, r *http.Request) {
@@ -301,22 +447,68 @@ func (s *Server) handleDownloadAction(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
 	taskID := parts[0]
 	action := parts[1]
 	switch action {
 	case "cancel":
+		if r.Method != http.MethodPost {
+			writeMethodNotAllowed(w, http.MethodPost)
+			return
+		}
 		if err := s.service.CancelDownload(taskID); err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "cancelled"})
+	case "file":
+		// Web mode: download the completed file
+		if r.Method != http.MethodGet {
+			writeMethodNotAllowed(w, http.MethodGet)
+			return
+		}
+		s.serveDownloadFile(w, r, taskID)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// serveDownloadFile serves a completed download file for web mode.
+func (s *Server) serveDownloadFile(w http.ResponseWriter, r *http.Request, taskID string) {
+	task, err := s.service.GetDownload(taskID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+	if task.OutputPath == "" {
+		writeError(w, http.StatusNotFound, fmt.Errorf("file not available"))
+		return
+	}
+
+	filePath := filepath.Clean(task.OutputPath)
+	info, err := os.Stat(filePath)
+	if err != nil {
+		writeError(w, http.StatusNotFound, fmt.Errorf("file not found: %w", err))
+		return
+	}
+
+	// If it's a directory, try to find the actual media file inside
+	if info.IsDir() {
+		writeError(w, http.StatusNotFound, fmt.Errorf("path is a directory, not a file"))
+		return
+	}
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to open file: %w", err))
+		return
+	}
+	defer f.Close()
+
+	fileName := filepath.Base(filePath)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+	http.ServeContent(w, r, fileName, info.ModTime(), f)
 }
 
 func decodeJSON(r *http.Request, target any) error {

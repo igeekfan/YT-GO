@@ -1,5 +1,5 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage} from './lib/backend'
+import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, backendMode} from './lib/backend'
 import {EventsOn} from './lib/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
 import {useI18n} from './i18n/context'
@@ -849,11 +849,13 @@ function App() {
                                     type="text"
                                     value={outputDir}
                                     onChange={e => setOutputDir(e.target.value)}
-                                    placeholder={t('outputDir.placeholder')}
+                                    placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : t('outputDir.placeholder')}
                                 />
-                                <button className="btn-secondary" onClick={handleSelectFolder}>
-                                    {t('outputDir.browse')}
-                                </button>
+                                {backendMode === 'desktop' && (
+                                    <button className="btn-secondary" onClick={handleSelectFolder}>
+                                        {t('outputDir.browse')}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

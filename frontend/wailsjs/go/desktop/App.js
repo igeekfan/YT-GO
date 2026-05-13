@@ -66,6 +66,10 @@ export function GetVideoInfo(arg1) {
   return window['go']['desktop']['App']['GetVideoInfo'](arg1);
 }
 
+export function InstallYtDlp() {
+  return window['go']['desktop']['App']['InstallYtDlp']();
+}
+
 export function IsFirstRun() {
   return window['go']['desktop']['App']['IsFirstRun']();
 }

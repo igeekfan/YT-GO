@@ -1,5 +1,5 @@
 import {useState, useEffect} from 'react'
-import {SelectFolder, SelectCookiesFile, CheckYtDlp, GetDepStatus, backendMode} from '../lib/backend'
+import {SelectFolder, SelectCookiesFile, CheckYtDlp, GetDepStatus, backendMode, UploadCookiesFile} from '../lib/backend'
 import {useI18n} from '../i18n/context'
 
 interface Props {
@@ -12,6 +12,7 @@ const LANGUAGE_OPTIONS = ['zh-CN', 'en-US'] as const
 export default function SetupWizard({onComplete}: Props) {
     const {t, lang, setLang} = useI18n()
     const canBrowseLocalPaths = backendMode === 'desktop'
+    const canSelectCookies = true // both desktop (browse) and web (upload) support cookies
     const [step, setStep] = useState(1)
     const [outputDir, setOutputDir] = useState('')
     const [cookiesFrom, setCookiesFrom] = useState('')
@@ -50,8 +51,26 @@ export default function SetupWizard({onComplete}: Props) {
     }
 
     const handleSelectCookiesFile = async () => {
-        const file = await SelectCookiesFile()
-        if (file) setCookiesFile(file)
+        if (backendMode === 'desktop') {
+            const file = await SelectCookiesFile()
+            if (file) setCookiesFile(file)
+        } else {
+            // Web mode: upload cookies file
+            const input = document.createElement('input')
+            input.type = 'file'
+            input.accept = '.txt,.cookies'
+            input.onchange = async () => {
+                const file = input.files?.[0]
+                if (!file) return
+                try {
+                    const result = await UploadCookiesFile(file)
+                    setCookiesFile(result.path)
+                } catch (err) {
+                    console.error('Failed to upload cookies file:', err)
+                }
+            }
+            input.click()
+        }
     }
 
     const handleComplete = () => {
@@ -163,7 +182,8 @@ export default function SetupWizard({onComplete}: Props) {
                                 {t('setup.cookiesDesc')}
                             </p>
                             
-                            {/* Option 1: Import from browser */}
+                            {/* Option 1: Import from browser (desktop only) */}
+                            {backendMode === 'desktop' && (
                             <div className="setup-field">
                                 <label className="setup-label">{t('settings.cookiesFrom')}</label>
                                 <select
@@ -185,6 +205,7 @@ export default function SetupWizard({onComplete}: Props) {
                                 </select>
                                 <p className="setup-hint">{t('settings.cookiesFromHint')}</p>
                             </div>
+                            )}
 
                             {/* Divider - only show when neither is selected */}
                             {!cookiesFrom && !cookiesFile && (
@@ -209,10 +230,10 @@ export default function SetupWizard({onComplete}: Props) {
                                             placeholder={t('settings.cookiesFilePlaceholder')}
                                             readOnly={canBrowseLocalPaths}
                                         />
-                                        <button 
-                                            className="btn-secondary" 
+                                        <button
+                                            className="btn-secondary"
                                             onClick={handleSelectCookiesFile}
-                                            disabled={!canBrowseLocalPaths}
+                                            disabled={!canSelectCookies}
                                         >
                                             {t('outputDir.browse')}
                                         </button>

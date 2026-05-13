@@ -34,6 +34,8 @@ export function GetSettings():Promise<desktop.Settings>;
 
 export function GetVideoInfo(arg1:string):Promise<desktop.VideoInfo>;
 
+export function InstallYtDlp():Promise<string>;
+
 export function IsFirstRun():Promise<boolean>;
 
 export function NeedsCookieConfig():Promise<boolean>;

@@ -3,7 +3,9 @@ package core
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -106,4 +108,24 @@ func (s *Service) resolveYtDlp() string {
 		return ""
 	}
 	return resolved.Executable
+}
+
+// GetDataDir returns the application data directory path.
+func (s *Service) GetDataDir() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "YT-GO")
+}
+
+// GetDownload returns a single download task by ID.
+func (s *Service) GetDownload(id string) (*DownloadTask, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	task, ok := s.downloads[id]
+	if !ok {
+		return nil, fmt.Errorf("download task not found: %s", id)
+	}
+	return task, nil
 }

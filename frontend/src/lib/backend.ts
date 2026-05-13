@@ -57,6 +57,16 @@ export function UpdateYtDlp() {
     )
 }
 
+export function InstallYtDlp() {
+    return getDesktop(
+        () => DesktopApp.InstallYtDlp(),
+        async () => {
+            const result = await apiFetch<{output: string}>('/api/ytdlp/install', {method: 'POST'})
+            return result.output || ''
+        }
+    )
+}
+
 export function UpdateDeno() {
     return getDesktop(
         async () => {
@@ -94,52 +104,58 @@ export function GetFormats(url: string) {
     )
 }
 
+// SelectFolder: desktop uses native dialog, web uses text input (server-side path)
 export function SelectFolder() {
     if (backendMode === 'desktop') {
         return DesktopApp.SelectFolder()
     }
+    // Web mode: return empty string, UI should show text input instead of dialog
+    return Promise.resolve('')
+}
 
-    return new Promise<string>((resolve) => {
-        const input = document.createElement('input')
-        input.type = 'file'
-        input.webkitdirectory = true
-        input.style.display = 'none'
-        document.body.appendChild(input)
+// BrowseDir: list subdirectories on the server (web mode only)
+export interface BrowseDirResult {
+    path: string
+    parent: string
+    dirs: string[]
+    homeDir: string
+}
 
-        input.onchange = () => {
-            const files = input.files
-            let dir = ''
-            if (files && files.length > 0) {
-                const lastSlash = files[0].webkitRelativePath.lastIndexOf('/')
-                dir = lastSlash > 0 ? files[0].webkitRelativePath.substring(0, lastSlash) : ''
-            }
-            document.body.removeChild(input)
-            resolve(dir)
-        }
-
-        input.click()
+export function BrowseDir(path: string) {
+    return apiFetch<BrowseDirResult>('/api/settings/browse-dir', {
+        method: 'POST',
+        body: JSON.stringify({path}),
     })
 }
 
+// SelectCookiesFile: desktop uses native dialog, web uploads file to server
 export function SelectCookiesFile() {
     if (backendMode === 'desktop') {
         return DesktopApp.SelectCookiesFile()
     }
+    // Web mode: return empty string, UI should show upload input instead
+    return Promise.resolve('')
+}
 
-    return new Promise<string>((resolve) => {
-        const input = document.createElement('input')
-        input.type = 'file'
-        input.accept = '.txt,.cookies'
-        input.style.display = 'none'
-        document.body.appendChild(input)
+// UploadCookiesFile: upload a cookies file to the server (web mode)
+export interface UploadCookiesResult {
+    path: string
+    name: string
+}
 
-        input.onchange = () => {
-            const file = input.files?.[0]
-            document.body.removeChild(input)
-            resolve(file ? file.name : '')
+export function UploadCookiesFile(file: File) {
+    const base = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetch(`${base}/api/cookies/upload`, {
+        method: 'POST',
+        body: formData,
+    }).then(async response => {
+        const data = await response.json()
+        if (!response.ok) {
+            throw new Error(data?.error || 'Upload failed')
         }
-
-        input.click()
+        return data as UploadCookiesResult
     })
 }
 
@@ -273,12 +289,28 @@ export function ClearCompleted() {
     )
 }
 
+// OpenFile: desktop opens locally, web provides download link
 export function OpenFile(path: string) {
-    return getDesktop(() => DesktopApp.OpenFile(path), async () => undefined)
+    if (backendMode === 'desktop') {
+        return DesktopApp.OpenFile(path)
+    }
+    // Web mode: no-op, UI should use downloadFileURL() instead
+    return Promise.resolve(undefined)
 }
 
+// OpenFolder: desktop opens locally, web no-op
 export function OpenFolder(path: string) {
-    return getDesktop(() => DesktopApp.OpenFolder(path), async () => undefined)
+    if (backendMode === 'desktop') {
+        return DesktopApp.OpenFolder(path)
+    }
+    // Web mode: no-op
+    return Promise.resolve(undefined)
+}
+
+// getDownloadFileURL returns a URL for downloading a completed file in web mode
+export function getDownloadFileURL(taskID: string) {
+    const base = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
+    return `${base}/api/downloads/${encodeURIComponent(taskID)}/file`
 }
 
 export function CancelDownload(id: string) {

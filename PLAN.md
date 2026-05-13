@@ -22,7 +22,7 @@
 | N2.5 | 引入 go-ytdlp 包 | 替换自有命令构建、JSON 解析、进度解析、yt-dlp/ffmpeg 安装与检测逻辑 | ✅ 已完成 |
 | N3 | 工具中心独立页面 | 将诊断、更新、环境检测从设置弹窗中继续剥离，形成独立 Tools 页面 | ⏳ 待开始 |
 | N4 | 队列管理增强 | 增加任务批量操作、排序控制、失败聚合处理与更明确的队列状态反馈 | ⏳ 待开始 |
-| N5 | Web 模式补强 | 继续对齐 desktop/web 差异，补齐文件选择、状态同步和运行时提示的体验缺口 | ⏳ 待开始 |
+| N5 | Web 模式补强 | 对齐 desktop/web 差异，补齐文件选择、下载文件获取、Cookies 上传和运行时提示的体验缺口 | ✅ 已完成 |
 | N6 | 文档与发布规范 | 为桌面/Web/Docker 三种运行形态补齐更清晰的使用说明、限制说明与截图更新流程 | ⏳ 待开始 |
 
 ## 分阶段建议
@@ -74,6 +74,50 @@
 
 1. ~~先做下载器内核下沉，避免新功能继续堆在现有调用链上。~~ ✅
 2. ~~评估并引入 go-ytdlp 包，替换自有命令构建与安装更新逻辑。~~ ✅
-3. 再做首页常用设置下沉，优化高频下载流程。
-4. 然后拆出独立工具中心，收敛低频维护功能。
-5. 最后补齐队列管理增强与 Web 模式体验对齐。
+3. ~~Web 模式补强：文件选择、下载文件获取、Cookies 上传、运行时提示对齐。~~ ✅
+4. 再做首页常用设置下沉，优化高频下载流程。
+5. 然后拆出独立工具中心，收敛低频维护功能。
+6. 最后补齐队列管理增强与文档发布规范。
+
+## 已完成的 Web 模式补强（N5）
+
+### 后端新增 API 端点
+
+- `POST /api/settings/browse-dir` — 列出服务器端目录内容，供 Web 端目录浏览
+- `POST /api/cookies/upload` — 上传 cookies.txt 文件到服务器，返回服务器端路径
+- `GET /api/downloads/{id}/file` — 下载已完成的文件（Web 端获取下载成果）
+- `POST /api/ytdlp/install` — 安装 yt-dlp（Web 端诊断工具使用）
+- `GET /api/diagnostics/deps` — 获取依赖状态
+
+### Service 新增方法
+
+- `GetDataDir()` — 返回应用数据目录路径
+- `GetDownload(id)` — 按 ID 获取单个下载任务
+
+### 前端 backend.ts 改进
+
+- `SelectFolder()` — Web 模式返回空字符串，UI 改为服务器端路径文本输入
+- `BrowseDir(path)` — 新增，调用 `/api/settings/browse-dir` 列出服务器端目录
+- `UploadCookiesFile(file)` — 新增，上传 cookies 文件到服务器
+- `getDownloadFileURL(taskID)` — 新增，返回 Web 端下载文件的 URL
+- `InstallYtDlp()` — 新增，Web 端安装 yt-dlp
+
+### 前端 UI 适配
+
+- `DownloadItem` — Web 模式下"打开文件/文件夹"按钮替换为"下载文件"链接
+- `SettingsDialog` — Web 模式下隐藏"从浏览器导入 Cookies"选项，浏览按钮替换为上传按钮
+- `SetupWizard` — Web 模式下隐藏浏览器 cookies 选择器，支持 cookies 文件上传
+- `App.tsx` — Web 模式下隐藏目录浏览按钮，改为纯文本输入
+- 所有目录输入框在 Web 模式显示服务器端路径提示
+
+### i18n 新增
+
+- `action.download` / `action.upload` — 下载文件/上传按钮文本
+- `outputDir.serverPathPlaceholder` — 服务器端路径占位符
+- `settings.cookiesFileWebHint` — Web 模式 cookies 上传提示
+- `settings.outputDirWebHint` — Web 模式目录输入提示
+
+### 其他修复
+
+- `main_web.go` — 移除已废弃的 `HideCommand` hook 和 `platform` import
+- `desktop/app_bindings.go` — 新增 `InstallYtDlp` 桌面端绑定

@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion} from '../lib/backend'
+import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, BrowseDir, UploadCookiesFile} from '../lib/backend'
 
 interface DiagnosticInfo {
     ytdlpPath: string
@@ -322,11 +322,17 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                         className="setting-input flex-1"
                         value={settings.outputDir}
                         onChange={e => update('outputDir', e.target.value)}
+                        placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : undefined}
                     />
-                    <button className="btn-secondary btn-sm" onClick={handleSelectFolder}>
-                        {t('outputDir.browse')}
-                    </button>
+                    {backendMode === 'desktop' && (
+                        <button className="btn-secondary btn-sm" onClick={handleSelectFolder}>
+                            {t('outputDir.browse')}
+                        </button>
+                    )}
                 </div>
+                {backendMode === 'web' && (
+                    <div className="setting-hint">{t('settings.outputDirWebHint')}</div>
+                )}
             </div>
             <div className="setting-item">
                 <label className="setting-label">{t('settings.quality')}</label>
@@ -488,7 +494,8 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                 />
             </div>
             
-            {/* Cookies - Option 1: From browser */}
+            {/* Cookies - Option 1: From browser (desktop only) */}
+            {backendMode === 'desktop' && (
             <div className="setting-item">
                 <label className="setting-label">{t('settings.cookiesFrom')}</label>
                 <select
@@ -509,6 +516,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                     <option value="safari">Safari</option>
                 </select>
             </div>
+            )}
 
             {/* Divider - only show when neither is selected */}
             {(!settings.cookiesFrom && !settings.cookiesFile) && (
@@ -521,7 +529,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
             {settings.cookiesFrom ? null : (
                 <div className="setting-item">
                     <label className="setting-label">{t('settings.cookiesFile')}</label>
-<div className="setting-row">
+                    <div className="setting-row">
                         <input
                             type="text"
                             className="setting-input flex-1"
@@ -532,27 +540,56 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                             }}
                             placeholder={t('settings.cookiesFilePlaceholder')}
                         />
-                        <button
-                            className="btn-secondary btn-sm"
-                            onClick={async () => {
-                                const file = await SelectCookiesFile()
-                                if (file) {
-                                    setSettings(prev => prev ? {...prev, cookiesFile: file, cookiesFrom: ''} : prev)
-                                }
-                            }}
-                        >
-                            {t('outputDir.browse')}
-                        </button>
+                        {backendMode === 'desktop' ? (
+                            <button
+                                className="btn-secondary btn-sm"
+                                onClick={async () => {
+                                    const file = await SelectCookiesFile()
+                                    if (file) {
+                                        setSettings(prev => prev ? {...prev, cookiesFile: file, cookiesFrom: ''} : prev)
+                                    }
+                                }}
+                            >
+                                {t('outputDir.browse')}
+                            </button>
+                        ) : (
+                            <button
+                                className="btn-secondary btn-sm"
+                                onClick={() => {
+                                    const input = document.createElement('input')
+                                    input.type = 'file'
+                                    input.accept = '.txt,.cookies'
+                                    input.onchange = async () => {
+                                        const file = input.files?.[0]
+                                        if (!file) return
+                                        try {
+                                            const result = await UploadCookiesFile(file)
+                                            setSettings(prev => prev ? {...prev, cookiesFile: result.path, cookiesFrom: ''} : prev)
+                                        } catch (err) {
+                                            console.error('Failed to upload cookies file:', err)
+                                        }
+                                    }
+                                    input.click()
+                                }}
+                            >
+                                {t('action.upload')}
+                            </button>
+                        )}
                     </div>
+                    {backendMode === 'web' && (
+                        <div className="setting-hint">{t('settings.cookiesFileWebHint')}</div>
+                    )}
+                    {backendMode === 'desktop' && (
                     <div className="setting-hint">
                         <a 
                             href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc"
                             target="_blank"
- rel="noopener noreferrer"
+                            rel="noopener noreferrer"
                         >
                             {t('setup.getExtension')}
                         </a>
                     </div>
+                    )}
                 </div>
             )}
         </>

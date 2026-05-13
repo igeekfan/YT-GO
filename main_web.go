@@ -11,7 +11,6 @@ import (
 
 	"YT-GO/internal/core"
 	"YT-GO/internal/httpapi"
-	"YT-GO/internal/platform"
 )
 
 func main() {
@@ -34,7 +33,6 @@ func main() {
 			log.Printf("[%s] %s", taskID, line)
 			apiServer.Hub().Emit("download:log", map[string]string{"taskId": taskID, "line": line})
 		},
-		HideCommand: platform.HideCmdWindow,
 	})
 
 	if err := service.Startup(); err != nil {
