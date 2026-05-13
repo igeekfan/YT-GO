@@ -1,15 +1,16 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lrstanley/go-ytdlp"
 )
 
 func (s *Service) cleanupTransientDownloads() {
@@ -83,6 +84,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	cp := *s.downloads[taskID]
 	s.mu.Unlock()
 	s.emitDownloadUpdate(&cp)
+
 	if isDouyinURL(req.URL) {
 		s.runDouyinDownload(taskID, req, ctx)
 		cancel()
@@ -92,31 +94,33 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	settings := s.GetSettings()
 
 	// Build the download command using go-ytdlp builder.
-	cmd := s.newYtdlpCommand().SetExecutable(ytdlpPath)
-	applyFormatArgs(cmd, req.Quality)
-	cmd.IgnoreConfig()
+	builder := s.newYtdlpCommand().SetExecutable(ytdlpPath)
+	builder.SetSeparateProcessGroup(true)
+	builder.SetCancelMaxWait(3 * time.Second)
+	applyFormatArgs(builder, req.Quality)
+	builder.IgnoreConfig()
 
 	if runtime.GOOS == "windows" {
-		cmd.WindowsFilenames()
+		builder.WindowsFilenames()
 	}
 
 	outputTemplate := "%(title)s.%(ext)s"
 	if settings.FilenameTemplate != "" {
 		outputTemplate = settings.FilenameTemplate
 	}
-	cmd.Newline()
-	cmd.Print("after_move:[YT-GO-OUTPUT]%(filepath)s")
-	cmd.Output(filepath.Join(req.OutputDir, outputTemplate))
-	cmd.NoPlaylist()
+	builder.Newline()
+	builder.Print("after_move:[YT-GO-OUTPUT]%(filepath)s")
+	builder.Output(filepath.Join(req.OutputDir, outputTemplate))
+	builder.NoPlaylist()
 
 	if settings.RateLimit != "" {
-		cmd.LimitRate(settings.RateLimit)
+		builder.LimitRate(settings.RateLimit)
 	}
 	if settings.Proxy != "" {
-		cmd.Proxy(settings.Proxy)
+		builder.Proxy(settings.Proxy)
 	}
 	if settings.MergeOutputFormat != "" && shouldApplyMergeOutputFormat(req.Quality) {
-		cmd.MergeOutputFormat(settings.MergeOutputFormat)
+		builder.MergeOutputFormat(settings.MergeOutputFormat)
 	}
 	if requiresAudioExtraction(req.Quality) {
 		audioFmt := settings.AudioFormat
@@ -124,7 +128,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 			audioFmt = "mp3"
 		}
 		if audioFmt != "" {
-			cmd.AudioFormat(audioFmt)
+			builder.AudioFormat(audioFmt)
 		}
 	}
 
@@ -161,81 +165,117 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	}
 
 	if optSaveDescription {
-		cmd.WriteDescription()
+		builder.WriteDescription()
 	}
 	if optSaveThumbnail {
-		cmd.WriteThumbnail()
+		builder.WriteThumbnail()
 	}
 	if optWriteSubtitles {
-		cmd.WriteSubs()
+		builder.WriteSubs()
 		if optSubtitleLangs != "" {
-			cmd.SubLangs(optSubtitleLangs)
+			builder.SubLangs(optSubtitleLangs)
 		}
 		if optEmbedSubtitles {
-			cmd.EmbedSubs()
+			builder.EmbedSubs()
 		}
 	}
 	if optEmbedChapters {
-		cmd.EmbedChapters()
+		builder.EmbedChapters()
 	}
 	if optSponsorBlock {
-		cmd.SponsorblockMark("all")
+		builder.SponsorblockMark("all")
 	}
 
-	applyCookiesArgs(cmd, settings)
-	s.applyMediaCommand(cmd)
-
-	// Set up progress callback.
-	var lastOutputFile string
-	cmd.ProgressFunc(200*time.Millisecond, func(update ytdlp.ProgressUpdate) {
-		var updated *DownloadTask
-		s.mu.Lock()
-		if t, ok := s.downloads[taskID]; ok {
-			t.Progress = update.Percent()
-			if update.TotalBytes > 0 {
-				t.Size = fmt.Sprintf("%.1fMB", float64(update.DownloadedBytes)/1024/1024)
-			}
-			if update.Filename != "" {
-				lastOutputFile = update.Filename
-			}
-			// Calculate speed and ETA from duration.
-			elapsed := update.Duration()
-			if elapsed > 0 && update.DownloadedBytes > 0 {
-				speed := float64(update.DownloadedBytes) / elapsed.Seconds()
-				t.Speed = formatSpeed(speed)
-				if update.TotalBytes > 0 {
-					remaining := time.Duration(float64(update.TotalBytes-update.DownloadedBytes)/speed) * time.Second
-					t.ETA = formatDuration(remaining)
-				}
-			}
-			copy := *t
-			updated = &copy
-		}
-		s.mu.Unlock()
-		if updated != nil {
-			s.emitDownloadUpdate(updated)
-		}
-	})
-
-	// Set up stderr callback for logging.
-	cmd.StderrFunc(func(line string) {
-		// Check for output path markers from our --print after_move directive.
-		if m := finalPathRe.FindStringSubmatch(line); m != nil {
-			lastOutputFile = strings.TrimSpace(m[1])
-			return
-		}
-		s.emitDownloadLog(taskID, line)
-	})
+	applyCookiesArgs(builder, settings)
+	s.applyMediaCommand(builder)
 
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Starting download: %s", req.URL))
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] yt-dlp path: %s", ytdlpPath))
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Output dir: %s", req.OutputDir))
 
-	_, err := cmd.Run(ctx, req.URL)
+	// Use BuildCommand to get exec.Cmd, then manage execution ourselves
+	// for proper cancel support. We use a lineWriter to parse progress
+	// from stdout/stderr, just like the old implementation.
+	execCmd := builder.BuildCommand(ctx, req.URL)
+	s.emitLog("[runDownload] exec: %s", strings.Join(execCmd.Args, " "))
+
+	// Store the command so CancelDownload can kill the process.
+	s.mu.Lock()
+	s.cmds[taskID] = execCmd
+	s.mu.Unlock()
+
+	var lastOutputFile string
+	writer := &lineWriter{handler: func(line string) {
+		if m := finalPathRe.FindStringSubmatch(line); m != nil {
+			lastOutputFile = strings.TrimSpace(m[1])
+			return
+		}
+		s.emitDownloadLog(taskID, line)
+		if m := progressRe.FindStringSubmatch(line); m != nil {
+			pct, _ := strconv.ParseFloat(m[1], 64)
+			var updated *DownloadTask
+			s.mu.Lock()
+			if t, ok := s.downloads[taskID]; ok {
+				t.Progress = pct
+				t.Size = m[2]
+				t.Speed = m[3]
+				if len(m) > 4 {
+					t.ETA = m[4]
+				}
+				copy := *t
+				updated = &copy
+			}
+			s.mu.Unlock()
+			if updated != nil {
+				s.emitDownloadUpdate(updated)
+			}
+		} else if m := destRe1.FindStringSubmatch(line); m != nil {
+			lastOutputFile = m[1]
+		} else if m := destRe2.FindStringSubmatch(line); m != nil {
+			lastOutputFile = strings.Trim(m[1], `"`)
+		} else if m := destRe3.FindStringSubmatch(line); m != nil {
+			lastOutputFile = m[1]
+		}
+	}}
+
+	execCmd.Stdout = writer
+	execCmd.Stderr = writer
+
+	runErr := execCmd.Start()
+	if runErr != nil {
+		wasCancelled := ctx.Err() != nil
+		cancel()
+		s.mu.Lock()
+		delete(s.cancelFns, taskID)
+		delete(s.cmds, taskID)
+		if t, ok := s.downloads[taskID]; ok {
+			if wasCancelled {
+				delete(s.downloads, taskID)
+				s.mu.Unlock()
+				s.emitDownloadRemove(taskID)
+				go s.deleteRecords([]string{taskID})
+				return
+			}
+			t.Status = "error"
+			t.Error = runErr.Error()
+			copy := *t
+			s.mu.Unlock()
+			s.emitDownloadUpdate(&copy)
+			go s.upsertRecord(&copy)
+		} else {
+			s.mu.Unlock()
+		}
+		return
+	}
+
+	// Wait for the process to finish.
+	runErr = execCmd.Wait()
+
 	wasCancelled := ctx.Err() != nil
 	cancel()
 	s.mu.Lock()
 	delete(s.cancelFns, taskID)
+	delete(s.cmds, taskID)
 	var finalTask *DownloadTask
 	var removed bool
 	if t, ok := s.downloads[taskID]; ok {
@@ -243,9 +283,9 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 		case wasCancelled:
 			delete(s.downloads, taskID)
 			removed = true
-		case err != nil:
+		case runErr != nil:
 			t.Status = "error"
-			t.Error = err.Error()
+			t.Error = runErr.Error()
 		default:
 			t.Status = "completed"
 			t.Progress = 100
@@ -266,6 +306,28 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 		s.emitDownloadUpdate(finalTask)
 		go s.upsertRecord(finalTask)
 	}
+}
+
+// lineWriter buffers bytes into complete lines and calls handler for each.
+type lineWriter struct {
+	buf     []byte
+	handler func(string)
+}
+
+func (lw *lineWriter) Write(p []byte) (int, error) {
+	lw.buf = append(lw.buf, p...)
+	for {
+		idx := bytes.IndexByte(lw.buf, '\n')
+		if idx < 0 {
+			break
+		}
+		line := strings.TrimRight(toUTF8(lw.buf[:idx]), "\r")
+		lw.buf = lw.buf[idx+1:]
+		if line != "" {
+			lw.handler(line)
+		}
+	}
+	return len(p), nil
 }
 
 // formatSpeed formats bytes per second as a human-readable string.
@@ -294,13 +356,21 @@ func formatDuration(d time.Duration) string {
 }
 
 func (s *Service) CancelDownload(taskID string) error {
-	s.mu.RLock()
+	s.mu.Lock()
 	cancel, ok := s.cancelFns[taskID]
-	s.mu.RUnlock()
+	cmd := s.cmds[taskID]
+	s.mu.Unlock()
 	if !ok {
 		return fmt.Errorf("task not found or not active")
 	}
+	// Cancel the context — this signals exec.CommandContext to kill the process.
 	cancel()
+	// Additionally, forcefully kill the process if it's still running.
+	// On Windows with CREATE_NEW_PROCESS_GROUP, this ensures the yt-dlp
+	// process and its children (ffmpeg, etc.) are terminated.
+	if cmd != nil && cmd.Process != nil {
+		cmd.Process.Kill()
+	}
 	return nil
 }
 

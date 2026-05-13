@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"sync"
 	"time"
 
@@ -21,6 +22,7 @@ type Service struct {
 	i18n        *I18n
 	downloads   map[string]*DownloadTask
 	cancelFns   map[string]context.CancelFunc
+	cmds        map[string]*exec.Cmd // running commands for forceful cancel
 	mu          sync.RWMutex
 	db          *gorm.DB
 	downloadSem chan struct{}
@@ -33,6 +35,7 @@ func NewService(appVersion string) *Service {
 		i18n:        NewI18n(),
 		downloads:   make(map[string]*DownloadTask),
 		cancelFns:   make(map[string]context.CancelFunc),
+		cmds:        make(map[string]*exec.Cmd),
 		downloadSem: make(chan struct{}, 3),
 		appVersion:  appVersion,
 	}
