@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -39,6 +40,20 @@ var douyinMobileHeaders = map[string]string{
 	"Referer":         "https://www.douyin.com/",
 }
 
+// applyDouyinCookies adds user-configured cookies to the request.
+// This allows Douyin API and page requests to use login cookies.
+func applyDouyinCookies(req *http.Request, settings Settings) {
+	if settings.CookiesFile != "" {
+		// Read cookies from the cookies.txt file and add them to the request.
+		cookies, err := readCookiesFromFile(settings.CookiesFile, req.URL.Host)
+		if err == nil {
+			for _, c := range cookies {
+				req.AddCookie(c)
+			}
+		}
+	}
+}
+
 func isDouyinURL(rawURL string) bool {
 	_, _, err := extractDouyinTarget(rawURL)
 	return err == nil
@@ -47,17 +62,17 @@ func isDouyinURL(rawURL string) bool {
 func (s *Service) GetDouyinVideoInfo(rawURL string) (VideoInfo, error) {
 	itemInfo, videoID, finalURL, err := s.resolveDouyinItemInfo(rawURL)
 	if err != nil {
-		return VideoInfo{}, err
+		return VideoInfo{}, s.translateDouyinError(err)
 	}
 	video := VideoInfo{
 		ID:       videoID,
 		URL:      finalURL,
 		Title:    douyinString(itemInfo, "desc"),
 		Duration: douyinVideoDurationSeconds(itemInfo),
-		Platform: "抖音",
+		Platform: s.i18n.T("douyin.platform"),
 	}
 	if video.Title == "" {
-		video.Title = "抖音视频_" + videoID
+		video.Title = fmt.Sprintf(s.i18n.T("douyin.video_title"), videoID)
 	}
 	if author, ok := itemInfo["author"].(map[string]any); ok {
 		video.Uploader = douyinString(author, "nickname")
@@ -71,23 +86,23 @@ func (s *Service) GetDouyinVideoInfo(rawURL string) (VideoInfo, error) {
 func (s *Service) GetDouyinFormats(rawURL string) (FormatInfo, error) {
 	itemInfo, _, finalURL, err := s.resolveDouyinItemInfo(rawURL)
 	if err != nil {
-		return FormatInfo{}, err
+		return FormatInfo{}, s.translateDouyinError(err)
 	}
 	if _, err := douyinVideoURL(itemInfo); err != nil {
-		return FormatInfo{}, err
+		return FormatInfo{}, s.translateDouyinError(err)
 	}
 	width, height := douyinVideoDimensions(itemInfo)
-	resolution := "原始"
+	resolution := s.i18n.T("douyin.resolution_original")
 	if width > 0 && height > 0 {
 		resolution = fmt.Sprintf("%dx%d", width, height)
 	}
-	note := "抖音无水印"
+	note := s.i18n.T("douyin.no_watermark")
 	if height > 0 {
-		note = fmt.Sprintf("抖音无水印 %dp", height)
+		note = fmt.Sprintf(s.i18n.T("douyin.no_watermark_height"), height)
 	}
 	title := douyinString(itemInfo, "desc")
 	if title == "" {
-		title = "抖音视频"
+		title = s.i18n.T("douyin.video_label")
 	}
 	return FormatInfo{
 		URL:   finalURL,
@@ -134,7 +149,7 @@ func (s *Service) resolveDouyinItemInfo(rawInput string) (map[string]any, string
 func extractDouyinTarget(input string) (string, string, error) {
 	normalized := normalizeDouyinInput(input)
 	if normalized == "" {
-		return "", "", fmt.Errorf("未找到有效的抖音链接")
+		return "", "", fmt.Errorf("douyin.link_not_found")
 	}
 	for _, match := range douyinURLPattern.FindAllString(normalized, -1) {
 		candidate := cleanDouyinURLCandidate(match)
@@ -159,7 +174,7 @@ func extractDouyinTarget(input string) (string, string, error) {
 	if videoID := extractDouyinInputID(normalized); videoID != "" {
 		return canonicalDouyinVideoURL(videoID), videoID, nil
 	}
-	return "", "", fmt.Errorf("未找到有效的抖音链接")
+	return "", "", fmt.Errorf("douyin.link_not_found")
 }
 
 func normalizeDouyinInput(input string) string {
@@ -169,10 +184,10 @@ func normalizeDouyinInput(input string) string {
 		"\r", " ",
 		"\n", " ",
 		"\t", " ",
-		"“", `"`,
-		"”", `"`,
-		"‘", `'`,
-		"’", `'`,
+		"\u201c", `"`,
+		"\u201d", `"`,
+		"\u2018", `'`,
+		"\u2019", `'`,
 	)
 	return strings.TrimSpace(strings.Join(strings.Fields(replacer.Replace(input)), " "))
 }
@@ -223,7 +238,7 @@ func canonicalDouyinVideoURL(videoID string) string {
 }
 
 func (s *Service) resolveDouyinRedirect(shareURL string, settings Settings) (string, error) {
-	client, err := newDouyinHTTPClient(settings, 30*time.Second)
+	client, err := newDouyinHTTPClient(s.i18n, settings, 30*time.Second)
 	if err != nil {
 		return "", err
 	}
@@ -233,17 +248,18 @@ func (s *Service) resolveDouyinRedirect(shareURL string, settings Settings) (str
 			return "", err
 		}
 		applyHeaders(req, douyinDefaultHeaders)
+		applyDouyinCookies(req, settings)
 		resp, err := client.Do(req)
 		if err == nil {
 			_ = resp.Body.Close()
 			return resp.Request.URL.String(), nil
 		}
 		if attempt == 2 {
-			return "", fmt.Errorf("抖音链接解析失败: %w", err)
+			return "", errors.New(fmt.Sprintf(s.i18n.T("douyin.link_parse_failed_err"), err))
 		}
 		time.Sleep(time.Duration(attempt+1) * time.Second)
 	}
-	return "", fmt.Errorf("抖音链接解析失败")
+	return "", errors.New(s.i18n.T("douyin.link_parse_failed"))
 }
 
 func extractDouyinVideoID(rawURL string) (string, error) {
@@ -267,7 +283,7 @@ func extractDouyinVideoID(rawURL string) (string, error) {
 	if match := regexp.MustCompile(`(\d{15,24})`).FindStringSubmatch(rawURL); len(match) > 1 {
 		return match[1], nil
 	}
-	return "", fmt.Errorf("无法从抖音链接中提取视频 ID")
+	return "", fmt.Errorf("douyin.video_id_not_found")
 }
 
 func (s *Service) fetchDouyinItemInfo(videoID string, resolvedURL string, settings Settings) (map[string]any, error) {
@@ -275,12 +291,12 @@ func (s *Service) fetchDouyinItemInfo(videoID string, resolvedURL string, settin
 	if err == nil {
 		return itemInfo, nil
 	}
-	s.emitLog("[Douyin] API 获取失败，回退分享页解析: %v", err)
+	s.emitLog(s.i18n.T("douyin.api_fallback"), err)
 	return s.fetchDouyinItemInfoViaSharePage(videoID, resolvedURL, settings)
 }
 
 func (s *Service) fetchDouyinItemInfoViaAPI(videoID string, settings Settings) (map[string]any, error) {
-	client, err := newDouyinHTTPClient(settings, 30*time.Second)
+	client, err := newDouyinHTTPClient(s.i18n, settings, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -291,6 +307,7 @@ func (s *Service) fetchDouyinItemInfoViaAPI(videoID string, settings Settings) (
 			return nil, err
 		}
 		applyHeaders(req, douyinDefaultHeaders)
+		applyDouyinCookies(req, settings)
 		resp, err := client.Do(req)
 		if err != nil {
 			if attempt == 2 {
@@ -310,7 +327,7 @@ func (s *Service) fetchDouyinItemInfoViaAPI(videoID string, settings Settings) (
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			if attempt == 2 {
-				return nil, fmt.Errorf("状态码 %d", resp.StatusCode)
+				return nil, errors.New(fmt.Sprintf(s.i18n.T("douyin.status_code"), resp.StatusCode))
 			}
 			time.Sleep(time.Duration(attempt+1) * time.Second)
 			continue
@@ -329,11 +346,11 @@ func (s *Service) fetchDouyinItemInfoViaAPI(videoID string, settings Settings) (
 			}
 		}
 		if attempt == 2 {
-			return nil, fmt.Errorf("抖音 API 返回空数据")
+			return nil, errors.New(s.i18n.T("douyin.api_empty"))
 		}
 		time.Sleep(time.Duration(attempt+1) * time.Second)
 	}
-	return nil, fmt.Errorf("抖音 API 请求失败")
+	return nil, errors.New(s.i18n.T("douyin.api_failed"))
 }
 
 func (s *Service) fetchDouyinItemInfoViaSharePage(videoID string, resolvedURL string, settings Settings) (map[string]any, error) {
@@ -343,16 +360,16 @@ func (s *Service) fetchDouyinItemInfoViaSharePage(videoID string, resolvedURL st
 			shareURL = fmt.Sprintf("https://www.iesdouyin.com/share/video/%s/", videoID)
 		}
 	}
-	client, err := newDouyinHTTPClient(settings, 30*time.Second)
+	client, err := newDouyinHTTPClient(s.i18n, settings, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}
-	html, err := fetchDouyinHTML(client, shareURL, douyinMobileHeaders)
+	html, err := fetchDouyinHTML(client, shareURL, douyinMobileHeaders, settings)
 	if err != nil {
 		return nil, err
 	}
 	if strings.Contains(html, "Please wait...") && strings.Contains(html, "wci=") && strings.Contains(html, "cs=") {
-		html = solveDouyinWAF(client, html, shareURL)
+		html = solveDouyinWAF(client, html, shareURL, settings)
 	}
 	routerData, err := extractDouyinRouterData(html)
 	if err != nil {
@@ -373,15 +390,16 @@ func (s *Service) fetchDouyinItemInfoViaSharePage(videoID string, resolvedURL st
 			return item, nil
 		}
 	}
-	return nil, fmt.Errorf("分享页中未找到抖音视频信息")
+	return nil, errors.New(s.i18n.T("douyin.share_page_not_found"))
 }
 
-func fetchDouyinHTML(client *http.Client, pageURL string, headers map[string]string) (string, error) {
+func fetchDouyinHTML(client *http.Client, pageURL string, headers map[string]string, settings Settings) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, pageURL, nil)
 	if err != nil {
 		return "", err
 	}
 	applyHeaders(req, headers)
+	applyDouyinCookies(req, settings)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -392,12 +410,12 @@ func fetchDouyinHTML(client *http.Client, pageURL string, headers map[string]str
 		return "", err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("状态码 %d", resp.StatusCode)
+		return "", fmt.Errorf("douyin.status_code:%d", resp.StatusCode)
 	}
 	return string(body), nil
 }
 
-func solveDouyinWAF(client *http.Client, html string, pageURL string) string {
+func solveDouyinWAF(client *http.Client, html string, pageURL string, settings Settings) string {
 	match := regexp.MustCompile(`wci="([^"]+)"\s*,\s*cs="([^"]+)"`).FindStringSubmatch(html)
 	if len(match) < 3 {
 		return html
@@ -446,14 +464,15 @@ func solveDouyinWAF(client *http.Client, html string, pageURL string) string {
 			return html
 		}
 		applyHeaders(req, douyinMobileHeaders)
+		applyDouyinCookies(req, settings)
 		req.AddCookie(&http.Cookie{Name: cookieName, Value: cookieValue, Path: "/"})
 		resp, err := client.Do(req)
 		if err != nil {
 			return html
 		}
-		defer resp.Body.Close()
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close() // Close immediately after reading, not deferred in loop
+		if readErr != nil {
 			return html
 		}
 		return string(body)
@@ -464,14 +483,14 @@ func solveDouyinWAF(client *http.Client, html string, pageURL string) string {
 func extractDouyinRouterData(html string) (map[string]any, error) {
 	start := strings.Index(html, douyinRouterDataMark)
 	if start < 0 {
-		return nil, fmt.Errorf("未找到抖音分享页路由数据")
+		return nil, fmt.Errorf("douyin.router_data_not_found")
 	}
 	idx := start + len(douyinRouterDataMark)
 	for idx < len(html) && (html[idx] == ' ' || html[idx] == '\n' || html[idx] == '\r' || html[idx] == '\t') {
 		idx++
 	}
 	if idx >= len(html) || html[idx] != '{' {
-		return nil, fmt.Errorf("抖音分享页路由数据格式错误")
+		return nil, fmt.Errorf("douyin.router_data_format")
 	}
 	depth := 0
 	inString := false
@@ -509,7 +528,7 @@ func extractDouyinRouterData(html string) (map[string]any, error) {
 		}
 	}
 	if end <= idx {
-		return nil, fmt.Errorf("抖音分享页路由数据不完整")
+		return nil, fmt.Errorf("douyin.router_data_incomplete")
 	}
 	var data map[string]any
 	if err := json.Unmarshal([]byte(html[idx:end]), &data); err != nil {
@@ -526,12 +545,12 @@ func decodeDouyinBase64(value string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(normalized)
 }
 
-func newDouyinHTTPClient(settings Settings, timeout time.Duration) (*http.Client, error) {
+func newDouyinHTTPClient(i *I18n, settings Settings, timeout time.Duration) (*http.Client, error) {
 	transport := &http.Transport{Proxy: http.ProxyFromEnvironment}
 	if settings.Proxy != "" {
 		proxyURL, err := url.Parse(settings.Proxy)
 		if err != nil {
-			return nil, fmt.Errorf("代理配置无效: %w", err)
+			return nil, errors.New(fmt.Sprintf(i.T("douyin.proxy_invalid"), err))
 		}
 		transport.Proxy = http.ProxyURL(proxyURL)
 	}
@@ -565,12 +584,12 @@ func douyinVideoURL(itemInfo map[string]any) (string, error) {
 	playAddr, _ := video["play_addr"].(map[string]any)
 	urlList, _ := playAddr["url_list"].([]any)
 	if len(urlList) == 0 {
-		return "", fmt.Errorf("未找到抖音视频播放地址")
+		return "", fmt.Errorf("douyin.play_url_not_found")
 	}
 	playURL, _ := urlList[0].(string)
 	playURL = strings.Replace(playURL, "playwm", "play", 1)
 	if playURL == "" {
-		return "", fmt.Errorf("未找到抖音无水印播放地址")
+		return "", fmt.Errorf("douyin.no_watermark_not_found")
 	}
 	return playURL, nil
 }
@@ -610,16 +629,16 @@ func (s *Service) runDouyinDownload(taskID string, req DownloadRequest, ctx cont
 	settings := s.GetSettings()
 	itemInfo, videoID, _, err := s.resolveDouyinItemInfo(req.URL)
 	if err != nil {
-		s.finalizeDouyinDownloadError(taskID, err)
+		s.finalizeDouyinDownloadError(taskID, s.translateDouyinError(err))
 		return
 	}
 	if req.Quality == "audio" {
-		s.finalizeDouyinDownloadError(taskID, fmt.Errorf("当前抖音专用下载仅支持视频，不支持音频提取"))
+		s.finalizeDouyinDownloadError(taskID, errors.New(s.i18n.T("douyin.audio_not_supported")))
 		return
 	}
 	videoURL, err := douyinVideoURL(itemInfo)
 	if err != nil {
-		s.finalizeDouyinDownloadError(taskID, err)
+		s.finalizeDouyinDownloadError(taskID, s.translateDouyinError(err))
 		return
 	}
 	title := douyinString(itemInfo, "desc")
@@ -629,7 +648,7 @@ func (s *Service) runDouyinDownload(taskID string, req DownloadRequest, ctx cont
 	safeTitle := safeDouyinTitle(title, "douyin_"+videoID)
 	outputPath := filepath.Join(req.OutputDir, safeTitle+".mp4")
 	tempPath := outputPath + ".part"
-	client, err := newDouyinHTTPClient(settings, 0)
+	client, err := newDouyinHTTPClient(s.i18n, settings, 0)
 	if err != nil {
 		s.finalizeDouyinDownloadError(taskID, err)
 		return
@@ -644,6 +663,7 @@ func (s *Service) runDouyinDownload(taskID string, req DownloadRequest, ctx cont
 		return
 	}
 	applyHeaders(reqHTTP, douyinDefaultHeaders)
+	applyDouyinCookies(reqHTTP, settings)
 	resp, err := client.Do(reqHTTP)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -655,7 +675,7 @@ func (s *Service) runDouyinDownload(taskID string, req DownloadRequest, ctx cont
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		s.finalizeDouyinDownloadError(taskID, fmt.Errorf("抖音视频下载失败，状态码 %d", resp.StatusCode))
+		s.finalizeDouyinDownloadError(taskID, errors.New(fmt.Sprintf(s.i18n.T("douyin.download_failed"), resp.StatusCode)))
 		return
 	}
 	file, err := os.Create(tempPath)
@@ -728,7 +748,7 @@ func (s *Service) runDouyinDownload(taskID string, req DownloadRequest, ctx cont
 		task.Size = formatDouyinBytes(written)
 		copy := *task
 		s.mu.Unlock()
-		s.emitDownloadLog(taskID, "[Douyin] 下载完成: "+outputPath)
+		s.emitDownloadLog(taskID, fmt.Sprintf(s.i18n.T("douyin.download_complete"), outputPath))
 		s.emitDownloadUpdate(&copy)
 		go s.upsertRecord(&copy)
 		return
@@ -764,7 +784,7 @@ func (s *Service) updateDouyinTaskProgress(taskID string, pct float64, written i
 }
 
 func (s *Service) finalizeDouyinDownloadError(taskID string, err error) {
-	s.emitDownloadLog(taskID, "[Douyin] 下载失败: "+err.Error())
+	s.emitDownloadLog(taskID, fmt.Sprintf(s.i18n.T("douyin.download_failed_log"), err.Error()))
 	s.mu.Lock()
 	if task, ok := s.downloads[taskID]; ok {
 		task.Status = "error"
@@ -820,7 +840,7 @@ func downloadDouyinSidecar(client *http.Client, sourceURL string, filePath strin
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("状态码 %d", resp.StatusCode)
+		return fmt.Errorf("douyin.status_code:%d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -857,4 +877,75 @@ func formatDouyinETA(seconds int) string {
 func sha256Hex(input []byte) string {
 	sum := sha256.Sum256(input)
 	return fmt.Sprintf("%x", sum[:])
+}
+
+// translateDouyinError translates i18n key errors from internal douyin functions
+// into user-facing localized messages.
+func (s *Service) translateDouyinError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	// Handle parameterized keys like "douyin.status_code:404"
+	if idx := strings.Index(msg, ":"); idx > 0 && strings.HasPrefix(msg, "douyin.") {
+		prefix := msg[:idx]
+		suffix := msg[idx+1:]
+		translated := s.i18n.T(prefix)
+		if translated != prefix {
+			if strings.Contains(translated, "%d") {
+				if val, parseErr := strconv.Atoi(suffix); parseErr == nil {
+					return errors.New(fmt.Sprintf(translated, val))
+				}
+			}
+			if strings.Contains(translated, "%s") {
+				return errors.New(fmt.Sprintf(translated, suffix))
+			}
+			return errors.New(translated + ": " + suffix)
+		}
+	}
+	// Handle simple keys like "douyin.link_not_found"
+	if strings.HasPrefix(msg, "douyin.") {
+		translated := s.i18n.T(msg)
+		if translated != msg {
+			return errors.New(translated)
+		}
+	}
+	return err
+}
+
+// readCookiesFromFile reads Netscape-format cookies.txt and returns http.Cookies
+// that match the given host. The format is one cookie per line:
+// domain\tinclude_subdomains\tpath\tsecure\texpiry\tname\tvalue
+func readCookiesFromFile(filePath string, host string) ([]*http.Cookie, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	var cookies []*http.Cookie
+	host = strings.ToLower(host)
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Split(line, "\t")
+		if len(fields) < 7 {
+			continue
+		}
+		domain := strings.TrimSpace(fields[0])
+		// Check if cookie domain matches the host.
+		domainLower := strings.ToLower(domain)
+		if domainLower != host && !strings.HasSuffix(host, domainLower) {
+			continue
+		}
+		secure := strings.TrimSpace(fields[3]) == "TRUE"
+		name := strings.TrimSpace(fields[5])
+		value := strings.TrimSpace(fields[6])
+		cookies = append(cookies, &http.Cookie{
+			Name:  name,
+			Value: value,
+		})
+		_ = secure // secure flag used for matching but not needed in request cookie
+	}
+	return cookies, nil
 }

@@ -147,7 +147,7 @@ func (s *Service) CheckYtDlpVersion() (YtDlpVersionCheck, error) {
 	}
 	currentVersion := strings.TrimSpace(result.Stdout)
 
-	httpClient := &http.Client{Timeout: 10 * time.Second}
+	httpClient := &http.Client{Timeout: 15 * time.Second}
 	resp, err := httpClient.Get("https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest")
 	if err != nil {
 		return YtDlpVersionCheck{CurrentVersion: currentVersion}, fmt.Errorf("failed to fetch latest version: %w", err)

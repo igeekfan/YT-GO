@@ -15,6 +15,11 @@
     'ytdlp.installNote': '安装完成后，点击下方按钮重新检测',
     'ytdlp.recheck': '重新检测',
 
+    'install.windowsWinget': 'Windows (winget)',
+    'install.windowsScoop': 'Windows (scoop)',
+    'install.macHomebrew': 'macOS (Homebrew)',
+    'install.linuxPip': 'Linux (pip)',
+
     'url.placeholder': '输入 YouTube 或其他视频链接...',
     'url.getInfo': '获取信息',
     'url.gettingInfo': '获取中...',
@@ -92,7 +97,6 @@
     'toast.cancelFail': '取消失败',
     'toast.openFail': '打开失败',
 
-    'playlist.detected': '检测到播放列表',
     'playlist.videoCount': '{count} 个视频',
     'playlist.uploader': '频道',
     'playlist.downloadAll': '全部下载',
@@ -155,8 +159,10 @@
     'settings.langZh': '中文',
     'settings.langEn': 'English',
     'settings.proxy': '代理服务器',
+    'settings.proxyPlaceholder': '如 http://127.0.0.1:7890 或 socks5://127.0.0.1:1080',
     'settings.proxyHint': '如果无法直接访问 YouTube，请配置代理',
     'settings.rateLimit': '下载限速',
+    'settings.rateLimitPlaceholder': '如 1M、500K（留空不限速）',
     'settings.maxConcurrent': '最大并发数',
     'settings.filenameTemplate': '文件名模板',
     'settings.mergeOutputFormat': '输出容器格式',
@@ -168,6 +174,7 @@
     'settings.saveThumbnail': '保存缩略图文件',
     'settings.writeSubtitles': '下载字幕',
     'settings.subtitleLangs': '字幕语言',
+    'settings.subtitleLangsPlaceholder': '如 en,zh-Hans,ja（留空=全部）',
     'settings.embedSubtitles': '嵌入字幕到视频',
     'settings.embedChapters': '嵌入章节信息',
     'settings.sponsorBlock': 'SponsorBlock 标记',
@@ -180,6 +187,9 @@
     'settings.diagVersion': '版本',
     'settings.diagStatus': '状态',
     'settings.diagTest': '测试',
+    'settings.diagOutput': '输出',
+    'settings.diagCurrent': '当前版本：',
+    'settings.diagLatest': '最新版本：',
     'settings.diagError': '错误',
     'settings.diagNotFound': '未找到',
     'settings.diagAvailable': '✓ 可用',
@@ -216,7 +226,6 @@
     'format.audio': '音频轨',
     'format.selectVideo': '选择视频格式',
     'format.selectAudio': '选择音频格式',
-    'format.usePreset': '使用预设画质',
     'format.auto': '自动选择',
     'format.bestQuality': '🏆 最佳画质',
     'format.combineUnavailable': '当前返回的格式里没有可拆分的独立视频轨和音频轨，请改用单格式或预设画质。',
@@ -270,13 +279,13 @@
     'setup.denoNotFound': '推荐安装或升级 Deno',
     'setup.denoDesc': 'Deno 是 yt-dlp 解析 YouTube 的 JS 运行时。建议保持较新版本，安装或升级后重启应用。',
 
-    'quickSettings.toggle': '快捷设置',
-    'quickSettings.quality': '画质',
-    'quickSettings.proxy': '代理',
-    'quickSettings.proxyPlaceholder': '如 http://127.0.0.1:7890',
-    'quickSettings.cookiesFrom': 'Cookies',
-    'quickSettings.audioFormat': '音频格式',
-    'quickSettings.mergeFormat': '容器格式',
+    'errorBoundary.title': '应用出现了问题',
+    'errorBoundary.retry': '重试',
+    'errorBoundary.reload': '刷新页面',
+
+    'web.noDir': '请先设置下载目录',
+    'web.noDirHint': '下载目录为空，请在设置中配置服务器端保存路径',
+    'web.openSettings': '打开设置',
 }
 
 

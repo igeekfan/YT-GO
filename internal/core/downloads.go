@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -12,6 +13,22 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// isValidDownloadURL checks that the URL uses http or https protocol.
+func isValidDownloadURL(rawURL string) bool {
+	// Extract URL from possible text wrapping (e.g. pasted text with surrounding content)
+	trimmed := strings.TrimSpace(rawURL)
+	// Handle URL-encoded variants
+	if strings.HasPrefix(trimmed, "file://") || strings.HasPrefix(trimmed, "file:") {
+		return false
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return false
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	return scheme == "http" || scheme == "https"
+}
 
 func (s *Service) cleanupTransientDownloads() {
 	if s.db == nil {
@@ -52,6 +69,13 @@ func (s *Service) deleteRecords(ids []string) {
 }
 
 func (s *Service) StartDownload(req DownloadRequest) (string, error) {
+	// Validate URL protocol: only allow http/https.
+	if req.URL == "" {
+		return "", fmt.Errorf("URL is required")
+	}
+	if !isValidDownloadURL(req.URL) {
+		return "", fmt.Errorf("invalid URL: only http and https protocols are allowed")
+	}
 	ytdlpPath := s.resolveYtDlp()
 	if ytdlpPath == "" && !isDouyinURL(req.URL) {
 		return "", fmt.Errorf("yt-dlp not found")

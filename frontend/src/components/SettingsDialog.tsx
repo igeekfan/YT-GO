@@ -302,7 +302,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
 
                 {note && (
                     <div className="dep-card-note">
-                        <span className="dep-card-note-label">Output</span>
+                        <span className="dep-card-note-label">{t('settings.diagOutput')}</span>
                         <span className="dep-card-note-value">{note}</span>
                     </div>
                 )}
@@ -359,7 +359,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                     className="setting-input"
                     value={settings.rateLimit}
                     onChange={e => update('rateLimit', e.target.value)}
-                    placeholder="e.g. 1M, 500K (empty = unlimited)"
+                    placeholder={t('settings.rateLimitPlaceholder')}
                 />
             </div>
             <div className="setting-item">
@@ -452,7 +452,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                             className="setting-input"
                             value={settings.subtitleLangs || ''}
                             onChange={e => update('subtitleLangs', e.target.value)}
-                            placeholder="e.g. en,zh-Hans,ja (empty = all)"
+                            placeholder={t('settings.subtitleLangsPlaceholder')}
                         />
                     </div>
                     <div className="setting-item setting-item-row">
@@ -496,7 +496,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                     className="setting-input"
                     value={settings.proxy}
                     onChange={e => update('proxy', e.target.value)}
-                    placeholder="http://127.0.0.1:7890 or socks5://127.0.0.1:1080"
+                    placeholder={t('settings.proxyPlaceholder')}
                 />
             </div>
             
@@ -749,11 +749,11 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                         {updateInfo.hasUpdate ? (
                             <>
                                 <div className="diag-item">
-                                    <span className="diag-label">Current:</span>
+                                    <span className="diag-label">{t('settings.diagCurrent')}</span>
                                     <span className="diag-value">v{updateInfo.currentVersion}</span>
                                 </div>
                                 <div className="diag-item">
-                                    <span className="diag-label">Latest:</span>
+                                    <span className="diag-label">{t('settings.diagLatest')}</span>
                                     <span className="diag-value text-green-400">v{updateInfo.latestVersion}</span>
                                 </div>
                                 <button

@@ -3,6 +3,7 @@ import {DownloadTask} from '../types'
 import {useI18n} from '../i18n/context'
 import {OpenFile, OpenFolder, CancelDownload, RemoveDownload, backendMode, getDownloadFileURL} from '../lib/backend'
 import {EventsOn} from '../lib/runtime'
+import {formatDuration} from '../lib/formatUtils'
 
 interface Props {
     task: DownloadTask
@@ -10,15 +11,6 @@ interface Props {
     onRemoved: (id: string) => void
     onRetry: (task: DownloadTask) => void
     onRedownload: (task: DownloadTask) => void
-}
-
-function formatDuration(seconds: number): string {
-    if (!seconds) return ''
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-    const s = Math.floor(seconds % 60)
-    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-    return `${m}:${String(s).padStart(2, '0')}`
 }
 
 const STATUS_COLORS: Record<string, string> = {

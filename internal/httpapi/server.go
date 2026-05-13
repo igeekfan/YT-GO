@@ -13,9 +13,10 @@ import (
 )
 
 type Server struct {
-	service *core.Service
-	mux     *http.ServeMux
-	hub     *EventHub
+	service   *core.Service
+	mux       *http.ServeMux
+	hub       *EventHub
+	corsOrigin string // allowed CORS origin, empty means same-origin only
 }
 
 type URLRequest struct {
@@ -24,16 +25,41 @@ type URLRequest struct {
 
 func New(service *core.Service) *Server {
 	server := &Server{
-		service: service,
-		mux:     http.NewServeMux(),
-		hub:     NewEventHub(),
+		service:    service,
+		mux:        http.NewServeMux(),
+		hub:        NewEventHub(),
+		corsOrigin: os.Getenv("YTGO_CORS_ORIGIN"),
 	}
 	server.registerRoutes()
 	return server
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Apply CORS headers if YTGO_CORS_ORIGIN is configured.
+		if s.corsOrigin != "" {
+			origin := r.Header.Get("Origin")
+			// If the configured origin is "*", allow any origin.
+			// Otherwise, only allow the configured origin.
+			if s.corsOrigin == "*" || origin == s.corsOrigin {
+				w.Header().Set("Access-Control-Allow-Origin", func() string {
+					if s.corsOrigin == "*" {
+						return "*"
+					}
+					return origin
+				}())
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+				w.Header().Set("Access-Control-Max-Age", "86400")
+			}
+			// Handle preflight requests.
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
+		s.mux.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) Hub() *EventHub {
@@ -206,6 +232,8 @@ func (s *Server) handleResetSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleBrowseDir returns subdirectories of a given path for web mode directory browsing.
+// Restricted to the download directory when YTGO_DOWNLOAD_DIR is set, otherwise allows
+// browsing under the user's home directory.
 // POST body: {"path": "/home/user"} → {"path": "/home/user", "dirs": ["Downloads", "Videos", ...]}
 func (s *Server) handleBrowseDir(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -221,21 +249,40 @@ func (s *Server) handleBrowseDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Determine allowed root: YTGO_DOWNLOAD_DIR if set, otherwise user home dir.
+	allowedRoot := s.service.GetDefaultDownloadDir()
+	if allowedRoot == "" {
+		allowedRoot, _ = os.UserHomeDir()
+	}
+	if allowedRoot == "" {
+		allowedRoot = "/"
+	}
+	allowedRoot = filepath.Clean(allowedRoot)
+
 	dir := req.Path
 	if dir == "" {
-		dir, _ = os.UserHomeDir()
-		if dir == "" {
-			dir = "/"
-		}
+		dir = allowedRoot
 	}
 
-	// Clean and validate the path
+	// Clean the path and verify it's within the allowed root.
 	dir = filepath.Clean(dir)
+	if !isSubPath(allowedRoot, dir) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"path":    allowedRoot,
+			"parent":  filepath.Dir(allowedRoot),
+			"dirs":    []string{},
+			"homeDir": allowedRoot,
+		})
+		return
+	}
+
 	info, err := os.Stat(dir)
 	if err != nil || !info.IsDir() {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"path": dir,
-			"dirs": []string{},
+			"path":    dir,
+			"parent":  filepath.Dir(dir),
+			"dirs":    []string{},
+			"homeDir": allowedRoot,
 		})
 		return
 	}
@@ -243,8 +290,10 @@ func (s *Server) handleBrowseDir(w http.ResponseWriter, r *http.Request) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"path": dir,
-			"dirs": []string{},
+			"path":    dir,
+			"parent":  filepath.Dir(dir),
+			"dirs":    []string{},
+			"homeDir": allowedRoot,
 		})
 		return
 	}
@@ -260,12 +309,27 @@ func (s *Server) handleBrowseDir(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	parent := filepath.Dir(dir)
+	// Don't expose parent if it's outside the allowed root.
+	if !isSubPath(allowedRoot, parent) {
+		parent = ""
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"path":    dir,
-		"parent":  filepath.Dir(dir),
+		"parent":  parent,
 		"dirs":    dirs,
-		"homeDir": func() string { h, _ := os.UserHomeDir(); return h }(),
+		"homeDir": allowedRoot,
 	})
+}
+
+// isSubPath returns true if sub is equal to or a child of root.
+func isSubPath(root, sub string) bool {
+	rel, err := filepath.Rel(root, sub)
+	if err != nil {
+		return false
+	}
+	return !strings.HasPrefix(rel, "..") && rel != "."
 }
 
 // handleCookiesUpload accepts a cookies file upload for web mode.
@@ -482,6 +546,8 @@ func (s *Server) handleDownloadAction(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveDownloadFile serves a completed download file for web mode.
+// Validates that the file resides within the configured download directory
+// to prevent path traversal attacks.
 func (s *Server) serveDownloadFile(w http.ResponseWriter, r *http.Request, taskID string) {
 	task, err := s.service.GetDownload(taskID)
 	if err != nil {
@@ -494,13 +560,21 @@ func (s *Server) serveDownloadFile(w http.ResponseWriter, r *http.Request, taskI
 	}
 
 	filePath := filepath.Clean(task.OutputPath)
+
+	// Verify the file is within the allowed download directory.
+	downloadDir := filepath.Clean(s.service.GetDefaultDownloadDir())
+	if downloadDir != "" && !isSubPath(downloadDir, filePath) {
+		writeError(w, http.StatusForbidden, fmt.Errorf("access denied"))
+		return
+	}
+
 	info, err := os.Stat(filePath)
 	if err != nil {
 		writeError(w, http.StatusNotFound, fmt.Errorf("file not found: %w", err))
 		return
 	}
 
-	// If it's a directory, try to find the actual media file inside
+	// If it's a directory, reject.
 	if info.IsDir() {
 		writeError(w, http.StatusNotFound, fmt.Errorf("path is a directory, not a file"))
 		return

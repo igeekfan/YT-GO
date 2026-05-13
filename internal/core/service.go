@@ -61,6 +61,10 @@ func (s *Service) Startup() error {
 	s.cleanupTransientDownloads()
 	s.loadFromDB()
 	settings := s.GetSettings()
+	// Initialize i18n language from saved settings
+	if settings.Language != "" {
+		s.i18n.SetLang(Lang(settings.Language))
+	}
 	maxConcurrent := settings.MaxConcurrent
 	if maxConcurrent < 1 {
 		maxConcurrent = 3

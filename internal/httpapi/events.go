@@ -46,6 +46,17 @@ func (h *EventHub) Emit(name string, data any) {
 		select {
 		case ch <- eventMessage{Name: name, Data: data}:
 		default:
+			// Channel full — drain one stale message and resend.
+			// This ensures progress updates are not silently lost,
+			// which would cause the frontend progress bar to stall.
+			select {
+			case <-ch:
+			default:
+			}
+			select {
+			case ch <- eventMessage{Name: name, Data: data}:
+			default:
+			}
 		}
 	}
 }

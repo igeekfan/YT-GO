@@ -3,30 +3,13 @@ import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, Sele
 import {EventsOn} from './lib/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
 import {useI18n} from './i18n/context'
+import {formatDuration, formatFileSize} from './lib/formatUtils'
 import DownloadList from './components/DownloadList'
 import SettingsDialog from './components/SettingsDialog'
 import SetupWizard from './components/SetupWizard'
 import UpdateDialog from './components/UpdateDialog'
 import DirBrowser from './components/DirBrowser'
 import './App.css'
-
-const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
-
-function formatDuration(seconds: number): string {
-    if (!seconds) return ''
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-    const s = Math.floor(seconds % 60)
-    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-    return `${m}:${String(s).padStart(2, '0')}`
-}
-
-function formatFileSize(bytes: number): string {
-    if (!bytes) return ''
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-    return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
-}
 
 function parseResolutionHeight(res: string): number {
     const m = res.match(/(\d+)p/)
@@ -100,13 +83,18 @@ function shouldTryPlaylistFallback(error: unknown): boolean {
 
     const nonFallbackSignals = [
         'js runtime',
-        '请安装 deno',
-        'node.js lts',
+        'deno',
+        'node.js',
         'sign in to confirm',
         'not a bot',
         'dpapi',
         'cookies',
         'storyboard',
+        'rejected the current access',
+        'requires valid login cookies',
+        // Chinese patterns (for users with zh-CN backend)
+        '请安装 deno',
+        'node.js lts',
         'youtube 拒绝了当前访问',
         '抖音需要有效的登录 cookies',
     ]
@@ -173,7 +161,7 @@ function App() {
             setUpdateInfo(info)
         } catch (e: any) {
             console.error('Failed to check for updates:', e)
-            setUpdateError(e?.message || 'Failed to connect to update server. Please try again.')
+            setUpdateError(e?.message || t('update.error'))
         } finally {
             setUpdateLoading(false)
         }
@@ -258,29 +246,37 @@ function App() {
     }, [theme])
 
     useEffect(() => {
-        // Fetch web config (external URL, fixed download dir) in web mode
-        if (backendMode === 'web') {
-            fetchWebConfig().catch(console.error)
+        const init = async () => {
+            // Fetch web config first (must complete before first-run check)
+            if (backendMode === 'web') {
+                await fetchWebConfig().catch(console.error)
+            }
+
+            CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
+
+            // In web mode, skip SetupWizard entirely
+            // (directory is server-side, settings configurable via Settings dialog)
+            if (backendMode === 'web') return
+
+            // Desktop mode: check if first run or needs cookie configuration
+            IsFirstRun().then((firstRun: boolean) => {
+                if (firstRun) {
+                    setShowSetupWizard(true)
+                    return
+                }
+                // Check if cookies need to be configured
+                NeedsCookieConfig().then((needsCookie: boolean) => {
+                    if (needsCookie) {
+                        setShowSetupWizard(true)
+                    }
+                }).catch(() => {})
+            }).catch(() => {
+                // If check fails, show wizard anyway
+                setShowSetupWizard(true)
+            })
         }
 
-        CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
-        
-        // Check if first run or needs cookie configuration
-        IsFirstRun().then((firstRun: boolean) => {
-            if (firstRun) {
-                setShowSetupWizard(true)
-                return
-            }
-            // Check if cookies need to be configured
-            NeedsCookieConfig().then((needsCookie: boolean) => {
-                if (needsCookie) {
-                    setShowSetupWizard(true)
-                }
-            }).catch(() => {})
-        }).catch(() => {
-            // If check fails, show wizard anyway
-            setShowSetupWizard(true)
-        })
+        init()
         
         GetSettings().then(s => {
             applySettingsToUI(s)
@@ -558,9 +554,17 @@ function App() {
                 url: url.trim(),
                 outputDir,
                 quality: downloadQuality,
-                videoInfo: videoInfo || undefined,
+                videoInfo: videoInfo ? {
+                    url: videoInfo.url,
+                    id: videoInfo.id,
+                    title: videoInfo.title,
+                    thumbnail: videoInfo.thumbnail,
+                    duration: videoInfo.duration,
+                    uploader: videoInfo.uploader,
+                    platform: videoInfo.platform,
+                } : undefined,
                 options: buildDownloadOptions(),
-            } as any)
+            })
             showToast(t('toast.downloadQueued'))
         } catch (e: any) {
             showToast(t('toast.downloadStartFail') + (e?.message ? `: ${e.message}` : ''))
@@ -596,9 +600,17 @@ function App() {
                         url: video.url,
                         outputDir,
                         quality: downloadQuality,
-                        videoInfo: video,
+                        videoInfo: video ? {
+                            url: video.url,
+                            id: video.id,
+                            title: video.title,
+                            thumbnail: video.thumbnail,
+                            duration: video.duration,
+                            uploader: video.uploader,
+                            platform: video.platform,
+                        } : undefined,
                         options: buildDownloadOptions(),
-                    } as any)
+                    })
                     startedCount++
                 }
             }
@@ -687,19 +699,19 @@ function App() {
                             <p>{t('ytdlp.installGuide')}</p>
                             <div className="install-commands">
                                 <div className="install-method">
-                                    <strong>Windows (winget):</strong>
+                                    <strong>{t('install.windowsWinget')}:</strong>
                                     <code>winget install yt-dlp</code>
                                 </div>
                                 <div className="install-method">
-                                    <strong>Windows (scoop):</strong>
+                                    <strong>{t('install.windowsScoop')}:</strong>
                                     <code>scoop install yt-dlp</code>
                                 </div>
                                 <div className="install-method">
-                                    <strong>macOS (Homebrew):</strong>
+                                    <strong>{t('install.macHomebrew')}:</strong>
                                     <code>brew install yt-dlp</code>
                                 </div>
                                 <div className="install-method">
-                                    <strong>Linux (pip):</strong>
+                                    <strong>{t('install.linuxPip')}:</strong>
                                     <code>pip install yt-dlp</code>
                                 </div>
                             </div>
@@ -1125,6 +1137,14 @@ function App() {
                     )}
 
                     <div className="action-bar">
+                        {backendMode === 'web' && !getWebConfig()?.hasFixedDir && !outputDir && (
+                            <div className="web-nodir-hint">
+                                <span>{t('web.noDirHint')}</span>
+                                <button className="btn-secondary btn-sm" onClick={() => setShowSettings(true)}>
+                                    {t('web.openSettings')}
+                                </button>
+                            </div>
+                        )}
                         <button
                             className="btn-primary download-btn"
                             onClick={handleDownload}

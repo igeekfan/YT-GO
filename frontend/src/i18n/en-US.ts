@@ -15,6 +15,11 @@
     'ytdlp.installNote': 'After installation, click the button below to re-check',
     'ytdlp.recheck': 'Re-check',
 
+    'install.windowsWinget': 'Windows (winget)',
+    'install.windowsScoop': 'Windows (scoop)',
+    'install.macHomebrew': 'macOS (Homebrew)',
+    'install.linuxPip': 'Linux (pip)',
+
     'url.placeholder': 'Enter YouTube or other video URL...',
     'url.getInfo': 'Get Info',
     'url.gettingInfo': 'Loading...',
@@ -92,7 +97,6 @@
     'toast.cancelFail': 'Failed to cancel',
     'toast.openFail': 'Failed to open',
 
-    'playlist.detected': 'Playlist detected',
     'playlist.videoCount': '{count} videos',
     'playlist.uploader': 'Channel',
     'playlist.downloadAll': 'Download All',
@@ -155,8 +159,10 @@
     'settings.langZh': '中文',
     'settings.langEn': 'English',
     'settings.proxy': 'Proxy Server',
+    'settings.proxyPlaceholder': 'e.g. http://127.0.0.1:7890 or socks5://127.0.0.1:1080',
     'settings.proxyHint': 'Configure proxy if you cannot access YouTube directly',
     'settings.rateLimit': 'Download Rate Limit',
+    'settings.rateLimitPlaceholder': 'e.g. 1M, 500K (empty = unlimited)',
     'settings.maxConcurrent': 'Max Concurrent Downloads',
     'settings.filenameTemplate': 'Filename Template',
     'settings.mergeOutputFormat': 'Output Container Format',
@@ -168,6 +174,7 @@
     'settings.saveThumbnail': 'Save thumbnail file',
     'settings.writeSubtitles': 'Download subtitles',
     'settings.subtitleLangs': 'Subtitle languages',
+    'settings.subtitleLangsPlaceholder': 'e.g. en,zh-Hans,ja (empty = all)',
     'settings.embedSubtitles': 'Embed subtitles into video',
     'settings.embedChapters': 'Embed chapter markers',
     'settings.sponsorBlock': 'SponsorBlock markers',
@@ -180,6 +187,9 @@
     'settings.diagVersion': 'Version',
     'settings.diagStatus': 'Status',
     'settings.diagTest': 'Test',
+    'settings.diagOutput': 'Output',
+    'settings.diagCurrent': 'Current:',
+    'settings.diagLatest': 'Latest:',
     'settings.diagError': 'Error',
     'settings.diagNotFound': 'Not found',
     'settings.diagAvailable': '✓ Available',
@@ -216,7 +226,6 @@
     'format.audio': 'Audio Track',
     'format.selectVideo': 'Select video format',
     'format.selectAudio': 'Select audio format',
-    'format.usePreset': 'Use preset quality',
     'format.auto': 'Auto (best)',
     'format.bestQuality': '🏆 Best Quality',
     'format.combineUnavailable': 'No separate video and audio tracks were returned for this item. Use single format or a preset quality instead.',
@@ -270,13 +279,13 @@
     'setup.denoNotFound': 'Install or upgrade Deno (recommended)',
     'setup.denoDesc': 'Deno is used by yt-dlp to solve YouTube JavaScript challenges. Keep it updated, then restart the app.',
 
-    'quickSettings.toggle': 'Quick Settings',
-    'quickSettings.quality': 'Quality',
-    'quickSettings.proxy': 'Proxy',
-    'quickSettings.proxyPlaceholder': 'e.g. http://127.0.0.1:7890',
-    'quickSettings.cookiesFrom': 'Cookies',
-    'quickSettings.audioFormat': 'Audio Format',
-    'quickSettings.mergeFormat': 'Container',
+    'errorBoundary.title': 'Something went wrong',
+    'errorBoundary.retry': 'Retry',
+    'errorBoundary.reload': 'Reload Page',
+
+    'web.noDir': 'Please set a download directory',
+    'web.noDirHint': 'Download directory is empty. Configure a server-side save path in Settings.',
+    'web.openSettings': 'Open Settings',
 }
 
 export default enUS

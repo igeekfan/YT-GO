@@ -369,6 +369,16 @@ body {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.web-nodir-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-yellow);
+  font-size: 0.85rem;
+  margin-right: auto;
 }
 
 .queue-zone {

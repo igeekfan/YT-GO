@@ -1,5 +1,53 @@
 import * as DesktopApp from '../../wailsjs/go/desktop/App'
 
+// Lightweight interface types for API calls (avoids Wails model class requirements)
+interface DownloadRequestPayload {
+    url: string
+    outputDir: string
+    quality: string
+    videoInfo?: {
+        url: string
+        id?: string
+        title?: string
+        thumbnail?: string
+        duration?: number
+        uploader?: string
+        platform?: string
+    }
+    options?: {
+        saveDescription?: boolean
+        saveThumbnail?: boolean
+        embedChapters?: boolean
+        writeSubtitles?: boolean
+        subtitleLangs?: string
+        embedSubtitles?: boolean
+        sponsorBlock?: boolean
+    }
+}
+
+interface SettingsPayload {
+    outputDir: string
+    quality: string
+    language: string
+    theme: string
+    proxy: string
+    rateLimit: string
+    maxConcurrent: number
+    notifications: boolean
+    saveDescription: boolean
+    saveThumbnail: boolean
+    writeSubtitles: boolean
+    subtitleLangs: string
+    embedSubtitles: boolean
+    embedChapters: boolean
+    sponsorBlock: boolean
+    filenameTemplate: string
+    mergeOutputFormat: string
+    audioFormat: string
+    cookiesFrom: string
+    cookiesFile: string
+}
+
 const RELEASE_PAGE_URL = 'https://github.com/igeekfan/YT-GO/releases'
 
 export const backendMode: 'desktop' | 'web' =
@@ -182,9 +230,11 @@ export function UploadCookiesFile(file: File) {
     })
 }
 
-export function StartDownload(request: any) {
+export function StartDownload(request: DownloadRequestPayload) {
     return getDesktop(
-        () => DesktopApp.StartDownload(request),
+        // Wails binding expects the Wails model class; cast is safe because
+        // the shape is structurally identical and Wails only reads fields.
+        () => DesktopApp.StartDownload(request as any),
         async () => {
             const result = await apiFetch<{id: string}>('/api/downloads', {
                 method: 'POST',
@@ -203,9 +253,11 @@ export function GetSettings() {
     return getDesktop(() => DesktopApp.GetSettings(), () => apiFetch('/api/settings'))
 }
 
-export function SaveSettings(settings: any) {
+export function SaveSettings(settings: SettingsPayload) {
     return getDesktop(
-        () => DesktopApp.SaveSettings(settings),
+        // Wails binding expects the Wails model class; cast is safe because
+        // the shape is structurally identical and Wails only reads fields.
+        () => DesktopApp.SaveSettings(settings as any),
         async () => {
             await apiFetch('/api/settings', {
                 method: 'POST',

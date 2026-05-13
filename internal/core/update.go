@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -38,8 +39,9 @@ func compareVersion(v1, v2 string) int {
 
 func (s *Service) CheckForUpdate() (UpdateInfo, error) {
 	currentVersion := s.appVersion
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
-	resp, err := http.Get(url)
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Get(apiURL)
 	if err != nil {
 		return UpdateInfo{}, fmt.Errorf("failed to fetch release info: %w", err)
 	}

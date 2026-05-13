@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -36,6 +37,10 @@ func normalizeYtDlpError(i *I18n, errMsg string, settings Settings) string {
 	if errMsg == "" {
 		return errMsg
 	}
+	// Translate i18n key errors (from douyin.go and other internal sources)
+	if translated := translateI18nKeyError(i, errMsg); translated != errMsg {
+		return translated
+	}
 	if strings.Contains(errMsg, "Fresh cookies") && strings.Contains(errMsg, "Douyin") {
 		cookieHint := i.T("hint.cookies.none.douyin")
 		if hint := describeCookieSource(i, settings); hint != "" {
@@ -58,6 +63,40 @@ func normalizeYtDlpError(i *I18n, errMsg string, settings Settings) string {
 	}
 	if strings.Contains(errMsg, "Signature solving failed") || strings.Contains(errMsg, "n challenge solving failed") || strings.Contains(errMsg, "Only images are available for download") || strings.Contains(errMsg, "Requested format is not available") {
 		return fmt.Sprintf(i.T("hint.challenge.raw"), buildChallengeFailureHint(i, settings), errMsg)
+	}
+	return errMsg
+}
+
+// translateI18nKeyError detects i18n key patterns in error messages and translates them.
+// Supports keys like "douyin.link_not_found" and parameterized keys like "douyin.status_code:404".
+func translateI18nKeyError(i *I18n, errMsg string) string {
+	// Handle parameterized keys like "douyin.status_code:404"
+	if idx := strings.Index(errMsg, ":"); idx > 0 {
+		prefix := errMsg[:idx]
+		suffix := errMsg[idx+1:]
+		// Check if prefix is a known i18n key pattern
+		if strings.HasPrefix(prefix, "douyin.") {
+			translated := i.T(prefix)
+			if translated != prefix {
+				// The key was found — suffix is the parameter
+				if strings.Contains(translated, "%d") {
+					if val, err := strconv.Atoi(suffix); err == nil {
+						return fmt.Sprintf(translated, val)
+					}
+				}
+				if strings.Contains(translated, "%s") {
+					return fmt.Sprintf(translated, suffix)
+				}
+				return translated + ": " + suffix
+			}
+		}
+	}
+	// Handle simple keys like "douyin.link_not_found"
+	if strings.HasPrefix(errMsg, "douyin.") {
+		translated := i.T(errMsg)
+		if translated != errMsg {
+			return translated
+		}
 	}
 	return errMsg
 }

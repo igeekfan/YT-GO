@@ -31,7 +31,7 @@ function DownloadList({downloads, onUpdate}: Props) {
                 title: task.title,
                 thumbnail: task.thumbnail,
             } : undefined,
-        } as any)
+        })
     }
 
     const handleRetryAll = async () => {

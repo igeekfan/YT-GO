@@ -2,8 +2,10 @@ package core
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func (s *Service) GetSettings() Settings {
@@ -87,6 +89,35 @@ func (s *Service) SaveSettings(settings Settings) error {
 	if s.db == nil {
 		return fmt.Errorf("database not initialized")
 	}
+	// Validate OutputDir: reject empty, root, or sensitive system paths.
+	if settings.OutputDir != "" {
+		cleaned := filepath.Clean(settings.OutputDir)
+		lower := strings.ToLower(cleaned)
+		sensitivePaths := []string{"/", "/etc", "/proc", "/sys", "/dev", "/boot", "/usr", "/bin", "/sbin", "/var", "c:\\", "c:/", "c:\\windows", "c:\\program files"}
+		for _, sp := range sensitivePaths {
+			if lower == sp || lower == sp+"/" || lower == sp+"\\" {
+				return fmt.Errorf("output directory cannot be a system path: %s", cleaned)
+			}
+		}
+	}
+
+	// Validate Proxy: only allow http/https/socks5 schemes to prevent SSRF.
+	if settings.Proxy != "" {
+		proxyURL, err := url.Parse(settings.Proxy)
+		if err != nil {
+			return fmt.Errorf("invalid proxy URL: %w", err)
+		}
+		scheme := strings.ToLower(proxyURL.Scheme)
+		if scheme != "http" && scheme != "https" && scheme != "socks5" && scheme != "socks5h" {
+			return fmt.Errorf("proxy scheme must be http, https, or socks5, got: %s", proxyURL.Scheme)
+		}
+	}
+
+	// Validate MaxConcurrent: enforce range [1, 10].
+	if settings.MaxConcurrent < 1 || settings.MaxConcurrent > 10 {
+		return fmt.Errorf("max concurrent downloads must be between 1 and 10, got: %d", settings.MaxConcurrent)
+	}
+
 	rec := SettingsRecord{
 		ID:                1,
 		OutputDir:         settings.OutputDir,
