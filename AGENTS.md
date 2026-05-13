@@ -100,6 +100,26 @@ import './App.css'
 - **No linter configured**: Run `go vet ./...` for Go. For frontend, consider adding ESLint if expanding the codebase.
 - **TypeScript strict mode is enabled** (`"strict": true` in tsconfig). Avoid `any` where possible; use proper types.
 
+## Internationalization (i18n)
+
+All user-facing text MUST support multiple languages (at minimum: `zh-CN` and `en-US`).
+
+### Go Backend
+- User-facing strings (error messages, hints, status text) should be localized via the `I18n` module (`internal/core/i18n.go`).
+- **Current state**: many error hints in `errhint.go` and `jsruntime.go` are still hardcoded in Chinese. When modifying or adding such strings, refactor them to use i18n keys and add translations for all supported languages.
+- When adding a new user-facing string, add entries for all supported languages.
+
+### Frontend
+- UI text MUST use the existing `useI18n()` hook with `t('key')` calls (`frontend/src/i18n/context.tsx`).
+- Translation keys are defined in `frontend/src/i18n/zh-CN.ts` (source of truth) and `frontend/src/i18n/en-US.ts`.
+- Never hardcode visible text in components. Use translation keys instead.
+- When adding new UI text, add entries in both `zh-CN.ts` and `en-US.ts`.
+
+### General Rules
+- Language-neutral identifiers (variable names, function names, type names, commit messages) MUST be in English.
+- Code comments should be in English.
+- User-facing documentation (README, etc.) should have both Chinese and English versions.
+
 ## Code Quality Requirements
 
 **IMPORTANT**: After every code change, you MUST verify that the code compiles without errors:
@@ -146,6 +166,7 @@ Rules:
 - Each commit contains exactly one logical change
 - Descriptions are concise and clear
 - No period at the end of the commit message
+- **Commit messages MUST be in English** — no Chinese or other languages in commit messages
 - Always run `go build ./...` and `npm run build` before committing to confirm compilation passes
 
 ## Auto Commit & Push
