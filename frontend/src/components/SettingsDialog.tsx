@@ -59,6 +59,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
     const [activeTab, setActiveTab] = useState<SettingsTab>('download')
+    const [prevOpen, setPrevOpen] = useState(false)
     const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
     const [aboutInfo, setAboutInfo] = useState<AboutInfo | null>(null)
     const [loadingDiag, setLoadingDiag] = useState(false)
@@ -126,7 +127,8 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     }
 
     useEffect(() => {
-        if (open) {
+        // Only initialize when dialog opens (false → true transition)
+        if (open && !prevOpen) {
             setSettings(initialSettings)
             setDiagnostic(null)
             setActiveTab('download')
@@ -136,7 +138,8 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
             setYtdlpVersionCheck(null)
             GetAboutInfo().then(setAboutInfo).catch(console.error)
         }
-    }, [open, initialSettings])
+        setPrevOpen(open)
+    }, [open])
 
     useEffect(() => {
         if (open && activeTab === 'deps' && !depStatus && !loadingDeps) {
