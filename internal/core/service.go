@@ -21,15 +21,17 @@ type Hooks struct {
 }
 
 type Service struct {
-	i18n        *I18n
-	downloads   map[string]*DownloadTask
-	cancelFns   map[string]context.CancelFunc
-	cmds        map[string]*exec.Cmd // running commands for forceful cancel
-	mu          sync.RWMutex
-	db          *gorm.DB
-	downloadSem chan struct{}
-	appVersion  string
-	hooks       Hooks
+	i18n         *I18n
+	downloads    map[string]*DownloadTask
+	cancelFns    map[string]context.CancelFunc
+	cmds         map[string]*exec.Cmd // running commands for forceful cancel
+	mu           sync.RWMutex
+	db           *gorm.DB
+	downloadSem  chan struct{}
+	appVersion   string
+	hooks        Hooks
+	downloadDir  string // from YTGO_DOWNLOAD_DIR env
+	externalURL  string // from YTGO_EXTERNAL_URL env (for web mode download links)
 }
 
 func NewService(appVersion string) *Service {
@@ -40,6 +42,8 @@ func NewService(appVersion string) *Service {
 		cmds:        make(map[string]*exec.Cmd),
 		downloadSem: make(chan struct{}, 3),
 		appVersion:  appVersion,
+		downloadDir: os.Getenv("YTGO_DOWNLOAD_DIR"),
+		externalURL: os.Getenv("YTGO_EXTERNAL_URL"),
 	}
 	return s
 }
@@ -128,4 +132,25 @@ func (s *Service) GetDownload(id string) (*DownloadTask, error) {
 		return nil, fmt.Errorf("download task not found: %s", id)
 	}
 	return task, nil
+}
+
+// GetExternalURL returns the configured external URL for download links (web mode).
+func (s *Service) GetExternalURL() string {
+	return s.externalURL
+}
+
+// WebConfig returns web-mode specific configuration for the frontend.
+type WebConfig struct {
+	DownloadDir  string `json:"downloadDir"`
+	ExternalURL  string `json:"externalURL"`
+	HasFixedDir  bool   `json:"hasFixedDir"`
+}
+
+// GetWebConfig returns web-mode configuration.
+func (s *Service) GetWebConfig() WebConfig {
+	return WebConfig{
+		DownloadDir:  s.downloadDir,
+		ExternalURL:  s.externalURL,
+		HasFixedDir:  s.downloadDir != "",
+	}
 }

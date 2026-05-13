@@ -121,6 +121,10 @@ func (s *Service) ResetSettings() error {
 }
 
 func (s *Service) GetDefaultDownloadDir() string {
+	// Priority: YTGO_DOWNLOAD_DIR env > ~/Downloads > ~/
+	if s.downloadDir != "" {
+		return s.downloadDir
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""

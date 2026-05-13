@@ -1,5 +1,5 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, backendMode} from './lib/backend'
+import {CheckYtDlp, UpdateYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, backendMode, fetchWebConfig, getWebConfig} from './lib/backend'
 import {EventsOn} from './lib/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions, SubtitleLang} from './types'
 import {useI18n} from './i18n/context'
@@ -258,6 +258,11 @@ function App() {
     }, [theme])
 
     useEffect(() => {
+        // Fetch web config (external URL, fixed download dir) in web mode
+        if (backendMode === 'web') {
+            fetchWebConfig().catch(console.error)
+        }
+
         CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
         
         // Check if first run or needs cookie configuration

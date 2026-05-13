@@ -68,6 +68,8 @@
     'dirBrowser.loading': 'Loading...',
     'dirBrowser.empty': 'No subdirectories found',
     'dirBrowser.select': 'Select',
+
+    'setup.fixedDirHint': 'Download directory is fixed by server config. Files will be saved to the configured directory',
     'action.retry': 'Retry',
     'action.redownload': 'Re-download',
     'action.remove': 'Remove',

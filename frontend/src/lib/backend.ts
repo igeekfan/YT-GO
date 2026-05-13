@@ -12,6 +12,29 @@ function apiURL(path: string) {
     return `${base}${path}`
 }
 
+// Runtime web config (fetched from /api/config in web mode)
+export interface WebConfig {
+    downloadDir: string
+    externalURL: string
+    hasFixedDir: boolean
+}
+
+let _webConfig: WebConfig | null = null
+
+export function getWebConfig(): WebConfig | null {
+    return _webConfig
+}
+
+export async function fetchWebConfig(): Promise<WebConfig | null> {
+    if (backendMode === 'desktop') return null
+    try {
+        _webConfig = await apiFetch<WebConfig>('/api/config')
+        return _webConfig
+    } catch {
+        return null
+    }
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(apiURL(path), {
         ...init,
@@ -307,9 +330,12 @@ export function OpenFolder(path: string) {
     return Promise.resolve(undefined)
 }
 
-// getDownloadFileURL returns a URL for downloading a completed file in web mode
+// getDownloadFileURL returns a URL for downloading a completed file in web mode.
+// Uses YTGO_EXTERNAL_URL if configured, otherwise falls back to same-origin.
 export function getDownloadFileURL(taskID: string) {
-    const base = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
+    const externalBase = _webConfig?.externalURL?.replace(/\/$/, '')
+    const fallbackBase = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
+    const base = externalBase || fallbackBase
     return `${base}/api/downloads/${encodeURIComponent(taskID)}/file`
 }
 

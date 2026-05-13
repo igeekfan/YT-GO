@@ -29,5 +29,8 @@ EXPOSE 8080
 
 ENV YTGO_WEB_ADDR=:8080
 ENV XDG_CONFIG_HOME=/app
+ENV YTGO_DOWNLOAD_DIR=/data/downloads
+
+VOLUME /data/downloads
 
 CMD ["./yt-go-server"]

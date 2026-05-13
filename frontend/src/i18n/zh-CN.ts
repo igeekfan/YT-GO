@@ -68,6 +68,8 @@
     'dirBrowser.loading': '加载中...',
     'dirBrowser.empty': '该目录没有子文件夹',
     'dirBrowser.select': '选择',
+
+    'setup.fixedDirHint': '下载目录已由服务器配置固定，文件将保存到指定目录',
     'action.retry': '重试',
     'action.redownload': '重新下载',
     'action.remove': '删除',

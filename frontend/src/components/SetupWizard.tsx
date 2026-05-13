@@ -1,5 +1,5 @@
 import {useState, useEffect} from 'react'
-import {SelectFolder, SelectCookiesFile, CheckYtDlp, GetDepStatus, backendMode, UploadCookiesFile} from '../lib/backend'
+import {SelectFolder, SelectCookiesFile, CheckYtDlp, GetDepStatus, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
 import DirBrowser from './DirBrowser'
 import {useI18n} from '../i18n/context'
 
@@ -28,6 +28,20 @@ export default function SetupWizard({onComplete}: Props) {
         return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
     })
     const [showDirBrowser, setShowDirBrowser] = useState(false)
+
+    // In web mode with fixed download dir, pre-fill and skip directory step
+    const webConfig = getWebConfig()
+    const hasFixedDir = backendMode === 'web' && webConfig?.hasFixedDir
+
+    useEffect(() => {
+        // Auto-fill output dir from web config
+        if (hasFixedDir && webConfig?.downloadDir) {
+            setOutputDir(webConfig.downloadDir)
+        }
+    }, [hasFixedDir, webConfig])
+
+    // totalSteps: if hasFixedDir, skip directory selection (step 1 only has language/theme)
+    const totalSteps = hasFixedDir ? 1 : 2
 
     useEffect(() => {
         CheckYtDlp().then(status => {
@@ -79,8 +93,6 @@ export default function SetupWizard({onComplete}: Props) {
         onComplete(outputDir, cookiesFrom, cookiesFile, proxy, language, theme)
     }
 
-    const totalSteps = 2
-
     return (
         <>
         <div className="setup-wizard-overlay">
@@ -100,6 +112,8 @@ export default function SetupWizard({onComplete}: Props) {
                 <div className="setup-wizard-content">
                     {step === 1 && (
                         <div className="setup-step">
+                            {!hasFixedDir && (
+                            <>
                             <p className="setup-desc">
                                 {t('setup.selectDir')}
                             </p>
@@ -122,6 +136,13 @@ export default function SetupWizard({onComplete}: Props) {
                                     {t('outputDir.browse')}
                                 </button>
                             </div>
+                            </>
+                            )}
+                            {hasFixedDir && (
+                            <p className="setup-desc">
+                                {t('setup.fixedDirHint')}
+                            </p>
+                            )}
                             <div className="setup-field">
                                 <label className="setup-label">{t('settings.language')}</label>
                                 <select
@@ -285,12 +306,12 @@ export default function SetupWizard({onComplete}: Props) {
                 </div>
 
                 <div className="setup-wizard-footer">
-                    {step > 1 && (
+                    {!hasFixedDir && step > 1 && (
                         <button className="btn-secondary" onClick={() => setStep(step - 1)}>
                             {t('setup.back')}
                         </button>
                     )}
-                    {step < totalSteps ? (
+                    {!hasFixedDir && step < totalSteps ? (
                         <button 
                             className="btn-primary" 
                             onClick={() => setStep(step + 1)}
@@ -302,7 +323,7 @@ export default function SetupWizard({onComplete}: Props) {
                         <button 
                             className="btn-primary" 
                             onClick={handleComplete}
-                            disabled={!outputDir}
+                            disabled={!hasFixedDir && !outputDir}
                         >
                             {t('setup.done')}
                         </button>

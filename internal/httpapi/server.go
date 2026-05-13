@@ -56,6 +56,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/settings/reset", s.handleResetSettings)
 	s.mux.HandleFunc("/api/settings/browse-dir", s.handleBrowseDir)
 	s.mux.HandleFunc("/api/cookies/upload", s.handleCookiesUpload)
+	s.mux.HandleFunc("/api/config", s.handleConfig)
 	s.mux.HandleFunc("/api/diagnostics", s.handleDiagnostics)
 	s.mux.HandleFunc("/api/diagnostics/deps", s.handleDeps)
 	s.mux.HandleFunc("/api/diagnostics/deno/update", s.handleDenoUpdate)
@@ -319,6 +320,14 @@ func (s *Server) handleCookiesUpload(w http.ResponseWriter, r *http.Request) {
 		"path": destPath,
 		"name": safeName,
 	})
+}
+
+func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.service.GetWebConfig())
 }
 
 func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
