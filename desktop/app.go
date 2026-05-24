@@ -40,6 +40,7 @@ func (a *App) startup(ctx context.Context) {
 			wailsRuntime.EventsEmit(a.ctx, "download:remove", taskID)
 		},
 		DownloadLog: func(taskID string, line string) {
+			fmt.Printf("[%s] %s\n", taskID, line)
 			wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": line})
 		},
 	})

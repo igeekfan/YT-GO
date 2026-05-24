@@ -61,7 +61,7 @@ func toCoreDownloadOptions(in *DownloadOptions) *core.DownloadOptions {
 	if in == nil {
 		return nil
 	}
-	return &core.DownloadOptions{SaveDescription: in.SaveDescription, SaveThumbnail: in.SaveThumbnail, EmbedChapters: in.EmbedChapters, WriteSubtitles: in.WriteSubtitles, SubtitleLangs: in.SubtitleLangs, EmbedSubtitles: in.EmbedSubtitles, SponsorBlock: in.SponsorBlock}
+	return &core.DownloadOptions{SaveDescription: in.SaveDescription, SaveThumbnail: in.SaveThumbnail, EmbedChapters: in.EmbedChapters, WriteSubtitles: in.WriteSubtitles, SubtitleLangs: in.SubtitleLangs, EmbedSubtitles: in.EmbedSubtitles, SponsorBlock: in.SponsorBlock, FilenameTemplate: in.FilenameTemplate}
 }
 
 func toCoreDownloadRequest(in DownloadRequest) core.DownloadRequest {

@@ -14,6 +14,10 @@
     'ytdlp.installGuide': '请使用以下任一方法安装 yt-dlp：',
     'ytdlp.installNote': '安装完成后，点击下方按钮重新检测',
     'ytdlp.recheck': '重新检测',
+    'ytdlp.autoInstall': '一键安装',
+    'ytdlp.installing': '正在安装...',
+    'ytdlp.installSuccess': 'yt-dlp 安装成功',
+    'ytdlp.installFail': 'yt-dlp 安装失败',
 
     'install.windowsWinget': 'Windows (winget)',
     'install.windowsScoop': 'Windows (scoop)',
@@ -165,6 +169,11 @@
     'settings.rateLimitPlaceholder': '如 1M、500K（留空不限速）',
     'settings.maxConcurrent': '最大并发数',
     'settings.filenameTemplate': '文件名模板',
+    'settings.filenameTemplateHelp': '使用 yt-dlp 模板语法；常用占位符：',
+    'settings.filenamePreset.title': '标题',
+    'settings.filenamePreset.uploaderTitle': '上传者-标题',
+    'settings.filenamePreset.dateTitle': '日期_标题',
+    'settings.filenamePreset.titleId': '标题[ID]',
     'settings.mergeOutputFormat': '输出容器格式',
     'settings.mergeOutputFormatAuto': '自动',
     'settings.audioFormat': '音频格式',
@@ -240,11 +249,14 @@
     'downloadOpt.writeSubtitles': '下载字幕',
     'downloadOpt.embedSubtitles': '嵌入字幕',
     'downloadOpt.subtitleLangs': '字幕语言',
+    'downloadOpt.subtitleSearch': '搜索字幕...',
     'downloadOpt.sponsorBlock': 'SponsorBlock',
     'downloadOpt.sponsorBlockDesc': 'SponsorBlock 可自动标记视频中的赞助片段、片头片尾等非正片内容，播放时可一键跳过。',
     'downloadOpt.subtitleManual': '人工字幕',
     'downloadOpt.subtitleAuto': '自动生成',
     'downloadOpt.noSubtitles': '该视频无可用字幕',
+    'downloadOpt.filenameTemplate': '文件名（仅此次）',
+    'downloadOpt.filenameTemplateHelp': '使用 yt-dlp 模板语法；留空则用设置中的全局模板。常用占位符：',
 
     'notification.downloadComplete': '下载完成',
 
@@ -274,6 +286,10 @@
 
     'settings.tab.deps': '依赖检测',
     'settings.tab.tools.short': '工具',
+    'settings.tab.about': '关于',
+
+    'about.openSource': '开源视频下载工具',
+    'about.feedback': '欢迎在 GitHub 提交 Issue 和 PR',
 
     'setup.denoReady': 'Deno 已就绪',
     'setup.denoNotFound': '推荐安装或升级 Deno',

@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,17 +40,26 @@ func (a *App) OpenFolder(path string) error {
 	path = filepath.Clean(path)
 	fileInfo, err := os.Stat(path)
 	isFile := err == nil && !fileInfo.IsDir()
+
+	// If path doesn't exist, try parent directory
 	openPath := path
-	if runtime.GOOS != "windows" && isFile {
-		openPath = filepath.Dir(path)
+	if err != nil {
+		parent := filepath.Dir(path)
+		if _, parentErr := os.Stat(parent); parentErr == nil {
+			openPath = parent
+		} else {
+			// Neither path nor parent exists, return error
+			return fmt.Errorf("path does not exist: %s", path)
+		}
 	}
+
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
 		if isFile {
 			cmd = exec.Command("explorer", "/select,", path)
 		} else {
-			cmd = exec.Command("explorer", path)
+			cmd = exec.Command("explorer", openPath)
 		}
 	case "darwin":
 		if isFile {

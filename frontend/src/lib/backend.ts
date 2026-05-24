@@ -22,6 +22,7 @@ interface DownloadRequestPayload {
         subtitleLangs?: string
         embedSubtitles?: boolean
         sponsorBlock?: boolean
+        filenameTemplate?: string
     }
 }
 

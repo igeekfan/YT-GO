@@ -30,7 +30,6 @@ func main() {
 			apiServer.Hub().Emit("download:remove", taskID)
 		},
 		DownloadLog: func(taskID string, line string) {
-			log.Printf("[%s] %s", taskID, line)
 			apiServer.Hub().Emit("download:log", map[string]string{"taskId": taskID, "line": line})
 		},
 	})

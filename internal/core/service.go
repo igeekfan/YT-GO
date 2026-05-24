@@ -99,6 +99,9 @@ func (s *Service) emitDownloadLog(taskID string, line string) {
 	if s.hooks.DownloadLog != nil {
 		s.hooks.DownloadLog(taskID, line)
 	}
+	if s.hooks.AppLog != nil {
+		s.hooks.AppLog(fmt.Sprintf("[%s] %s", taskID, line))
+	}
 }
 
 // resolveYtDlp resolves the yt-dlp executable path using go-ytdlp.
