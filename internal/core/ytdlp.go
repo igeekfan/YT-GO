@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -44,7 +45,7 @@ func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
 	result, err := cmd.Run(ctx, videoURL)
 	if err != nil {
 		errMsg := normalizeYtDlpError(s.i18n, toUTF8([]byte(result.Stderr)), settings)
-		s.emitLog("[GetVideoInfo] failed: err=%v, output=%s", err, errMsg)
+		s.emitLog("[GetVideoInfo] failed: err=%s, output=%s", toUTF8([]byte(err.Error())), errMsg)
 		if errMsg != "" {
 			return VideoInfo{}, fmt.Errorf("%s", errMsg)
 		}
@@ -59,6 +60,9 @@ func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
 
 	raw := infoList[0]
 	info := extractVideoInfoFromExtracted(raw, videoURL)
+	if isYouTubeURL(videoURL) {
+		info.Subtitles = s.mergeListedSubtitles(ctx, ytdlpPath, videoURL, settings, info.Subtitles)
+	}
 	if fallback := s.resolveVideoThumbnailFallback(info, raw); fallback != "" {
 		info.Thumbnail = fallback
 	}
@@ -127,32 +131,146 @@ func extractSubtitleLangsFromExtracted(raw *ytdlp.ExtractedInfo) []SubtitleLang 
 	// Manual subtitles
 	if raw.Subtitles != nil {
 		for code, subs := range raw.Subtitles {
-			if seen[code] {
+			selector := "manual:" + code
+			if seen[selector] {
 				continue
 			}
-			seen[code] = true
+			seen[selector] = true
 			name := code
 			if len(subs) > 0 && subs[0].Name != nil {
 				name = *subs[0].Name
 			}
-			result = append(result, SubtitleLang{Code: code, Name: name, Auto: false})
+			result = append(result, SubtitleLang{Code: code, Name: name, Auto: false, Selector: selector})
 		}
 	}
 	// Automatic captions
 	if raw.AutomaticCaptions != nil {
 		for code, subs := range raw.AutomaticCaptions {
-			if seen[code] {
+			selector := "auto:" + code
+			if seen[selector] {
 				continue
 			}
-			seen[code] = true
+			seen[selector] = true
 			name := code
 			if len(subs) > 0 && subs[0].Name != nil {
 				name = *subs[0].Name
 			}
-			result = append(result, SubtitleLang{Code: code, Name: name, Auto: true})
+			result = append(result, SubtitleLang{Code: code, Name: name, Auto: true, Selector: selector})
 		}
 	}
 	return result
+}
+
+var listSubsLineRe = regexp.MustCompile(`^(\S+)(?:\s{2,}(.*?))?\s{2,}(\S.*)$`)
+
+func (s *Service) mergeListedSubtitles(ctx context.Context, ytdlpPath string, videoURL string, settings Settings, existing []SubtitleLang) []SubtitleLang {
+	listed, err := s.listSubtitles(ctx, ytdlpPath, videoURL, settings)
+	if err != nil {
+		s.emitLog("[GetVideoInfo] list-subs probe failed: %v", err)
+		return existing
+	}
+	return mergeSubtitleEntries(existing, listed)
+}
+
+func (s *Service) listSubtitles(ctx context.Context, ytdlpPath string, videoURL string, settings Settings) ([]SubtitleLang, error) {
+	cmd := s.newYtdlpCommand().SetExecutable(ytdlpPath).
+		IgnoreConfig().ListSubs().NoPlaylist().NoWarnings()
+	if settings.Proxy != "" {
+		cmd.Proxy(settings.Proxy)
+	}
+	applyCookiesArgs(cmd, settings)
+	s.applyMediaCommand(cmd)
+
+	s.logCmd("GetVideoInfo:list-subs", cmd, ctx, videoURL)
+	result, err := cmd.Run(ctx, videoURL)
+	output := toUTF8([]byte(strings.TrimSpace(result.Stdout + "\n" + result.Stderr)))
+	if err != nil {
+		if output == "" {
+			return nil, err
+		}
+		return nil, fmt.Errorf("%s", strings.TrimSpace(output))
+	}
+	return parseListSubsOutput(output), nil
+}
+
+func parseListSubsOutput(output string) []SubtitleLang {
+	var result []SubtitleLang
+	seen := make(map[string]struct{})
+	currentAuto := false
+	for _, rawLine := range strings.Split(output, "\n") {
+		line := strings.TrimSpace(rawLine)
+		if line == "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(line, "[info] Available automatic captions"):
+			currentAuto = true
+			continue
+		case strings.HasPrefix(line, "[info] Available subtitles"):
+			currentAuto = false
+			continue
+		case strings.HasPrefix(line, "Language"):
+			continue
+		case strings.HasPrefix(line, "["):
+			continue
+		}
+
+		matches := listSubsLineRe.FindStringSubmatch(strings.TrimRight(rawLine, "\r"))
+		if len(matches) == 0 {
+			continue
+		}
+		code := strings.TrimSpace(matches[1])
+		name := strings.TrimSpace(matches[2])
+		if code == "" {
+			continue
+		}
+		if name == "" {
+			name = code
+		}
+		selector := subtitleSelector(code, currentAuto)
+		if _, ok := seen[selector]; ok {
+			continue
+		}
+		seen[selector] = struct{}{}
+		result = append(result, SubtitleLang{Code: code, Name: name, Auto: currentAuto, Selector: selector})
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].Auto != result[j].Auto {
+			return !result[i].Auto && result[j].Auto
+		}
+		return result[i].Code < result[j].Code
+	})
+	return result
+}
+
+func mergeSubtitleEntries(groups ...[]SubtitleLang) []SubtitleLang {
+	merged := make([]SubtitleLang, 0)
+	seen := make(map[string]int)
+	for _, group := range groups {
+		for _, item := range group {
+			selector := item.Selector
+			if selector == "" {
+				selector = subtitleSelector(item.Code, item.Auto)
+				item.Selector = selector
+			}
+			if idx, ok := seen[selector]; ok {
+				if merged[idx].Name == merged[idx].Code && item.Name != "" {
+					merged[idx].Name = item.Name
+				}
+				continue
+			}
+			seen[selector] = len(merged)
+			merged = append(merged, item)
+		}
+	}
+	return merged
+}
+
+func subtitleSelector(code string, auto bool) string {
+	if auto {
+		return "auto:" + code
+	}
+	return "manual:" + code
 }
 
 func detectCollectionKind(url string) string {
@@ -207,7 +325,7 @@ func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 	result, err := cmd.Run(ctx, videoURL)
 	if err != nil {
 		errMsg := normalizeYtDlpError(s.i18n, toUTF8([]byte(result.Stderr)), settings)
-		s.emitLog("[GetPlaylistInfo] failed: err=%v, output=%s", err, errMsg)
+		s.emitLog("[GetPlaylistInfo] failed: err=%s, output=%s", toUTF8([]byte(err.Error())), errMsg)
 		if errMsg != "" {
 			return PlaylistInfo{}, fmt.Errorf("%s", errMsg)
 		}
@@ -285,7 +403,7 @@ func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {
 	result, err := cmd.Run(ctx, videoURL)
 	if err != nil {
 		errMsg := normalizeYtDlpError(s.i18n, toUTF8([]byte(result.Stderr)), settings)
-		s.emitLog("[GetFormats] failed: err=%v, output=%s", err, errMsg)
+		s.emitLog("[GetFormats] failed: err=%s, output=%s", toUTF8([]byte(err.Error())), errMsg)
 		if errMsg != "" {
 			return FormatInfo{}, fmt.Errorf("%s", errMsg)
 		}

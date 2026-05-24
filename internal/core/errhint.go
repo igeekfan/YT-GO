@@ -55,6 +55,13 @@ func normalizeYtDlpError(i *I18n, errMsg string, settings Settings) string {
 		}
 		return fmt.Sprintf(i.T("hint.youtube.signin"), cookieHint, errMsg)
 	}
+	if strings.Contains(errMsg, "Unable to download video subtitles") && strings.Contains(errMsg, "HTTP Error 429") {
+		cookieHint := i.T("hint.cookies.none")
+		if hint := describeCookieSource(i, settings); hint != "" {
+			cookieHint = hint
+		}
+		return fmt.Sprintf(i.T("hint.youtube.subtitles429"), cookieHint, errMsg)
+	}
 	if strings.Contains(errMsg, "Failed to decrypt with DPAPI") {
 		if settings.CookiesFrom != "" {
 			return fmt.Sprintf(i.T("hint.dpapi.with_browser"), settings.CookiesFrom, errMsg)

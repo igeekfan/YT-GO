@@ -19,7 +19,10 @@ interface DownloadRequestPayload {
         saveThumbnail?: boolean
         embedChapters?: boolean
         writeSubtitles?: boolean
+        writeManualSubs?: boolean
+        writeAutoSubs?: boolean
         subtitleLangs?: string
+        autoSubtitleLangs?: string
         embedSubtitles?: boolean
         sponsorBlock?: boolean
         filenameTemplate?: string

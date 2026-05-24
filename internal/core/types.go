@@ -24,9 +24,10 @@ type VideoInfo struct {
 }
 
 type SubtitleLang struct {
-	Code string `json:"code"`
-	Name string `json:"name"`
-	Auto bool   `json:"auto"`
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	Auto     bool   `json:"auto"`
+	Selector string `json:"selector"`
 }
 
 type DownloadRequest struct {
@@ -38,14 +39,17 @@ type DownloadRequest struct {
 }
 
 type DownloadOptions struct {
-	SaveDescription  *bool  `json:"saveDescription"`
-	SaveThumbnail    *bool  `json:"saveThumbnail"`
-	EmbedChapters    *bool  `json:"embedChapters"`
-	WriteSubtitles   *bool  `json:"writeSubtitles"`
-	SubtitleLangs    string `json:"subtitleLangs"`
-	EmbedSubtitles   *bool  `json:"embedSubtitles"`
-	SponsorBlock     *bool  `json:"sponsorBlock"`
-	FilenameTemplate string `json:"filenameTemplate"`
+	SaveDescription   *bool  `json:"saveDescription"`
+	SaveThumbnail     *bool  `json:"saveThumbnail"`
+	EmbedChapters     *bool  `json:"embedChapters"`
+	WriteSubtitles    *bool  `json:"writeSubtitles"`
+	WriteManualSubs   *bool  `json:"writeManualSubs"`
+	WriteAutoSubs     *bool  `json:"writeAutoSubs"`
+	SubtitleLangs     string `json:"subtitleLangs"`
+	AutoSubtitleLangs string `json:"autoSubtitleLangs"`
+	EmbedSubtitles    *bool  `json:"embedSubtitles"`
+	SponsorBlock      *bool  `json:"sponsorBlock"`
+	FilenameTemplate  string `json:"filenameTemplate"`
 }
 
 type DownloadTask struct {

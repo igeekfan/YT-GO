@@ -107,7 +107,10 @@ export namespace desktop {
 	    saveThumbnail?: boolean;
 	    embedChapters?: boolean;
 	    writeSubtitles?: boolean;
+	    writeManualSubs?: boolean;
+	    writeAutoSubs?: boolean;
 	    subtitleLangs: string;
+	    autoSubtitleLangs: string;
 	    embedSubtitles?: boolean;
 	    sponsorBlock?: boolean;
 	    filenameTemplate: string;
@@ -122,7 +125,10 @@ export namespace desktop {
 	        this.saveThumbnail = source["saveThumbnail"];
 	        this.embedChapters = source["embedChapters"];
 	        this.writeSubtitles = source["writeSubtitles"];
+	        this.writeManualSubs = source["writeManualSubs"];
+	        this.writeAutoSubs = source["writeAutoSubs"];
 	        this.subtitleLangs = source["subtitleLangs"];
+	        this.autoSubtitleLangs = source["autoSubtitleLangs"];
 	        this.embedSubtitles = source["embedSubtitles"];
 	        this.sponsorBlock = source["sponsorBlock"];
 	        this.filenameTemplate = source["filenameTemplate"];
@@ -132,6 +138,7 @@ export namespace desktop {
 	    code: string;
 	    name: string;
 	    auto: boolean;
+	    selector: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SubtitleLang(source);
@@ -142,6 +149,7 @@ export namespace desktop {
 	        this.code = source["code"];
 	        this.name = source["name"];
 	        this.auto = source["auto"];
+	        this.selector = source["selector"];
 	    }
 	}
 	export class VideoInfo {

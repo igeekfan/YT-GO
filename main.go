@@ -6,6 +6,7 @@ import (
 	"embed"
 
 	"YT-GO/desktop"
+	"YT-GO/internal/platform"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -16,6 +17,7 @@ import (
 var assets embed.FS
 
 func main() {
+	platform.EnableUTF8Console()
 	app := desktop.NewApp(currentAppVersion())
 
 	err := wails.Run(&options.App{

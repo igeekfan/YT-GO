@@ -24,6 +24,26 @@ import {
     Play, Download, ChevronDown, ChevronRight, Info, FolderOpen
 } from 'lucide-react'
 
+function getSubtitleSelectionKey(sub: {code: string, auto?: boolean, selector?: string}): string {
+    return sub.selector || `${sub.auto ? 'auto' : 'manual'}:${sub.code}`
+}
+
+function splitSelectedSubtitleLangs(subtitles: VideoInfo['subtitles'] | undefined, selectedKeys: Set<string>) {
+    const manualLangs = new Set<string>()
+    const autoLangs = new Set<string>()
+
+    for (const sub of subtitles || []) {
+        if (!selectedKeys.has(getSubtitleSelectionKey(sub))) continue
+        if (sub.auto) autoLangs.add(sub.code)
+        else manualLangs.add(sub.code)
+    }
+
+    return {
+        manualLangs: Array.from(manualLangs),
+        autoLangs: Array.from(autoLangs),
+    }
+}
+
 function parseResolutionHeight(res: string): number {
     const m = res.match(/(\d+)p/)
     if (m) return parseInt(m[1], 10)
@@ -383,15 +403,19 @@ function App() {
     }
 
     const buildDownloadOptions = (): DownloadOptions | undefined => {
-        const langs = Array.from(selectedSubtitleLangs).join(',')
+        const {manualLangs, autoLangs} = splitSelectedSubtitleLangs(videoInfo?.subtitles, selectedSubtitleLangs)
+        const hasExplicitSubtitleSelection = manualLangs.length > 0 || autoLangs.length > 0
         return {
             saveThumbnail: dlOptSaveThumbnail,
             saveDescription: dlOptSaveDescription,
             embedChapters: dlOptEmbedChapters,
             writeSubtitles: dlOptWriteSubtitles,
+            writeManualSubs: hasExplicitSubtitleSelection ? manualLangs.length > 0 : undefined,
+            writeAutoSubs: hasExplicitSubtitleSelection ? autoLangs.length > 0 : undefined,
             embedSubtitles: dlOptEmbedSubtitles,
             sponsorBlock: dlOptSponsorBlock,
-            subtitleLangs: langs || '',
+            subtitleLangs: hasExplicitSubtitleSelection ? manualLangs.join(',') : '',
+            autoSubtitleLangs: hasExplicitSubtitleSelection ? autoLangs.join(',') : '',
             filenameTemplate: dlOptFilenameTemplate.trim(),
         } as DownloadOptions
     }
@@ -932,11 +956,12 @@ function App() {
                                                     return (sub.name || '').toLowerCase().includes(q) || sub.code.toLowerCase().includes(q)
                                                 })
                                                 .map(sub => (
-                                                <label key={sub.code} className="flex items-center gap-2 px-2.5 py-1 hover:bg-muted/50 cursor-pointer text-xs border-b last:border-b-0">
-                                                    <Checkbox checked={selectedSubtitleLangs.has(sub.code)}
+                                                <label key={getSubtitleSelectionKey(sub)} className="flex items-center gap-2 px-2.5 py-1 hover:bg-muted/50 cursor-pointer text-xs border-b last:border-b-0">
+                                                    <Checkbox checked={selectedSubtitleLangs.has(getSubtitleSelectionKey(sub))}
                                                         onCheckedChange={(checked: boolean) => {
                                                             const next = new Set(selectedSubtitleLangs)
-                                                            if (checked) next.add(sub.code); else next.delete(sub.code)
+                                                            const key = getSubtitleSelectionKey(sub)
+                                                            if (checked) next.add(key); else next.delete(key)
                                                             setSelectedSubtitleLangs(next)
                                                         }} />
                                                     <span className="flex-1 truncate">{sub.name || sub.code}</span>

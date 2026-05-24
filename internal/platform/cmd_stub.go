@@ -9,3 +9,6 @@ func HideCmdWindow(cmd *exec.Cmd) {
 
 func ConfigureCmdWindow(cmd *exec.Cmd, separateProcessGroup bool) {
 }
+
+func EnableUTF8Console() {
+}

@@ -61,7 +61,7 @@ func toCoreDownloadOptions(in *DownloadOptions) *core.DownloadOptions {
 	if in == nil {
 		return nil
 	}
-	return &core.DownloadOptions{SaveDescription: in.SaveDescription, SaveThumbnail: in.SaveThumbnail, EmbedChapters: in.EmbedChapters, WriteSubtitles: in.WriteSubtitles, SubtitleLangs: in.SubtitleLangs, EmbedSubtitles: in.EmbedSubtitles, SponsorBlock: in.SponsorBlock, FilenameTemplate: in.FilenameTemplate}
+	return &core.DownloadOptions{SaveDescription: in.SaveDescription, SaveThumbnail: in.SaveThumbnail, EmbedChapters: in.EmbedChapters, WriteSubtitles: in.WriteSubtitles, WriteManualSubs: in.WriteManualSubs, WriteAutoSubs: in.WriteAutoSubs, SubtitleLangs: in.SubtitleLangs, AutoSubtitleLangs: in.AutoSubtitleLangs, EmbedSubtitles: in.EmbedSubtitles, SponsorBlock: in.SponsorBlock, FilenameTemplate: in.FilenameTemplate}
 }
 
 func toCoreDownloadRequest(in DownloadRequest) core.DownloadRequest {
@@ -114,7 +114,7 @@ func (a *App) CheckYtDlpVersion() (YtDlpVersionCheck, error) {
 	result, err := a.service.CheckYtDlpVersion()
 	return YtDlpVersionCheck(result), err
 }
-func (a *App) UpdateDeno() (string, error)   { return a.service.UpdateDeno() }
+func (a *App) UpdateDeno() (string, error) { return a.service.UpdateDeno() }
 func (a *App) GetVideoInfo(url string) (VideoInfo, error) {
 	info, err := a.service.GetVideoInfo(url)
 	return fromCoreVideoInfo(info), err
@@ -143,5 +143,5 @@ func (a *App) CheckForUpdate() (UpdateInfo, error) {
 	info, err := a.service.CheckForUpdate()
 	return fromCoreUpdateInfo(info), err
 }
-func (a *App) GetDepStatus() DepStatus { return fromCoreDepStatus(a.service.GetDepStatus()) }
+func (a *App) GetDepStatus() DepStatus       { return fromCoreDepStatus(a.service.GetDepStatus()) }
 func (a *App) InstallYtDlp() (string, error) { return a.service.InstallYtDlp() }

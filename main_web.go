@@ -11,9 +11,11 @@ import (
 
 	"YT-GO/internal/core"
 	"YT-GO/internal/httpapi"
+	"YT-GO/internal/platform"
 )
 
 func main() {
+	platform.EnableUTF8Console()
 	service := core.NewService(currentAppVersion())
 	apiServer := httpapi.New(service)
 	service.SetHooks(core.Hooks{

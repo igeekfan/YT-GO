@@ -14,6 +14,7 @@ import (
 	"YT-GO/internal/platform"
 
 	"github.com/google/uuid"
+	"github.com/lrstanley/go-ytdlp"
 )
 
 // isValidDownloadURL checks that the URL uses http or https protocol.
@@ -172,9 +173,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	// Resolve per-download options (override global settings).
 	optSaveDescription := settings.SaveDescription
 	optSaveThumbnail := settings.SaveThumbnail
-	optWriteSubtitles := settings.WriteSubtitles
-	optSubtitleLangs := settings.SubtitleLangs
-	optEmbedSubtitles := settings.EmbedSubtitles
+	subtitleCfg := resolveSubtitleDownloadConfig(settings, req.Options)
 	optEmbedChapters := settings.EmbedChapters
 	optSponsorBlock := settings.SponsorBlock
 	if req.Options != nil {
@@ -183,15 +182,6 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 		}
 		if req.Options.SaveThumbnail != nil {
 			optSaveThumbnail = *req.Options.SaveThumbnail
-		}
-		if req.Options.WriteSubtitles != nil {
-			optWriteSubtitles = *req.Options.WriteSubtitles
-		}
-		if req.Options.SubtitleLangs != "" {
-			optSubtitleLangs = req.Options.SubtitleLangs
-		}
-		if req.Options.EmbedSubtitles != nil {
-			optEmbedSubtitles = *req.Options.EmbedSubtitles
 		}
 		if req.Options.EmbedChapters != nil {
 			optEmbedChapters = *req.Options.EmbedChapters
@@ -207,19 +197,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	if optSaveThumbnail {
 		builder.WriteThumbnail()
 	}
-	if optWriteSubtitles {
-		builder.WriteSubs()
-		// Also enable auto-generated/auto-translated subtitles (e.g. YouTube auto-captions).
-		// yt-dlp prefers manual subs when both are available for a language, and falls back
-		// to auto-generated otherwise, so this is safe when the user picked a manual lang.
-		builder.WriteAutoSubs()
-		if optSubtitleLangs != "" {
-			builder.SubLangs(optSubtitleLangs)
-		}
-		if optEmbedSubtitles {
-			builder.EmbedSubs()
-		}
-	}
+	applySubtitleDownloadConfig(builder, subtitleCfg, req.URL)
 	if optEmbedChapters {
 		builder.EmbedChapters()
 	}
@@ -443,6 +421,142 @@ func formatBytes(bytes int64) string {
 		return fmt.Sprintf("%.1fMB", float64(bytes)/1024/1024)
 	}
 	return fmt.Sprintf("%.1fGB", float64(bytes)/1024/1024/1024)
+}
+
+func mergeSubtitleLangs(groups ...string) string {
+	seen := make(map[string]struct{})
+	merged := make([]string, 0)
+	for _, group := range groups {
+		for _, lang := range strings.Split(group, ",") {
+			lang = strings.TrimSpace(lang)
+			if lang == "" {
+				continue
+			}
+			if _, ok := seen[lang]; ok {
+				continue
+			}
+			seen[lang] = struct{}{}
+			merged = append(merged, lang)
+		}
+	}
+	return strings.Join(merged, ",")
+}
+
+type subtitleDownloadConfig struct {
+	WriteSubtitles    bool
+	WriteManualSubs   bool
+	WriteAutoSubs     bool
+	SubtitleLangs     string
+	AutoSubtitleLangs string
+	EmbedSubtitles    bool
+	ExplicitMode      bool
+}
+
+func resolveSubtitleDownloadConfig(settings Settings, opts *DownloadOptions) subtitleDownloadConfig {
+	cfg := subtitleDownloadConfig{
+		WriteSubtitles:    settings.WriteSubtitles,
+		WriteManualSubs:   settings.WriteSubtitles,
+		WriteAutoSubs:     settings.WriteSubtitles,
+		SubtitleLangs:     settings.SubtitleLangs,
+		AutoSubtitleLangs: settings.SubtitleLangs,
+		EmbedSubtitles:    settings.EmbedSubtitles,
+	}
+	if opts == nil {
+		return cfg
+	}
+	if opts.WriteSubtitles != nil {
+		cfg.WriteSubtitles = *opts.WriteSubtitles
+	}
+	if opts.WriteManualSubs != nil {
+		cfg.WriteManualSubs = *opts.WriteManualSubs
+		cfg.ExplicitMode = true
+	}
+	if opts.WriteAutoSubs != nil {
+		cfg.WriteAutoSubs = *opts.WriteAutoSubs
+		cfg.ExplicitMode = true
+	}
+	if opts.SubtitleLangs != "" {
+		cfg.SubtitleLangs = opts.SubtitleLangs
+		cfg.ExplicitMode = true
+	}
+	if opts.AutoSubtitleLangs != "" {
+		cfg.AutoSubtitleLangs = opts.AutoSubtitleLangs
+		cfg.ExplicitMode = true
+	}
+	if opts.EmbedSubtitles != nil {
+		cfg.EmbedSubtitles = *opts.EmbedSubtitles
+	}
+	if !cfg.WriteSubtitles {
+		cfg.WriteManualSubs = false
+		cfg.WriteAutoSubs = false
+		cfg.SubtitleLangs = ""
+		cfg.AutoSubtitleLangs = ""
+		cfg.EmbedSubtitles = false
+		return cfg
+	}
+	if cfg.ExplicitMode {
+		if !cfg.WriteManualSubs {
+			cfg.SubtitleLangs = ""
+		}
+		if !cfg.WriteAutoSubs {
+			cfg.AutoSubtitleLangs = ""
+		}
+	}
+	return cfg
+}
+
+func applySubtitleDownloadConfig(builder interface {
+	WriteSubs() *ytdlp.Command
+	WriteAutoSubs() *ytdlp.Command
+	SubLangs(string) *ytdlp.Command
+	EmbedSubs() *ytdlp.Command
+	Retries(string) *ytdlp.Command
+	ExtractorRetries(string) *ytdlp.Command
+	FragmentRetries(string) *ytdlp.Command
+	RetrySleep(string) *ytdlp.Command
+	SleepRequests(float64) *ytdlp.Command
+	SleepSubtitles(float64) *ytdlp.Command
+}, cfg subtitleDownloadConfig, rawURL string) {
+	if !cfg.WriteSubtitles {
+		return
+	}
+	if cfg.WriteManualSubs {
+		builder.WriteSubs()
+	}
+	if cfg.WriteAutoSubs {
+		builder.WriteAutoSubs()
+		applyYouTubeAutoSubtitleWorkarounds(builder, rawURL)
+	}
+	langs := cfg.SubtitleLangs
+	if cfg.ExplicitMode {
+		langs = mergeSubtitleLangs(cfg.SubtitleLangs, cfg.AutoSubtitleLangs)
+	}
+	if langs != "" {
+		builder.SubLangs(langs)
+	}
+	if cfg.EmbedSubtitles {
+		builder.EmbedSubs()
+	}
+}
+
+func applyYouTubeAutoSubtitleWorkarounds(builder interface {
+	Retries(string) *ytdlp.Command
+	ExtractorRetries(string) *ytdlp.Command
+	FragmentRetries(string) *ytdlp.Command
+	RetrySleep(string) *ytdlp.Command
+	SleepRequests(float64) *ytdlp.Command
+	SleepSubtitles(float64) *ytdlp.Command
+}, rawURL string) {
+	if !isYouTubeURL(rawURL) {
+		return
+	}
+	builder.Retries("5")
+	builder.ExtractorRetries("5")
+	builder.FragmentRetries("5")
+	builder.RetrySleep("http:linear=1::2")
+	builder.RetrySleep("fragment:linear=1::2")
+	builder.SleepRequests(0.75)
+	builder.SleepSubtitles(1.5)
 }
 
 func (s *Service) handleStructuredProgressLog(taskID string, progress structuredProgressUpdate) {

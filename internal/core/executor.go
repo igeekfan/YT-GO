@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,7 +17,36 @@ import (
 )
 
 // toUTF8 converts bytes from various encodings (GB18030, Windows-1252) to UTF-8.
+//
+// yt-dlp's stderr buffer can mix encodings: yt-dlp's own Python output is UTF-8
+// (we force PYTHONIOENCODING=utf-8), but subprocesses it spawns (ffmpeg, ffprobe)
+// inherit the Windows OEM codepage and emit GBK/CP936 on Chinese systems. Decoding
+// the whole blob as one unit corrupts the UTF-8 lines once any GBK byte appears,
+// so we split on newlines and decode each line independently.
 func toUTF8(b []byte) string {
+	if utf8.Valid(b) {
+		return string(b)
+	}
+	if !bytes.ContainsAny(b, "\r\n") {
+		return decodeLine(b)
+	}
+	var out strings.Builder
+	out.Grow(len(b))
+	start := 0
+	for i := 0; i < len(b); i++ {
+		if c := b[i]; c == '\n' || c == '\r' {
+			out.WriteString(decodeLine(b[start:i]))
+			out.WriteByte(c)
+			start = i + 1
+		}
+	}
+	if start < len(b) {
+		out.WriteString(decodeLine(b[start:]))
+	}
+	return out.String()
+}
+
+func decodeLine(b []byte) string {
 	if utf8.Valid(b) {
 		return string(b)
 	}
@@ -42,10 +72,21 @@ func (s *Service) newYtdlpCommand() *ytdlp.Command {
 	return cmd
 }
 
+func applyResolvedFFmpegLocation(cmd *ytdlp.Command, ffmpegPath string) *ytdlp.Command {
+	if strings.TrimSpace(ffmpegPath) == "" {
+		return cmd
+	}
+	cmd.FFmpegLocation(ffmpegPath)
+	return cmd
+}
+
 // applyMediaCommand applies JS runtime auto-detection and common settings to the command.
 func (s *Service) applyMediaCommand(cmd *ytdlp.Command) *ytdlp.Command {
 	if jsRuntime := getPreferredJSRuntime(s.i18n); jsRuntime != "" {
 		cmd.JsRuntimes(jsRuntime)
+	}
+	if ffmpegPath, _, found := detectFFmpeg(); found {
+		applyResolvedFFmpegLocation(cmd, ffmpegPath)
 	}
 	return cmd
 }
