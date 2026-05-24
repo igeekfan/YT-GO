@@ -169,6 +169,11 @@
     'settings.rateLimitPlaceholder': 'e.g. 1M, 500K (empty = unlimited)',
     'settings.maxConcurrent': 'Max Concurrent Downloads',
     'settings.filenameTemplate': 'Filename Template',
+    'settings.filenameTemplateHelp': 'Uses yt-dlp template syntax. Common placeholders:',
+    'settings.filenamePreset.title': 'Title',
+    'settings.filenamePreset.uploaderTitle': 'Uploader-Title',
+    'settings.filenamePreset.dateTitle': 'Date_Title',
+    'settings.filenamePreset.titleId': 'Title[ID]',
     'settings.mergeOutputFormat': 'Output Container Format',
     'settings.mergeOutputFormatAuto': 'Auto',
     'settings.audioFormat': 'Audio Format',
@@ -218,6 +223,9 @@
     'update.available': 'New version v{version} available!',
     'update.later': 'Later',
     'update.download': 'Download',
+
+    'downloadOpt.filenameTemplate': 'Filename (This Download Only)',
+    'downloadOpt.filenameTemplateHelp': 'Uses yt-dlp template syntax; leave empty to use the global template from Settings. Common placeholders:',
 
     'format.label': 'Format',
     'format.detect': 'Detect',

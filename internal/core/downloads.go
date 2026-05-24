@@ -138,7 +138,12 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	if settings.FilenameTemplate != "" {
 		outputTemplate = settings.FilenameTemplate
 	}
+	// Per-download filename template overrides the global one when provided.
+	if req.Options != nil && strings.TrimSpace(req.Options.FilenameTemplate) != "" {
+		outputTemplate = strings.TrimSpace(req.Options.FilenameTemplate)
+	}
 	builder.Newline()
+	builder.Progress().ProgressDelta(0.5).ProgressTemplate(structuredProgressPrefix + "%()j")
 	builder.Print("after_move:[YT-GO-OUTPUT]%(filepath)s")
 	builder.Output(filepath.Join(req.OutputDir, outputTemplate))
 	builder.NoPlaylist()
@@ -240,12 +245,21 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 
 	var lastOutputFile string
 	writer := &lineWriter{handler: func(line string) {
+		line = sanitizeYTLine(line)
+		if line == "" {
+			return
+		}
+		if progressUpdate, ok := parseStructuredProgressLine(line); ok {
+			s.handleStructuredProgressLog(taskID, progressUpdate)
+			return
+		}
 		if m := finalPathRe.FindStringSubmatch(line); m != nil {
 			lastOutputFile = strings.TrimSpace(m[1])
 			return
 		}
 		s.emitDownloadLog(taskID, line)
-		if m := progressRe.FindStringSubmatch(line); m != nil {
+		m := progressRe.FindStringSubmatch(line)
+		if m != nil {
 			pct, _ := strconv.ParseFloat(m[1], 64)
 			var updated *DownloadTask
 			s.mu.Lock()
@@ -256,6 +270,22 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 				if len(m) > 4 {
 					t.ETA = m[4]
 				}
+				copy := *t
+				updated = &copy
+			}
+			s.mu.Unlock()
+			if updated != nil {
+				s.emitDownloadUpdate(updated)
+			}
+		} else if m := progressDoneRe.FindStringSubmatch(line); m != nil {
+			pct, _ := strconv.ParseFloat(m[1], 64)
+			var updated *DownloadTask
+			s.mu.Lock()
+			if t, ok := s.downloads[taskID]; ok {
+				t.Progress = pct
+				t.Size = m[2]
+				t.Speed = m[3]
+				t.ETA = ""
 				copy := *t
 				updated = &copy
 			}
@@ -304,6 +334,8 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 
 	// Wait for the process to finish.
 	runErr = execCmd.Wait()
+	// Emit any remaining buffered bytes that lacked a trailing newline.
+	writer.Flush()
 
 	wasCancelled := ctx.Err() != nil
 	cancel()
@@ -347,6 +379,8 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 }
 
 // lineWriter buffers bytes into complete lines and calls handler for each.
+// Splits on both '\n' and '\r' so yt-dlp progress bars (which can use
+// carriage-return overwrites when --newline isn't honored) still stream.
 type lineWriter struct {
 	buf     []byte
 	handler func(string)
@@ -355,17 +389,30 @@ type lineWriter struct {
 func (lw *lineWriter) Write(p []byte) (int, error) {
 	lw.buf = append(lw.buf, p...)
 	for {
-		idx := bytes.IndexByte(lw.buf, '\n')
+		idx := bytes.IndexAny(lw.buf, "\r\n")
 		if idx < 0 {
 			break
 		}
-		line := strings.TrimRight(toUTF8(lw.buf[:idx]), "\r")
+		line := strings.TrimRight(toUTF8(lw.buf[:idx]), "\r\n")
 		lw.buf = lw.buf[idx+1:]
 		if line != "" {
 			lw.handler(line)
 		}
 	}
 	return len(p), nil
+}
+
+// Flush emits any bytes still in the buffer as a final line. Call after the
+// process exits so the last update (which may lack a trailing newline) isn't lost.
+func (lw *lineWriter) Flush() {
+	if len(lw.buf) == 0 {
+		return
+	}
+	line := strings.TrimRight(toUTF8(lw.buf), "\r\n")
+	lw.buf = nil
+	if line != "" {
+		lw.handler(line)
+	}
 }
 
 // formatSpeed formats bytes per second as a human-readable string.
@@ -377,6 +424,87 @@ func formatSpeed(bytesPerSec float64) string {
 		return fmt.Sprintf("%.1fKB/s", bytesPerSec/1024)
 	}
 	return fmt.Sprintf("%.1fMB/s", bytesPerSec/1024/1024)
+}
+
+func formatBytes(bytes int64) string {
+	if bytes < 1024 {
+		return fmt.Sprintf("%dB", bytes)
+	}
+	if bytes < 1024*1024 {
+		return fmt.Sprintf("%.1fKB", float64(bytes)/1024)
+	}
+	if bytes < 1024*1024*1024 {
+		return fmt.Sprintf("%.1fMB", float64(bytes)/1024/1024)
+	}
+	return fmt.Sprintf("%.1fGB", float64(bytes)/1024/1024/1024)
+}
+
+func (s *Service) handleStructuredProgressLog(taskID string, progress structuredProgressUpdate) {
+	now := time.Now()
+	var updated *DownloadTask
+	var logLine string
+
+	s.mu.Lock()
+	if task, ok := s.downloads[taskID]; ok {
+		startedAt, err := time.Parse(time.RFC3339, task.CreatedAt)
+		if err != nil {
+			startedAt = now
+		}
+
+		elapsedSeconds := now.Sub(startedAt).Seconds()
+		speedBytesPerSec := 0.0
+		if elapsedSeconds > 0 {
+			speedBytesPerSec = float64(progress.DownloadedBytes) / elapsedSeconds
+		}
+
+		percent := 0.0
+		if progress.TotalBytes > 0 {
+			percent = float64(progress.DownloadedBytes) / float64(progress.TotalBytes) * 100
+		}
+		if progress.Status == "finished" && percent < 100 {
+			percent = 100
+		}
+
+		eta := ""
+		if speedBytesPerSec > 0 && progress.TotalBytes > progress.DownloadedBytes {
+			remainingSeconds := float64(progress.TotalBytes-progress.DownloadedBytes) / speedBytesPerSec
+			eta = formatDuration(time.Duration(remainingSeconds * float64(time.Second)))
+		}
+
+		task.Progress = percent
+		if progress.TotalBytes > 0 {
+			task.Size = formatBytes(progress.TotalBytes)
+		} else if progress.DownloadedBytes > 0 {
+			task.Size = formatBytes(progress.DownloadedBytes)
+		}
+		if speedBytesPerSec > 0 {
+			task.Speed = formatSpeed(speedBytesPerSec)
+		}
+		task.ETA = eta
+
+		copy := *task
+		updated = &copy
+
+		if progress.TotalBytes > 0 {
+			logLine = fmt.Sprintf("[download] %.1f%% of %s at %s", percent, formatBytes(progress.TotalBytes), task.Speed)
+		} else {
+			logLine = fmt.Sprintf("[download] %s downloaded at %s", formatBytes(progress.DownloadedBytes), task.Speed)
+		}
+		if eta != "" {
+			logLine += fmt.Sprintf(" ETA %s", eta)
+		}
+		if progress.FragmentCount > 0 {
+			logLine += fmt.Sprintf(" (frag %d/%d)", progress.FragmentIndex, progress.FragmentCount)
+		}
+	}
+	s.mu.Unlock()
+
+	if updated != nil {
+		s.emitDownloadUpdate(updated)
+		if logLine != "" {
+			s.emitDownloadLog(taskID, logLine)
+		}
+	}
 }
 
 // formatDuration formats a duration for display (e.g. "1:23:45").

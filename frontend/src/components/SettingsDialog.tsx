@@ -13,8 +13,9 @@ import {Select as SelectComp, SelectContent, SelectItem, SelectTrigger, SelectVa
 import {Badge} from '@/components/ui/badge'
 import {Separator} from '@/components/ui/separator'
 import {ScrollArea} from '@/components/ui/scroll-area'
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {toast} from 'sonner'
-import {FolderOpen, RefreshCw, Upload, ExternalLink, X, Globe, Heart} from 'lucide-react'
+import {FolderOpen, RefreshCw, Upload, ExternalLink, X, Globe, Heart, Info} from 'lucide-react'
 
 interface DiagnosticInfo {
     ytdlpPath: string; ytdlpVersion: string; ytdlpFound: boolean
@@ -239,8 +240,30 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                                     <Input type="number" value={settings.maxConcurrent} min={1} max={10} onChange={e => update('maxConcurrent', parseInt(e.target.value) || 1)} className="w-20" />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground">{t('settings.filenameTemplate')}</Label>
+                                    <div className="flex items-center gap-1.5">
+                                        <Label className="text-xs text-muted-foreground">{t('settings.filenameTemplate')}</Label>
+                                        <Tooltip>
+                                            <TooltipTrigger><Info className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+                                            <TooltipContent className="max-w-xs text-xs space-y-1">
+                                                <div>{t('settings.filenameTemplateHelp')}</div>
+                                                <div className="font-mono text-[10px] break-all">%(title)s · %(uploader)s · %(upload_date)s · %(id)s · %(ext)s · %(playlist_index)s</div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </div>
                                     <Input type="text" value={settings.filenameTemplate || ''} onChange={e => update('filenameTemplate', e.target.value)} placeholder="%(title)s.%(ext)s" />
+                                    <div className="flex gap-1 flex-wrap pt-0.5">
+                                        {([
+                                            {label: t('settings.filenamePreset.title'), value: '%(title)s.%(ext)s'},
+                                            {label: t('settings.filenamePreset.uploaderTitle'), value: '%(uploader)s - %(title)s.%(ext)s'},
+                                            {label: t('settings.filenamePreset.dateTitle'), value: '%(upload_date)s_%(title)s.%(ext)s'},
+                                            {label: t('settings.filenamePreset.titleId'), value: '%(title)s [%(id)s].%(ext)s'},
+                                        ] as const).map(p => (
+                                            <Button key={p.value} variant="outline" size="sm" className="h-6 text-[11px] px-2"
+                                                onClick={() => update('filenameTemplate', p.value)}>
+                                                {p.label}
+                                            </Button>
+                                        ))}
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.mergeOutputFormat')}</Label>

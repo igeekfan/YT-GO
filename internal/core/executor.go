@@ -36,6 +36,9 @@ func (s *Service) newYtdlpCommand() *ytdlp.Command {
 	cmd := ytdlp.New()
 	cmd.SetEnvVar("PYTHONIOENCODING", "utf-8")
 	cmd.SetEnvVar("PYTHONUTF8", "1")
+	// Disable Python stdout/stderr buffering so progress lines stream
+	// in real time when piped to our lineWriter (instead of arriving in 4KB chunks).
+	cmd.SetEnvVar("PYTHONUNBUFFERED", "1")
 	return cmd
 }
 

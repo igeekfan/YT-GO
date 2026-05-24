@@ -40,13 +40,14 @@ type DownloadRequest struct {
 }
 
 type DownloadOptions struct {
-	SaveDescription *bool  `json:"saveDescription"`
-	SaveThumbnail   *bool  `json:"saveThumbnail"`
-	EmbedChapters   *bool  `json:"embedChapters"`
-	WriteSubtitles  *bool  `json:"writeSubtitles"`
-	SubtitleLangs   string `json:"subtitleLangs"`
-	EmbedSubtitles  *bool  `json:"embedSubtitles"`
-	SponsorBlock    *bool  `json:"sponsorBlock"`
+	SaveDescription  *bool  `json:"saveDescription"`
+	SaveThumbnail    *bool  `json:"saveThumbnail"`
+	EmbedChapters    *bool  `json:"embedChapters"`
+	WriteSubtitles   *bool  `json:"writeSubtitles"`
+	SubtitleLangs    string `json:"subtitleLangs"`
+	EmbedSubtitles   *bool  `json:"embedSubtitles"`
+	SponsorBlock     *bool  `json:"sponsorBlock"`
+	FilenameTemplate string `json:"filenameTemplate"`
 }
 
 type DownloadTask struct {

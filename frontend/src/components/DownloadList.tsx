@@ -57,23 +57,23 @@ function DownloadList({downloads, onUpdate}: Props) {
 
     return (
         <section className="rounded-lg border bg-card">
-            <div className="flex items-center justify-between gap-3 p-4 flex-wrap">
+            <div className="flex items-center justify-between gap-3 px-3 py-2.5 flex-wrap">
                 <h2 className="text-sm font-semibold">{t('downloads.title')}</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                     {retryable.length > 0 && (
-                        <Button variant="ghost" size="sm" onClick={handleRetryAll} className="text-xs">
+                        <Button variant="ghost" size="sm" onClick={handleRetryAll} className="text-xs h-7 px-2">
                             <RefreshCw className="h-3 w-3 mr-1" />{t('downloads.retryFailed')}
                         </Button>
                     )}
                     {hasCompleted && (
-                        <Button variant="ghost" size="sm" onClick={handleClear} className="text-xs">
+                        <Button variant="ghost" size="sm" onClick={handleClear} className="text-xs h-7 px-2">
                             <Trash2 className="h-3 w-3 mr-1" />{t('downloads.clearCompleted')}
                         </Button>
                     )}
                 </div>
             </div>
             {downloads.length > 0 && (
-                <div className="flex gap-2 px-4 pb-3">
+                <div className="flex gap-2 px-3 pb-2.5">
                     <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                         <Input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
@@ -91,9 +91,9 @@ function DownloadList({downloads, onUpdate}: Props) {
                 </div>
             )}
             {sorted.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8 text-sm">{t('downloads.empty')}</div>
+                <div className="text-center text-muted-foreground py-6 text-sm">{t('downloads.empty')}</div>
             ) : (
-                <div className="space-y-2 px-4 pb-4">
+                <div className="space-y-1.5 px-3 pb-3">
                     {sorted.map(task => (
                         <DownloadItem key={task.id} task={task} onCancelled={handleCancelled} onRemoved={handleRemoved}
                             onRetry={handleRetryTask} onRedownload={handleRetryTask} />

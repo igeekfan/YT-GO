@@ -146,6 +146,7 @@ function App() {
     const [dlOptWriteSubtitles, setDlOptWriteSubtitles] = useState(false)
     const [dlOptEmbedSubtitles, setDlOptEmbedSubtitles] = useState(false)
     const [dlOptSponsorBlock, setDlOptSponsorBlock] = useState(false)
+    const [dlOptFilenameTemplate, setDlOptFilenameTemplate] = useState('')
     const [selectedSubtitleLangs, setSelectedSubtitleLangs] = useState<Set<string>>(new Set())
     const [subtitleSearch, setSubtitleSearch] = useState('')
 
@@ -329,6 +330,18 @@ function App() {
     }, [])
 
     useEffect(() => {
+        const off = EventsOn('download:log', (data: {taskId: string; line: string}) => {
+            const timestamp = new Date().toLocaleTimeString()
+            setConsoleLogs(prev => {
+                const next = [...prev, `[${timestamp}] [${data.taskId}] ${data.line}`]
+                return next.length > 200 ? next.slice(-200) : next
+            })
+            setShowConsole(true)
+        })
+        return () => { if (typeof off === 'function') off() }
+    }, [])
+
+    useEffect(() => {
         const timer = setTimeout(() => { handleCheckUpdate() }, 3000)
         return () => clearTimeout(timer)
     }, [handleCheckUpdate])
@@ -379,6 +392,7 @@ function App() {
             embedSubtitles: dlOptEmbedSubtitles,
             sponsorBlock: dlOptSponsorBlock,
             subtitleLangs: langs || '',
+            filenameTemplate: dlOptFilenameTemplate.trim(),
         } as DownloadOptions
     }
 
@@ -509,8 +523,8 @@ function App() {
     return (
         <div className="min-h-screen bg-background">
             {/* Header */}
-            <header className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b bg-background/80 backdrop-blur-sm px-4">
-                <div className="flex items-center gap-2 shrink-0">
+            <header className="sticky top-0 z-20 flex h-11 items-center gap-2 border-b bg-background/80 backdrop-blur-sm px-3">
+                <div className="flex items-center gap-1.5 shrink-0">
                     <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/>
@@ -518,9 +532,9 @@ function App() {
                     </div>
                     <span className="text-sm font-bold tracking-tight">{t('app.title')}</span>
                 </div>
-                <div className="flex-1 flex items-center gap-2 pl-2">
+                <div className="flex-1 flex items-center gap-1.5 pl-1">
                     {ytdlp && (
-                        <Badge variant={ytdlp.available ? 'secondary' : 'destructive'} className="text-xs">
+                        <Badge variant={ytdlp.available ? 'secondary' : 'destructive'} className="text-[11px] h-5 px-1.5">
                             {ytdlp.available ? t('ytdlp.version', {version: ytdlp.version}) : t('ytdlp.notFound')}
                         </Badge>
                     )}
@@ -559,25 +573,25 @@ function App() {
             </header>
 
             {/* Main workspace */}
-            <main className="mx-auto max-w-3xl px-4 py-5 flex flex-col gap-4">
+            <main className="mx-auto max-w-3xl px-4 py-4 flex flex-col gap-3">
                 {/* yt-dlp Install Guide */}
                 {ytdlp && !ytdlp.available && (
-                    <div className="rounded-lg border bg-card p-6 text-center space-y-4">
-                        <div className="text-4xl">⚠️</div>
-                        <h3 className="text-lg font-semibold">{t('ytdlp.notFound')}</h3>
-                        <p className="text-sm text-muted-foreground">{t('ytdlp.installGuide')}</p>
-                        <div className="rounded-lg border bg-muted/50 p-4 text-left space-y-3">
-                            <div><span className="text-xs text-muted-foreground font-medium">{t('install.windowsWinget')}</span><code className="mt-1 block rounded-md bg-background p-2 text-xs text-primary">winget install yt-dlp</code></div>
-                            <div><span className="text-xs text-muted-foreground font-medium">{t('install.windowsScoop')}</span><code className="mt-1 block rounded-md bg-background p-2 text-xs text-primary">scoop install yt-dlp</code></div>
-                            <div><span className="text-xs text-muted-foreground font-medium">{t('install.macHomebrew')}</span><code className="mt-1 block rounded-md bg-background p-2 text-xs text-primary">brew install yt-dlp</code></div>
-                            <div><span className="text-xs text-muted-foreground font-medium">{t('install.linuxPip')}</span><code className="mt-1 block rounded-md bg-background p-2 text-xs text-primary">pip install yt-dlp</code></div>
+                    <div className="rounded-lg border bg-card p-4 text-center space-y-3">
+                        <div className="text-3xl leading-none">⚠️</div>
+                        <h3 className="text-base font-semibold">{t('ytdlp.notFound')}</h3>
+                        <p className="text-xs text-muted-foreground">{t('ytdlp.installGuide')}</p>
+                        <div className="rounded-md border bg-muted/40 p-2.5 text-left space-y-2">
+                            <div><span className="text-[11px] text-muted-foreground font-medium">{t('install.windowsWinget')}</span><code className="mt-0.5 block rounded bg-background px-2 py-1 text-[11px] text-primary">winget install yt-dlp</code></div>
+                            <div><span className="text-[11px] text-muted-foreground font-medium">{t('install.windowsScoop')}</span><code className="mt-0.5 block rounded bg-background px-2 py-1 text-[11px] text-primary">scoop install yt-dlp</code></div>
+                            <div><span className="text-[11px] text-muted-foreground font-medium">{t('install.macHomebrew')}</span><code className="mt-0.5 block rounded bg-background px-2 py-1 text-[11px] text-primary">brew install yt-dlp</code></div>
+                            <div><span className="text-[11px] text-muted-foreground font-medium">{t('install.linuxPip')}</span><code className="mt-0.5 block rounded bg-background px-2 py-1 text-[11px] text-primary">pip install yt-dlp</code></div>
                         </div>
-                        <p className="text-xs text-muted-foreground">{t('ytdlp.installNote')}</p>
-                        <div className="flex items-center justify-center gap-3">
-                            <Button onClick={handleInstallYtDlp} disabled={isInstallingYtDlp}>
+                        <p className="text-[11px] text-muted-foreground">{t('ytdlp.installNote')}</p>
+                        <div className="flex items-center justify-center gap-2">
+                            <Button size="sm" onClick={handleInstallYtDlp} disabled={isInstallingYtDlp}>
                                 {isInstallingYtDlp ? t('ytdlp.installing') : t('ytdlp.autoInstall')}
                             </Button>
-                            <Button variant="outline" onClick={() => CheckYtDlp().then(setYtdlp)}>{t('ytdlp.recheck')}</Button>
+                            <Button size="sm" variant="outline" onClick={() => CheckYtDlp().then(setYtdlp)}>{t('ytdlp.recheck')}</Button>
                         </div>
                     </div>
                 )}
@@ -610,15 +624,15 @@ function App() {
 
                 {/* Video/Playlist Info */}
                 {ytdlp?.available && (videoInfo || playlistInfo) && (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         {videoInfo && (
-                            <div className="flex gap-4 rounded-lg border bg-card p-3">
+                            <div className="flex gap-3 rounded-lg border bg-card p-3">
                                 {videoInfo.thumbnail && (
-                                    <img src={videoInfo.thumbnail} alt={videoInfo.title} className="w-36 h-20 object-cover rounded-md shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                    <img src={videoInfo.thumbnail} alt={videoInfo.title} className="w-32 h-[72px] object-cover rounded-md shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                                 )}
                                 <div className="flex-1 min-w-0 space-y-1">
-                                    <div className="font-semibold text-sm line-clamp-2">{videoInfo.title}</div>
-                                    <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+                                    <div className="font-semibold text-sm line-clamp-2 leading-snug">{videoInfo.title}</div>
+                                    <div className="flex gap-x-3 gap-y-0.5 text-xs text-muted-foreground flex-wrap">
                                         {videoInfo.duration > 0 && <span>{t('video.duration')}: {formatDuration(videoInfo.duration)}</span>}
                                         {videoInfo.uploader && <span>{t('video.uploader')}: {videoInfo.uploader}</span>}
                                         {videoInfo.platform && <span>{t('video.platform')}: {videoInfo.platform}</span>}
@@ -629,15 +643,15 @@ function App() {
 
                         {playlistInfo && (
                             <>
-                                <div className="flex gap-4 rounded-lg border bg-card p-3">
-                                    <div className="w-12 h-12 flex items-center justify-center rounded-md bg-primary/10 shrink-0">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                                <div className="flex gap-3 rounded-lg border bg-card p-3">
+                                    <div className="w-11 h-11 flex items-center justify-center rounded-md bg-primary/10 shrink-0">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                                     </div>
                                     <div className="flex-1 min-w-0 space-y-1">
-                                        <div className="font-semibold text-sm">
+                                        <div className="font-semibold text-sm leading-snug">
                                             {t(`collection.${collectionKind}.detected` as any)}{playlistInfo.title ? `: ${playlistInfo.title}` : ''}
                                         </div>
-                                        <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+                                        <div className="flex gap-x-3 gap-y-0.5 text-xs text-muted-foreground flex-wrap">
                                             <span>{t(`collection.${collectionKind}.count` as any, {count: String(playlistInfo.count)})}</span>
                                             {playlistInfo.uploader && <span>{t('playlist.uploader')}: {playlistInfo.uploader}</span>}
                                             <span>{t('collection.selected', {count: String(selectedPlaylistItems.size)})}</span>
@@ -645,17 +659,17 @@ function App() {
                                     </div>
                                 </div>
                                 <div className="rounded-lg border overflow-hidden">
-                                    <div className="flex gap-2 p-2 border-b bg-muted/30">
-                                        <Button variant="ghost" size="sm" onClick={() => setSelectedPlaylistItems(new Set(playlistInfo.videos.map((_: any, i: number) => i)))}>
+                                    <div className="flex gap-1.5 px-2 py-1.5 border-b bg-muted/30">
+                                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedPlaylistItems(new Set(playlistInfo.videos.map((_: any, i: number) => i)))}>
                                             {t('collection.selectAll')}
                                         </Button>
-                                        <Button variant="ghost" size="sm" onClick={() => setSelectedPlaylistItems(new Set())}>
+                                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedPlaylistItems(new Set())}>
                                             {t('collection.selectNone')}
                                         </Button>
                                     </div>
                                     <div className="max-h-60 overflow-y-auto">
                                         {playlistInfo.videos.map((video, idx) => (
-                                            <label key={idx} className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm">
+                                            <label key={idx} className="flex items-center gap-2.5 px-2.5 py-1.5 hover:bg-muted/50 cursor-pointer text-sm border-b last:border-b-0">
                                                 <Checkbox
                                                     checked={selectedPlaylistItems.has(idx)}
                                                     onCheckedChange={(checked: boolean) => {
@@ -665,8 +679,8 @@ function App() {
                                                     }}
                                                 />
                                                 <span className="text-xs text-muted-foreground w-6 text-right shrink-0">{idx + 1}</span>
-                                                <span className="flex-1 min-w-0 truncate">{video.title || video.url || video.id}</span>
-                                                {video.duration > 0 && <span className="text-xs text-muted-foreground shrink-0">{formatDuration(video.duration)}</span>}
+                                                <span className="flex-1 min-w-0 truncate text-xs">{video.title || video.url || video.id}</span>
+                                                {video.duration > 0 && <span className="text-[11px] text-muted-foreground shrink-0">{formatDuration(video.duration)}</span>}
                                             </label>
                                         ))}
                                     </div>
@@ -678,11 +692,11 @@ function App() {
 
                 {/* Controls Zone */}
                 {ytdlp?.available && (videoInfo || playlistInfo) && (
-                    <div className="rounded-lg border bg-card p-4 space-y-4">
+                    <div className="rounded-lg border bg-card p-3 space-y-3">
                         {/* Output Directory */}
                         {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
                             <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{t('outputDir.label')}</Label>
+                                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('outputDir.label')}</Label>
                                 <div className="flex gap-2">
                                     <Input
                                         type="text"
@@ -706,11 +720,11 @@ function App() {
                         {/* Format Section */}
                         {videoInfo && (
                             <Collapsible open={formatExpanded} onOpenChange={setFormatExpanded}>
-                                <CollapsibleTrigger className="flex items-center gap-2 w-full rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted/50 transition-colors">
-                                    {formatExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                <CollapsibleTrigger className="flex items-center gap-1.5 w-full rounded-md border px-2.5 py-1.5 text-sm font-medium hover:bg-muted/50 transition-colors">
+                                    {formatExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                                     <span>{t('format.label')}</span>
                                     {!formatExpanded && hasCustomFormatSelection && (
-                                        <span className="text-xs text-primary truncate ml-2">
+                                        <span className="text-xs text-primary truncate ml-1.5">
                                             {selectedFormat && formatInfo
                                                 ? formatOptionLabel(formatInfo.formats.find(f => f.formatId === selectedFormat)!)
                                                 : (selectedVideoFormat || selectedAudioFormat)
@@ -719,7 +733,7 @@ function App() {
                                         </span>
                                     )}
                                 </CollapsibleTrigger>
-                                <CollapsibleContent className="mt-2 space-y-3">
+                                <CollapsibleContent className="mt-2 space-y-2.5">
                                     {formatInfo ? (
                                         <div className="space-y-3">
                                             <div className="flex items-center gap-2">
@@ -744,7 +758,7 @@ function App() {
                                             {formatMode === 'single' && (
                                                 <div className="max-h-52 overflow-y-auto rounded-md border">
                                                     {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio)).map(f => (
-                                                        <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                        <label key={f.formatId} className={`flex items-start gap-2 px-2.5 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedFormat === f.formatId ? 'bg-primary/5' : ''}`}>
                                                             <input type="radio" name="format-single" checked={selectedFormat === f.formatId}
                                                                 onChange={() => { setSelectedFormat(f.formatId); setSelectedVideoFormat(''); setSelectedAudioFormat('') }}
                                                                 className="mt-0.5 accent-primary" />
@@ -756,12 +770,12 @@ function App() {
 
                                             {formatMode === 'audio-only' && (
                                                 <div className="max-h-52 overflow-y-auto rounded-md border">
-                                                    <label className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedAudioFormat ? 'bg-primary/5' : ''}`}>
+                                                    <label className={`flex items-start gap-2 px-2.5 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedAudioFormat ? 'bg-primary/5' : ''}`}>
                                                         <input type="radio" name="format-audio-only" checked={!selectedAudioFormat} onChange={() => setSelectedAudioFormat('')} className="mt-0.5 accent-primary" />
                                                         <span>{t('format.auto')}</span>
                                                     </label>
                                                     {audioOnlyFormats.sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0)).map(f => (
-                                                        <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedAudioFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                        <label key={f.formatId} className={`flex items-start gap-2 px-2.5 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedAudioFormat === f.formatId ? 'bg-primary/5' : ''}`}>
                                                             <input type="radio" name="format-audio-only" checked={selectedAudioFormat === f.formatId}
                                                                 onChange={() => { setSelectedAudioFormat(f.formatId); setSelectedVideoFormat(''); setSelectedFormat('') }}
                                                                 className="mt-0.5 accent-primary" />
@@ -773,7 +787,7 @@ function App() {
 
                                             {formatMode === 'video-only' && (
                                                 <div className="max-h-52 overflow-y-auto rounded-md border">
-                                                    <label className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedVideoFormat ? 'bg-primary/5' : ''}`}>
+                                                    <label className={`flex items-start gap-2 px-2.5 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedVideoFormat ? 'bg-primary/5' : ''}`}>
                                                         <input type="radio" name="format-video-only" checked={!selectedVideoFormat} onChange={() => setSelectedVideoFormat('')} className="mt-0.5 accent-primary" />
                                                         <span>{t('format.auto')}</span>
                                                     </label>
@@ -783,7 +797,7 @@ function App() {
                                                         if (aH !== bH) return bH - aH
                                                         return (b.filesize || 0) - (a.filesize || 0)
                                                     }).map(f => (
-                                                        <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedVideoFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                        <label key={f.formatId} className={`flex items-start gap-2 px-2.5 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedVideoFormat === f.formatId ? 'bg-primary/5' : ''}`}>
                                                             <input type="radio" name="format-video-only" checked={selectedVideoFormat === f.formatId}
                                                                 onChange={() => { setSelectedVideoFormat(f.formatId); setSelectedAudioFormat(''); setSelectedFormat('') }}
                                                                 className="mt-0.5 accent-primary" />
@@ -796,14 +810,14 @@ function App() {
                                             {formatMode === 'combine' && hasSeparateTrackFormats ? (
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{t('format.video')}</Label>
+                                                        <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('format.video')}</Label>
                                                         <div className="max-h-52 overflow-y-auto rounded-md border">
-                                                            <label className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedVideoFormat ? 'bg-primary/5' : ''}`}>
+                                                            <label className={`flex items-start gap-2 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedVideoFormat ? 'bg-primary/5' : ''}`}>
                                                                 <input type="radio" name="format-video" checked={!selectedVideoFormat} onChange={() => setSelectedVideoFormat('')} className="mt-0.5 accent-primary" />
                                                                 <span>{t('format.selectVideo')}</span>
                                                             </label>
                                                             {combineVideoFormats.map(f => (
-                                                                <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedVideoFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                                <label key={f.formatId} className={`flex items-start gap-2 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedVideoFormat === f.formatId ? 'bg-primary/5' : ''}`}>
                                                                     <input type="radio" name="format-video" checked={selectedVideoFormat === f.formatId} onChange={() => setSelectedVideoFormat(f.formatId)} className="mt-0.5 accent-primary" />
                                                                     <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
                                                                 </label>
@@ -811,14 +825,14 @@ function App() {
                                                         </div>
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{t('format.audio')}</Label>
+                                                        <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('format.audio')}</Label>
                                                         <div className="max-h-52 overflow-y-auto rounded-md border">
-                                                            <label className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedAudioFormat ? 'bg-primary/5' : ''}`}>
+                                                            <label className={`flex items-start gap-2 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedAudioFormat ? 'bg-primary/5' : ''}`}>
                                                                 <input type="radio" name="format-audio" checked={!selectedAudioFormat} onChange={() => setSelectedAudioFormat('')} className="mt-0.5 accent-primary" />
                                                                 <span>{t('format.selectAudio')}</span>
                                                             </label>
                                                             {combineAudioFormats.map(f => (
-                                                                <label key={f.formatId} className={`flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedAudioFormat === f.formatId ? 'bg-primary/5' : ''}`}>
+                                                                <label key={f.formatId} className={`flex items-start gap-2 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedAudioFormat === f.formatId ? 'bg-primary/5' : ''}`}>
                                                                     <input type="radio" name="format-audio" checked={selectedAudioFormat === f.formatId} onChange={() => setSelectedAudioFormat(f.formatId)} className="mt-0.5 accent-primary" />
                                                                     <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
                                                                 </label>
@@ -849,11 +863,30 @@ function App() {
 
                         {/* Download Options */}
                         {videoInfo && (
-                            <div className="rounded-lg border p-3 space-y-3">
-                                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                                    <SettingsIcon className="h-3.5 w-3.5" /> {t('downloadOpt.title')}
+                            <div className="rounded-lg border p-3 space-y-2.5">
+                                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                    <SettingsIcon className="h-3 w-3" /> {t('downloadOpt.title')}
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <Label className="text-[11px] text-muted-foreground">{t('downloadOpt.filenameTemplate')}</Label>
+                                        <Tooltip>
+                                            <TooltipTrigger><Info className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+                                            <TooltipContent className="max-w-xs text-xs space-y-1">
+                                                <div>{t('downloadOpt.filenameTemplateHelp')}</div>
+                                                <div className="font-mono text-[10px] break-all">%(title)s · %(uploader)s · %(upload_date)s · %(id)s · %(ext)s</div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </div>
+                                    <Input
+                                        type="text"
+                                        value={dlOptFilenameTemplate}
+                                        onChange={e => setDlOptFilenameTemplate(e.target.value)}
+                                        placeholder={currentSettings?.filenameTemplate || '%(title)s.%(ext)s'}
+                                        className="h-7 text-xs"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5">
                                     {([
                                         { key: 'saveThumbnail', checked: dlOptSaveThumbnail, set: setDlOptSaveThumbnail, label: t('downloadOpt.saveThumbnail') },
                                         { key: 'saveDescription', checked: dlOptSaveDescription, set: setDlOptSaveDescription, label: t('downloadOpt.saveDescription') },
@@ -862,7 +895,7 @@ function App() {
                                         ...(dlOptWriteSubtitles ? [{ key: 'embedSubtitles', checked: dlOptEmbedSubtitles, set: setDlOptEmbedSubtitles, label: t('downloadOpt.embedSubtitles') }] : []),
                                         { key: 'sponsorBlock', checked: dlOptSponsorBlock, set: setDlOptSponsorBlock, label: t('downloadOpt.sponsorBlock') },
                                     ] as const).map(opt => (
-                                        <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
+                                        <label key={opt.key} className="flex items-center gap-1.5 cursor-pointer">
                                             <Checkbox checked={opt.checked}
                                                 onCheckedChange={(checked: boolean) => {
                                                     const val = !!checked; opt.set(val)
@@ -883,7 +916,7 @@ function App() {
 
                                 {dlOptWriteSubtitles && videoInfo.subtitles && videoInfo.subtitles.length > 0 && (
                                     <div className="space-y-1.5">
-                                        <Label className="text-xs text-muted-foreground">{t('downloadOpt.subtitleLangs')}</Label>
+                                        <Label className="text-[11px] text-muted-foreground">{t('downloadOpt.subtitleLangs')}</Label>
                                         <Input
                                             type="text"
                                             value={subtitleSearch}
@@ -899,15 +932,15 @@ function App() {
                                                     return (sub.name || '').toLowerCase().includes(q) || sub.code.toLowerCase().includes(q)
                                                 })
                                                 .map(sub => (
-                                                <label key={sub.code} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer text-xs border-b last:border-b-0">
+                                                <label key={sub.code} className="flex items-center gap-2 px-2.5 py-1 hover:bg-muted/50 cursor-pointer text-xs border-b last:border-b-0">
                                                     <Checkbox checked={selectedSubtitleLangs.has(sub.code)}
                                                         onCheckedChange={(checked: boolean) => {
                                                             const next = new Set(selectedSubtitleLangs)
                                                             if (checked) next.add(sub.code); else next.delete(sub.code)
                                                             setSelectedSubtitleLangs(next)
                                                         }} />
-                                                    <span className="flex-1">{sub.name || sub.code}</span>
-                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                                    <span className="flex-1 truncate">{sub.name || sub.code}</span>
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
                                                         {sub.auto ? t('downloadOpt.subtitleAuto') : t('downloadOpt.subtitleManual')}
                                                     </Badge>
                                                 </label>
@@ -946,23 +979,23 @@ function App() {
                 )}
 
                 {/* Console & Downloads */}
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                     {consoleLogs.length > 0 && (
                         <div className="rounded-lg border overflow-hidden">
-                            <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
-                                <Button variant="ghost" size="sm" onClick={() => setShowConsole(!showConsole)} className="text-xs">
+                            <div className="flex items-center justify-between px-2 py-1 border-b bg-muted/30">
+                                <Button variant="ghost" size="sm" onClick={() => setShowConsole(!showConsole)} className="text-xs h-7 px-1.5">
                                     {showConsole ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
                                     {t('console.title')} ({consoleLogs.length})
                                 </Button>
-                                <Button variant="ghost" size="sm" onClick={() => { setConsoleLogs([]); setShowConsole(false) }} className="text-xs">
+                                <Button variant="ghost" size="sm" onClick={() => { setConsoleLogs([]); setShowConsole(false) }} className="text-xs h-7 px-1.5">
                                     {t('console.clear')}
                                 </Button>
                             </div>
                             {showConsole && (
                                 <div className="max-h-72 overflow-y-auto overflow-x-hidden">
-                                    <pre className="bg-muted/20 p-3 text-xs font-mono leading-relaxed whitespace-pre-wrap break-words">
+                                    <pre className="bg-muted/20 p-2 text-[11px] font-mono leading-snug whitespace-pre-wrap break-words">
                                         {consoleLogs.map((line, i) => (
-                                            <div key={i} className={`px-2 py-0.5 border-l-2 rounded-r-sm ${
+                                            <div key={i} className={`px-1.5 py-0.5 border-l-2 rounded-r-sm ${
                                                 getConsoleLogType(line) === 'error' ? 'border-l-red-500 bg-red-500/5 text-red-400' :
                                                 getConsoleLogType(line) === 'warning' ? 'border-l-yellow-500 bg-yellow-500/5 text-yellow-400' :
                                                 getConsoleLogType(line) === 'command' ? 'border-l-blue-500 bg-blue-500/5 text-blue-400' :

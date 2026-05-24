@@ -110,6 +110,7 @@ export namespace desktop {
 	    subtitleLangs: string;
 	    embedSubtitles?: boolean;
 	    sponsorBlock?: boolean;
+	    filenameTemplate: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DownloadOptions(source);
@@ -124,6 +125,7 @@ export namespace desktop {
 	        this.subtitleLangs = source["subtitleLangs"];
 	        this.embedSubtitles = source["embedSubtitles"];
 	        this.sponsorBlock = source["sponsorBlock"];
+	        this.filenameTemplate = source["filenameTemplate"];
 	    }
 	}
 	export class SubtitleLang {

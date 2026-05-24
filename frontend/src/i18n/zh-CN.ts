@@ -169,6 +169,11 @@
     'settings.rateLimitPlaceholder': '如 1M、500K（留空不限速）',
     'settings.maxConcurrent': '最大并发数',
     'settings.filenameTemplate': '文件名模板',
+    'settings.filenameTemplateHelp': '使用 yt-dlp 模板语法；常用占位符：',
+    'settings.filenamePreset.title': '标题',
+    'settings.filenamePreset.uploaderTitle': '上传者-标题',
+    'settings.filenamePreset.dateTitle': '日期_标题',
+    'settings.filenamePreset.titleId': '标题[ID]',
     'settings.mergeOutputFormat': '输出容器格式',
     'settings.mergeOutputFormatAuto': '自动',
     'settings.audioFormat': '音频格式',
@@ -250,6 +255,8 @@
     'downloadOpt.subtitleManual': '人工字幕',
     'downloadOpt.subtitleAuto': '自动生成',
     'downloadOpt.noSubtitles': '该视频无可用字幕',
+    'downloadOpt.filenameTemplate': '文件名（仅此次）',
+    'downloadOpt.filenameTemplateHelp': '使用 yt-dlp 模板语法；留空则用设置中的全局模板。常用占位符：',
 
     'notification.downloadComplete': '下载完成',
 

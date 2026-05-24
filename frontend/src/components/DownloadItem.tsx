@@ -26,6 +26,7 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
     const {t} = useI18n()
     const [showLogs, setShowLogs] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
+    const [latestProgressLine, setLatestProgressLine] = useState('')
     const logEndRef = useRef<HTMLDivElement>(null)
     const isDesktop = backendMode === 'desktop'
 
@@ -33,10 +34,19 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
         const off = EventsOn('download:log', (data: {taskId: string; line: string}) => {
             if (data.taskId === task.id) {
                 setLogs(prev => { const next = [...prev, data.line]; return next.length > 200 ? next.slice(-200) : next })
+                if (data.line.includes('[download]')) {
+                    setLatestProgressLine(data.line)
+                }
             }
         })
         return () => { if (typeof off === 'function') off() }
     }, [task.id])
+
+    useEffect(() => {
+        if (task.status !== 'downloading') {
+            setLatestProgressLine('')
+        }
+    }, [task.status])
 
     const handleCancel = async () => {
         try { await CancelDownload(task.id) } catch { /* already cancelled */ }
@@ -49,44 +59,47 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
     }
 
     return (
-        <div className="rounded-lg border p-3 space-y-2">
+        <div className="rounded-lg border p-2.5 space-y-1.5">
             {/* Top row: thumbnail + info + actions */}
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-2.5">
                 {/* Thumbnail */}
                 {task.thumbnail ? (
-                    <img src={task.thumbnail} alt="" className="w-20 h-12 object-cover rounded shrink-0"
+                    <img src={task.thumbnail} alt="" className="w-[72px] h-[42px] object-cover rounded shrink-0"
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                 ) : (
-                    <div className="w-20 h-12 bg-muted rounded shrink-0 flex items-center justify-center text-muted-foreground">
+                    <div className="w-[72px] h-[42px] bg-muted rounded shrink-0 flex items-center justify-center text-muted-foreground">
                         <Play className="h-4 w-4" />
                     </div>
                 )}
 
                 {/* Info */}
-                <div className="flex-1 min-w-0 space-y-1">
-                    <div className="text-sm font-medium truncate" title={task.url}>{task.title || task.url}</div>
+                <div className="flex-1 min-w-0 space-y-0.5">
+                    <div className="text-sm font-medium truncate leading-snug" title={task.url}>{task.title || task.url}</div>
                     {task.status === 'downloading' && (
                         <div className="space-y-0.5">
-                            <Progress value={task.progress || 0} className="h-1.5" />
-                            <span className="text-xs text-muted-foreground">
+                            <Progress value={task.progress || 0} className="h-1" />
+                            <span className="text-[11px] text-muted-foreground">
                                 {(task.progress || 0).toFixed(1)}%
                                 {task.speed && ` · ${task.speed}`}
                                 {task.eta && ` · ETA ${task.eta}`}
                                 {task.size && ` · ${task.size}`}
                             </span>
+                            {!task.speed && latestProgressLine && (
+                                <div className="text-[11px] text-muted-foreground truncate" title={latestProgressLine}>{latestProgressLine}</div>
+                            )}
                         </div>
                     )}
                     {task.status === 'error' && task.error && (
-                        <div className="text-xs text-destructive truncate">{task.error}</div>
+                        <div className="text-[11px] text-destructive truncate">{task.error}</div>
                     )}
                     {task.status === 'completed' && task.outputPath && (
-                        <div className="text-xs text-muted-foreground truncate" title={task.outputPath}>{task.outputPath}</div>
+                        <div className="text-[11px] text-muted-foreground truncate" title={task.outputPath}>{task.outputPath}</div>
                     )}
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                    <Badge variant={STATUS_VARIANT[task.status] || 'outline'} className="text-[10px]">
+                <div className="flex items-center gap-1 shrink-0 flex-wrap">
+                    <Badge variant={STATUS_VARIANT[task.status] || 'outline'} className="text-[10px] h-5 px-1.5">
                         {t(`status.${task.status}` as any)}
                     </Badge>
                     {(task.status === 'downloading' || logs.length > 0) && (
@@ -147,7 +160,7 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
                 <CollapsibleContent>
                     {showLogs && logs.length > 0 && (
                         <div className="max-h-48 overflow-y-auto overflow-x-hidden rounded-md border bg-muted/20">
-                            <pre className="p-2 text-xs font-mono leading-relaxed whitespace-pre-wrap break-words w-full">
+                            <pre className="p-2 text-[11px] font-mono leading-snug whitespace-pre-wrap break-words w-full">
                                 {logs.map((line, i) => <div key={i}>{line}</div>)}
                                 <div ref={logEndRef} />
                             </pre>
