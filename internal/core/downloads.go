@@ -202,6 +202,10 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	}
 	if optWriteSubtitles {
 		builder.WriteSubs()
+		// Also enable auto-generated/auto-translated subtitles (e.g. YouTube auto-captions).
+		// yt-dlp prefers manual subs when both are available for a language, and falls back
+		// to auto-generated otherwise, so this is safe when the user picked a manual lang.
+		builder.WriteAutoSubs()
 		if optSubtitleLangs != "" {
 			builder.SubLangs(optSubtitleLangs)
 		}
