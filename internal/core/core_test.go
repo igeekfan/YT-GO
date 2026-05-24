@@ -1,29 +1,10 @@
-package core_test
+package core
 
 import (
 	"testing"
 
-	_ "YT-GO/internal/core"
-	_ "unsafe"
+	"github.com/lrstanley/go-ytdlp"
 )
-
-//go:linkname extractDouyinTarget YT-GO/internal/core.extractDouyinTarget
-func extractDouyinTarget(input string) (string, string, error)
-
-//go:linkname isDouyinURLInput YT-GO/internal/core.isDouyinURL
-func isDouyinURLInput(rawURL string) bool
-
-//go:linkname normalizeThumbnailURL YT-GO/internal/core.normalizeThumbnailURL
-func normalizeThumbnailURL(raw string) string
-
-//go:linkname extractThumbnailURL YT-GO/internal/core.extractThumbnailURL
-func extractThumbnailURL(raw map[string]interface{}) string
-
-//go:linkname shouldApplyMergeOutputFormat YT-GO/internal/core.shouldApplyMergeOutputFormat
-func shouldApplyMergeOutputFormat(quality string) bool
-
-//go:linkname extractURLFromText YT-GO/internal/core.extractURLFromText
-func extractURLFromText(input string) string
 
 func TestExtractURLFromText(t *testing.T) {
 	tests := []struct {
@@ -71,7 +52,7 @@ func TestExtractDouyinTargetFromShareText(t *testing.T) {
 	if videoID != "" {
 		t.Fatalf("expected empty direct video id, got %s", videoID)
 	}
-	if !isDouyinURLInput("7.52 复制打开抖音，看看【测试账号】发布的视频！ https://v.douyin.com/iAABBccD/ 😄 ") {
+	if !isDouyinURL("7.52 复制打开抖音，看看【测试账号】发布的视频！ https://v.douyin.com/iAABBccD/ 😄 ") {
 		t.Fatal("expected noisy share text to be recognized as douyin input")
 	}
 }
@@ -108,14 +89,14 @@ func TestNormalizeThumbnailURL(t *testing.T) {
 	}
 }
 
-func TestExtractThumbnailURLFallbacks(t *testing.T) {
-	raw := map[string]interface{}{
-		"thumbnails": []interface{}{
-			map[string]interface{}{"url": "https://i0.hdslb.com/bfs/archive/transparent.png"},
-			map[string]interface{}{"url": "//i0.hdslb.com/high.jpg"},
+func TestExtractThumbnailFromExtractedFallbacks(t *testing.T) {
+	raw := &ytdlp.ExtractedInfo{
+		Thumbnails: []*ytdlp.ExtractedThumbnail{
+			{URL: "https://i0.hdslb.com/bfs/archive/transparent.png"},
+			{URL: "//i0.hdslb.com/high.jpg"},
 		},
 	}
-	if got := extractThumbnailURL(raw); got != "https://i0.hdslb.com/high.jpg" {
+	if got := extractThumbnailFromExtracted(raw); got != "https://i0.hdslb.com/high.jpg" {
 		t.Fatalf("unexpected thumbnail fallback: %s", got)
 	}
 }
