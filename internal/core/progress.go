@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -33,6 +34,7 @@ type structuredProgressUpdate struct {
 	TotalBytes      int64
 	FragmentIndex   int
 	FragmentCount   int
+	Filename        string
 }
 
 type structuredProgressPayload struct {
@@ -41,6 +43,8 @@ type structuredProgressPayload struct {
 		TotalBytes         int64   `json:"total_bytes,omitempty"`
 		TotalBytesEstimate float64 `json:"total_bytes_estimate,omitempty"`
 		DownloadedBytes    int64   `json:"downloaded_bytes"`
+		Filename           string  `json:"filename,omitempty"`
+		TmpFilename        string  `json:"tmpfilename,omitempty"`
 		FragmentIndex      int     `json:"fragment_index,omitempty"`
 		FragmentCount      int     `json:"fragment_count,omitempty"`
 	} `json:"progress"`
@@ -66,13 +70,42 @@ func parseStructuredProgressLine(line string) (structuredProgressUpdate, bool) {
 		totalBytes = int64(payload.Progress.TotalBytesEstimate)
 	}
 
+	filename := payload.Progress.Filename
+	if filename == "" {
+		filename = payload.Progress.TmpFilename
+	}
+
 	return structuredProgressUpdate{
 		Status:          payload.Progress.Status,
 		DownloadedBytes: payload.Progress.DownloadedBytes,
 		TotalBytes:      totalBytes,
 		FragmentIndex:   payload.Progress.FragmentIndex,
 		FragmentCount:   payload.Progress.FragmentCount,
+		Filename:        filename,
 	}, true
+}
+
+func isSidecarProgressFile(filename string) bool {
+	if filename == "" {
+		return false
+	}
+
+	normalized := strings.ToLower(filename)
+	for _, suffix := range []string{".part", ".temp", ".tmp"} {
+		normalized = strings.TrimSuffix(normalized, suffix)
+	}
+
+	base := filepath.Base(normalized)
+	if strings.HasSuffix(base, ".info.json") {
+		return true
+	}
+
+	switch filepath.Ext(base) {
+	case ".description", ".json3", ".jpg", ".jpeg", ".lrc", ".png", ".sbv", ".srt", ".srv1", ".srv2", ".srv3", ".ttml", ".vtt", ".webp", ".txt":
+		return true
+	default:
+		return false
+	}
 }
 
 // shouldApplyMergeOutputFormat returns true if --merge-output-format should be applied for the given quality.

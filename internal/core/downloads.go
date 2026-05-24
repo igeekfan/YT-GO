@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"YT-GO/internal/platform"
+
 	"github.com/google/uuid"
 )
 
@@ -236,6 +238,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	// for proper cancel support. We use a lineWriter to parse progress
 	// from stdout/stderr, just like the old implementation.
 	execCmd := builder.BuildCommand(ctx, req.URL)
+	platform.ConfigureCmdWindow(execCmd, true)
 	s.emitLog("[runDownload] exec: %s", strings.Join(execCmd.Args, " "))
 
 	// Store the command so CancelDownload can kill the process.
@@ -250,6 +253,9 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 			return
 		}
 		if progressUpdate, ok := parseStructuredProgressLine(line); ok {
+			if isSidecarProgressFile(progressUpdate.Filename) {
+				return
+			}
 			s.handleStructuredProgressLog(taskID, progressUpdate)
 			return
 		}
