@@ -1,4 +1,10 @@
 import * as DesktopApp from '../../wailsjs/go/desktop/App'
+import {apiFetch, getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken} from './api_client'
+import type {WebConfig} from './api_client'
+
+// Re-export for consumers that import from backend.ts
+export {getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken}
+export type {WebConfig}
 
 // Lightweight interface types for API calls (avoids Wails model class requirements)
 interface DownloadRequestPayload {
@@ -58,83 +64,6 @@ export const backendMode: 'desktop' | 'web' =
     typeof window !== 'undefined' && typeof (window as any).go?.desktop?.App !== 'undefined'
         ? 'desktop'
         : 'web'
-
-function apiURL(path: string) {
-    const base = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
-    return `${base}${path}`
-}
-
-// Runtime web config (fetched from /api/config in web mode)
-export interface WebConfig {
-    downloadDir: string
-    externalURL: string
-    hasFixedDir: boolean
-    authRequired: boolean
-}
-
-let _webConfig: WebConfig | null = null
-let _authToken: string | null = null
-
-export function getWebConfig(): WebConfig | null {
-    return _webConfig
-}
-
-export function setAuthToken(token: string | null) {
-    _authToken = token
-    if (token) sessionStorage.setItem('ytgo_auth_token', token)
-    else sessionStorage.removeItem('ytgo_auth_token')
-}
-
-export function getAuthToken(): string | null {
-    if (_authToken) return _authToken
-    _authToken = sessionStorage.getItem('ytgo_auth_token')
-    return _authToken
-}
-
-export function clearAuthToken() {
-    _authToken = null
-    sessionStorage.removeItem('ytgo_auth_token')
-}
-
-export async function fetchWebConfig(): Promise<WebConfig | null> {
-    if (backendMode === 'desktop') return null
-    try {
-        _webConfig = await apiFetch<WebConfig>('/api/config')
-        return _webConfig
-    } catch {
-        return null
-    }
-}
-
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(init?.headers as Record<string, string> || {}),
-    }
-    // Attach auth token if available.
-    const token = getAuthToken()
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-    }
-    const response = await fetch(apiURL(path), {
-        ...init,
-        headers,
-    })
-
-    const text = await response.text()
-    const data = text ? JSON.parse(text) : null
-
-    if (!response.ok) {
-        // On 401, clear token so the login page shows.
-        if (response.status === 401) {
-            clearAuthToken()
-        }
-        const message = data?.error || data?.message || `${response.status} ${response.statusText}`
-        throw new Error(message)
-    }
-
-    return data as T
-}
 
 function getDesktop<T>(call: () => Promise<T>, fallback: () => Promise<T>) {
     return backendMode === 'desktop' ? call() : fallback()
@@ -418,7 +347,8 @@ export function OpenFolder(path: string) {
 // getDownloadFileURL returns a URL for downloading a completed file in web mode.
 // Uses YTGO_EXTERNAL_URL if configured, otherwise falls back to same-origin.
 export function getDownloadFileURL(taskID: string) {
-    const externalBase = _webConfig?.externalURL?.replace(/\/$/, '')
+    const cfg = getWebConfig()
+    const externalBase = cfg?.externalURL?.replace(/\/$/, '')
     const fallbackBase = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
     const base = externalBase || fallbackBase
     return `${base}/api/downloads/${encodeURIComponent(taskID)}/file`
