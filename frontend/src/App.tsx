@@ -1,5 +1,5 @@
 ﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, InstallYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, backendMode, fetchWebConfig, getWebConfig} from './lib/backend'
+import {CheckYtDlp, UpdateYtDlp, InstallYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, backendMode, fetchWebConfig, getWebConfig, getAuthToken} from './lib/backend'
 import {EventsOn} from './lib/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions} from './types'
 import {useI18n} from './i18n/context'
@@ -9,6 +9,7 @@ import SettingsDialog from './components/SettingsDialog'
 import SetupWizard from './components/SetupWizard'
 import UpdateDialog from './components/UpdateDialog'
 import DirBrowser from './components/DirBrowser'
+import LoginPage from './components/LoginPage'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
 import {Badge} from '@/components/ui/badge'
@@ -147,6 +148,8 @@ function App() {
     const consoleEndRef = useRef<HTMLDivElement>(null)
     const [showUpdateDialog, setShowUpdateDialog] = useState(false)
     const [showDirBrowser, setShowDirBrowser] = useState(false)
+    const [needsAuth, setNeedsAuth] = useState(false)
+    const [isAuthenticated, setIsAuthenticated] = useState(() => !!getAuthToken())
     const [updateInfo, setUpdateInfo] = useState<{
         hasUpdate: boolean
         currentVersion: string
@@ -255,7 +258,24 @@ function App() {
 
     useEffect(() => {
         const init = async () => {
-            if (backendMode === 'web') await fetchWebConfig().catch(console.error)
+            if (backendMode === 'web') {
+                await fetchWebConfig().catch(console.error)
+                const cfg = getWebConfig()
+                if (cfg?.authRequired) {
+                    if (!getAuthToken()) {
+                        setNeedsAuth(true)
+                        return
+                    }
+                    // Verify existing token by calling a protected endpoint.
+                    try {
+                        await CheckYtDlp()
+                    } catch {
+                        setNeedsAuth(true)
+                        return
+                    }
+                }
+            }
+            setIsAuthenticated(true)
             CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
             if (backendMode === 'web') return
             IsFirstRun().then((firstRun: boolean) => {
@@ -542,6 +562,18 @@ function App() {
     const handleSelectFolder = async () => {
         const dir = await SelectFolder()
         if (dir) setOutputDir(dir)
+    }
+
+    // Show login page when auth is required but not authenticated.
+    if (needsAuth && !isAuthenticated) {
+        return <LoginPage onAuthenticated={() => {
+            setIsAuthenticated(true)
+            setNeedsAuth(false)
+            // Re-run initialization after authentication.
+            CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
+            GetSettings().then(s => applySettingsToUI(s)).catch(() => {})
+            GetDownloads().then(tasks => { if (tasks) setDownloads(tasks) }).catch(() => {})
+        }} />
     }
 
     return (

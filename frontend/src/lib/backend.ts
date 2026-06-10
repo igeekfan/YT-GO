@@ -69,12 +69,31 @@ export interface WebConfig {
     downloadDir: string
     externalURL: string
     hasFixedDir: boolean
+    authRequired: boolean
 }
 
 let _webConfig: WebConfig | null = null
+let _authToken: string | null = null
 
 export function getWebConfig(): WebConfig | null {
     return _webConfig
+}
+
+export function setAuthToken(token: string | null) {
+    _authToken = token
+    if (token) sessionStorage.setItem('ytgo_auth_token', token)
+    else sessionStorage.removeItem('ytgo_auth_token')
+}
+
+export function getAuthToken(): string | null {
+    if (_authToken) return _authToken
+    _authToken = sessionStorage.getItem('ytgo_auth_token')
+    return _authToken
+}
+
+export function clearAuthToken() {
+    _authToken = null
+    sessionStorage.removeItem('ytgo_auth_token')
 }
 
 export async function fetchWebConfig(): Promise<WebConfig | null> {
@@ -88,18 +107,28 @@ export async function fetchWebConfig(): Promise<WebConfig | null> {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(init?.headers as Record<string, string> || {}),
+    }
+    // Attach auth token if available.
+    const token = getAuthToken()
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+    }
     const response = await fetch(apiURL(path), {
         ...init,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(init?.headers || {}),
-        },
+        headers,
     })
 
     const text = await response.text()
     const data = text ? JSON.parse(text) : null
 
     if (!response.ok) {
+        // On 401, clear token so the login page shows.
+        if (response.status === 401) {
+            clearAuthToken()
+        }
         const message = data?.error || data?.message || `${response.status} ${response.statusText}`
         throw new Error(message)
     }

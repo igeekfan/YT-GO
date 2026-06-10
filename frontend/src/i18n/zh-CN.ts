@@ -302,6 +302,14 @@
     'web.noDir': '请先设置下载目录',
     'web.noDirHint': '下载目录为空，请在设置中配置服务器端保存路径',
     'web.openSettings': '打开设置',
+
+    'login.title': '身份验证',
+    'login.description': '请输入访问令牌以继续',
+    'login.tokenPlaceholder': '输入访问令牌',
+    'login.submit': '验证',
+    'login.verifying': '验证中...',
+    'login.invalidToken': '令牌无效，请重试',
+    'login.connectionError': '连接失败',
 }
 
 

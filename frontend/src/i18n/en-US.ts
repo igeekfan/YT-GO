@@ -303,6 +303,14 @@
     'web.noDir': 'Please set a download directory',
     'web.noDirHint': 'Download directory is empty. Configure a server-side save path in Settings.',
     'web.openSettings': 'Open Settings',
+
+    'login.title': 'Authentication',
+    'login.description': 'Please enter your access token to continue',
+    'login.tokenPlaceholder': 'Enter access token',
+    'login.submit': 'Verify',
+    'login.verifying': 'Verifying...',
+    'login.invalidToken': 'Invalid token, please try again',
+    'login.connectionError': 'Connection failed',
 }
 
 export default enUS
