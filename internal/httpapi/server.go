@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,6 +37,11 @@ func New(service *core.Service) *Server {
 
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Security headers for all responses.
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+
 		// Apply CORS headers if YTGO_CORS_ORIGIN is configured.
 		if s.corsOrigin != "" {
 			origin := r.Header.Get("Origin")
@@ -49,8 +55,9 @@ func (s *Server) Handler() http.Handler {
 					return origin
 				}())
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 				w.Header().Set("Access-Control-Max-Age", "86400")
+				w.Header().Set("Vary", "Origin")
 			}
 			// Handle preflight requests.
 			if r.Method == http.MethodOptions {
@@ -193,6 +200,11 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
+		// Validate settings fields.
+		if settings.MaxConcurrent < 1 || settings.MaxConcurrent > 10 {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("maxConcurrent must be between 1 and 10"))
+			return
+		}
 		if err := s.service.SaveSettings(settings); err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
@@ -332,6 +344,19 @@ func isSubPath(root, sub string) bool {
 	return !strings.HasPrefix(rel, "..") && rel != "."
 }
 
+// validateURL checks that the URL uses http or https scheme.
+func validateURL(rawURL string) error {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("URL scheme must be http or https, got %q", scheme)
+	}
+	return nil
+}
+
 // handleCookiesUpload accepts a cookies file upload for web mode.
 // The file is saved to the data directory and the path is returned.
 func (s *Server) handleCookiesUpload(w http.ResponseWriter, r *http.Request) {
@@ -433,6 +458,10 @@ func (s *Server) handleVideoInfo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := validateURL(req.URL); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 	info, err := s.service.GetVideoInfo(req.URL)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -448,6 +477,10 @@ func (s *Server) handleFormats(w http.ResponseWriter, r *http.Request) {
 	}
 	var req URLRequest
 	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := validateURL(req.URL); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -469,6 +502,10 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := validateURL(req.URL); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 	info, err := s.service.GetPlaylistInfo(req.URL)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -484,6 +521,10 @@ func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		var req core.DownloadRequest
 		if err := decodeJSON(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		if err := validateURL(req.URL); err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
