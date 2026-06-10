@@ -56,8 +56,8 @@ function DownloadList({downloads, onUpdate}: Props) {
     const sorted = [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
     return (
-        <section className="rounded-lg border bg-card">
-            <div className="flex items-center justify-between gap-3 px-3 py-2.5 flex-wrap">
+        <section className="rounded-xl border bg-card/70 backdrop-blur-sm shadow-sm">
+            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 flex-wrap">
                 <h2 className="text-sm font-semibold">{t('downloads.title')}</h2>
                 <div className="flex items-center gap-1">
                     {retryable.length > 0 && (
@@ -91,7 +91,7 @@ function DownloadList({downloads, onUpdate}: Props) {
                 </div>
             )}
             {sorted.length === 0 ? (
-                <div className="text-center text-muted-foreground py-6 text-sm">{t('downloads.empty')}</div>
+                <div className="text-center text-muted-foreground py-8 text-sm">{t('downloads.empty')}</div>
             ) : (
                 <div className="space-y-1.5 px-3 pb-3">
                     {sorted.map(task => (

@@ -547,18 +547,18 @@ function App() {
     return (
         <div className="min-h-screen bg-background">
             {/* Header */}
-            <header className="sticky top-0 z-20 flex h-11 items-center gap-2 border-b bg-background/80 backdrop-blur-sm px-3">
-                <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-primary/15 bg-background/85 backdrop-blur-xl px-4 relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-primary/25 after:to-transparent">
+                <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm glow-primary">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/>
                         </svg>
                     </div>
-                    <span className="text-sm font-bold tracking-tight">{t('app.title')}</span>
+                    <span className="text-sm font-bold tracking-tight select-none">{t('app.title')}</span>
                 </div>
                 <div className="flex-1 flex items-center gap-1.5 pl-1">
                     {ytdlp && (
-                        <Badge variant={ytdlp.available ? 'secondary' : 'destructive'} className="text-[11px] h-5 px-1.5">
+                        <Badge variant={ytdlp.available ? 'secondary' : 'destructive'} className="text-[11px] h-5 px-2 font-medium tracking-wide">
                             {ytdlp.available ? t('ytdlp.version', {version: ytdlp.version}) : t('ytdlp.notFound')}
                         </Badge>
                     )}
@@ -574,7 +574,7 @@ function App() {
                     )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
-                    <Button variant="ghost" size="sm" onClick={handleQuickLanguageToggle} className="text-xs h-7 px-2">
+                    <Button variant="ghost" size="sm" onClick={handleQuickLanguageToggle} className="text-xs h-7 px-2.5 font-medium tracking-wide">
                         {lang === 'zh-CN' ? 'EN' : '中'}
                     </Button>
                     <Tooltip>
@@ -597,11 +597,11 @@ function App() {
             </header>
 
             {/* Main workspace */}
-            <main className="mx-auto max-w-3xl px-4 py-4 flex flex-col gap-3">
+            <main className="mx-auto max-w-3xl px-4 py-5 flex flex-col gap-4">
                 {/* yt-dlp Install Guide */}
                 {ytdlp && !ytdlp.available && (
-                    <div className="rounded-lg border bg-card p-4 text-center space-y-3">
-                        <div className="text-3xl leading-none">⚠️</div>
+                    <div className="rounded-xl border bg-card/70 backdrop-blur-sm p-5 text-center space-y-3 shadow-sm animate-fade-in-up">
+                        <div className="text-4xl leading-none">⚠️</div>
                         <h3 className="text-base font-semibold">{t('ytdlp.notFound')}</h3>
                         <p className="text-xs text-muted-foreground">{t('ytdlp.installGuide')}</p>
                         <div className="rounded-md border bg-muted/40 p-2.5 text-left space-y-2">
@@ -622,7 +622,7 @@ function App() {
 
                 {/* URL Input */}
                 {ytdlp?.available && (
-                    <div className="flex gap-2 items-center">
+                    <div className="flex gap-2.5 items-center animate-fade-in-up">
                         <div className="relative flex-1">
                             <Input
                                 type="text"
@@ -631,15 +631,15 @@ function App() {
                                 onKeyDown={e => { if (e.key === 'Enter') handleGetInfo() }}
                                 placeholder={t('url.placeholder')}
                                 disabled={isGettingInfo}
-                                className="pr-8"
+                                className="pr-8 h-10 text-sm bg-card/60 backdrop-blur-sm border-glow focus-visible:ring-primary/30 transition-all duration-200"
                             />
                             {url && (
-                                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6" onClick={clearCurrentInput}>
+                                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground" onClick={clearCurrentInput}>
                                     <X className="h-3 w-3" />
                                 </Button>
                             )}
                         </div>
-                        <Button onClick={handleGetInfo} disabled={isGettingInfo || !url.trim()}>
+                        <Button onClick={handleGetInfo} disabled={isGettingInfo || !url.trim()} className="h-10 px-5 font-semibold shadow-sm hover:shadow-md transition-shadow">
                             {isGettingInfo ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
                             {isGettingInfo ? t('url.gettingInfo') : t('url.getInfo')}
                         </Button>
@@ -648,11 +648,11 @@ function App() {
 
                 {/* Video/Playlist Info */}
                 {ytdlp?.available && (videoInfo || playlistInfo) && (
-                    <div className="space-y-2">
+                    <div className="space-y-2.5 animate-fade-in-up delay-1">
                         {videoInfo && (
-                            <div className="flex gap-3 rounded-lg border bg-card p-3">
+                            <div className="flex gap-3.5 rounded-xl border bg-card/70 backdrop-blur-sm p-3.5 shadow-sm">
                                 {videoInfo.thumbnail && (
-                                    <img src={videoInfo.thumbnail} alt={videoInfo.title} className="w-32 h-[72px] object-cover rounded-md shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                    <img src={videoInfo.thumbnail} alt={videoInfo.title} className="w-36 h-[81px] object-cover rounded-lg shrink-0 shadow-sm" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                                 )}
                                 <div className="flex-1 min-w-0 space-y-1">
                                     <div className="font-semibold text-sm line-clamp-2 leading-snug">{videoInfo.title}</div>
@@ -667,8 +667,8 @@ function App() {
 
                         {playlistInfo && (
                             <>
-                                <div className="flex gap-3 rounded-lg border bg-card p-3">
-                                    <div className="w-11 h-11 flex items-center justify-center rounded-md bg-primary/10 shrink-0">
+                                <div className="flex gap-3.5 rounded-xl border bg-card/70 backdrop-blur-sm p-3.5 shadow-sm">
+                                    <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 text-primary shrink-0">
                                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                                     </div>
                                     <div className="flex-1 min-w-0 space-y-1">
@@ -682,8 +682,8 @@ function App() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="rounded-lg border overflow-hidden">
-                                    <div className="flex gap-1.5 px-2 py-1.5 border-b bg-muted/30">
+                                <div className="rounded-xl border overflow-hidden shadow-sm">
+                                    <div className="flex gap-1.5 px-2.5 py-1.5 border-b bg-muted/40">
                                         <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedPlaylistItems(new Set(playlistInfo.videos.map((_: any, i: number) => i)))}>
                                             {t('collection.selectAll')}
                                         </Button>
@@ -716,7 +716,7 @@ function App() {
 
                 {/* Controls Zone */}
                 {ytdlp?.available && (videoInfo || playlistInfo) && (
-                    <div className="rounded-lg border bg-card p-3 space-y-3">
+                    <div className="rounded-xl border bg-card/70 backdrop-blur-sm p-4 space-y-3.5 shadow-sm animate-fade-in-up delay-2">
                         {/* Output Directory */}
                         {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
                             <div className="space-y-1.5">
@@ -744,7 +744,7 @@ function App() {
                         {/* Format Section */}
                         {videoInfo && (
                             <Collapsible open={formatExpanded} onOpenChange={setFormatExpanded}>
-                                <CollapsibleTrigger className="flex items-center gap-1.5 w-full rounded-md border px-2.5 py-1.5 text-sm font-medium hover:bg-muted/50 transition-colors">
+                                <CollapsibleTrigger className="flex items-center gap-1.5 w-full rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted/40 transition-all duration-150">
                                     {formatExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                                     <span>{t('format.label')}</span>
                                     {!formatExpanded && hasCustomFormatSelection && (
@@ -780,7 +780,7 @@ function App() {
                                             </div>
 
                                             {formatMode === 'single' && (
-                                                <div className="max-h-52 overflow-y-auto rounded-md border">
+                                                <div className="max-h-52 overflow-y-auto rounded-lg border">
                                                     {sortFormats(formatInfo.formats.filter(f => f.hasVideo || f.hasAudio)).map(f => (
                                                         <label key={f.formatId} className={`flex items-start gap-2 px-2.5 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedFormat === f.formatId ? 'bg-primary/5' : ''}`}>
                                                             <input type="radio" name="format-single" checked={selectedFormat === f.formatId}
@@ -887,8 +887,8 @@ function App() {
 
                         {/* Download Options */}
                         {videoInfo && (
-                            <div className="rounded-lg border p-3 space-y-2.5">
-                                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <div className="rounded-lg border bg-muted/20 p-3.5 space-y-2.5">
+                                <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                                     <SettingsIcon className="h-3 w-3" /> {t('downloadOpt.title')}
                                 </div>
                                 <div className="space-y-1">
@@ -980,7 +980,7 @@ function App() {
                         )}
 
                         {/* Action Buttons */}
-                        <div className="flex gap-2 flex-wrap items-center">
+                        <div className="flex gap-2.5 flex-wrap items-center pt-1">
                             {backendMode === 'web' && !getWebConfig()?.hasFixedDir && !outputDir && (
                                 <div className="flex items-center gap-2 mr-auto text-yellow-500 text-sm">
                                     <span>{t('web.noDirHint')}</span>
@@ -989,7 +989,7 @@ function App() {
                                     </Button>
                                 </div>
                             )}
-                            <Button onClick={handleDownload} disabled={isStarting || !url.trim() || !outputDir} className="ml-auto">
+                            <Button onClick={handleDownload} disabled={isStarting || !url.trim() || !outputDir} className="ml-auto h-10 px-6 font-semibold shadow-sm hover:shadow-md glow-primary transition-all duration-200">
                                 {isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                                 {isStarting ? t('download.downloading') : t('download.start')}
                             </Button>
@@ -1004,10 +1004,10 @@ function App() {
                 )}
 
                 {/* Console & Downloads */}
-                <div className="space-y-2.5">
+                <div className="space-y-3 animate-fade-in-up delay-3">
                     {consoleLogs.length > 0 && (
-                        <div className="rounded-lg border overflow-hidden">
-                            <div className="flex items-center justify-between px-2 py-1 border-b bg-muted/30">
+                        <div className="rounded-xl border overflow-hidden shadow-sm">
+                            <div className="flex items-center justify-between px-2.5 py-1.5 border-b bg-muted/40">
                                 <Button variant="ghost" size="sm" onClick={() => setShowConsole(!showConsole)} className="text-xs h-7 px-1.5">
                                     {showConsole ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
                                     {t('console.title')} ({consoleLogs.length})

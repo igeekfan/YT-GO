@@ -59,15 +59,15 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
     }
 
     return (
-        <div className="rounded-lg border p-2.5 space-y-1.5">
+        <div className="rounded-xl border p-3 space-y-2 bg-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
             {/* Top row: thumbnail + info + actions */}
-            <div className="flex items-start gap-2.5">
+            <div className="flex items-start gap-3">
                 {/* Thumbnail */}
                 {task.thumbnail ? (
-                    <img src={task.thumbnail} alt="" className="w-[72px] h-[42px] object-cover rounded shrink-0"
+                    <img src={task.thumbnail} alt="" className="w-20 h-[45px] object-cover rounded-lg shrink-0 shadow-sm"
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                 ) : (
-                    <div className="w-[72px] h-[42px] bg-muted rounded shrink-0 flex items-center justify-center text-muted-foreground">
+                    <div className="w-20 h-[45px] bg-muted rounded-lg shrink-0 flex items-center justify-center text-muted-foreground">
                         <Play className="h-4 w-4" />
                     </div>
                 )}
@@ -159,8 +159,8 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
             <Collapsible open={showLogs} onOpenChange={setShowLogs}>
                 <CollapsibleContent>
                     {showLogs && logs.length > 0 && (
-                        <div className="max-h-48 overflow-y-auto overflow-x-hidden rounded-md border bg-muted/20">
-                            <pre className="p-2 text-[11px] font-mono leading-snug whitespace-pre-wrap break-words w-full">
+                        <div className="max-h-48 overflow-y-auto overflow-x-hidden rounded-lg border bg-muted/30">
+                            <pre className="p-2.5 text-[11px] font-mono leading-snug whitespace-pre-wrap break-words w-full">
                                 {logs.map((line, i) => <div key={i}>{line}</div>)}
                                 <div ref={logEndRef} />
                             </pre>

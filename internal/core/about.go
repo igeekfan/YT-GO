@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"unicode/utf16"
 
 	"YT-GO/internal/platform"
 )
@@ -27,7 +28,7 @@ func (s *Service) GetAboutInfo() AboutInfo {
 func detectSystemVersion() string {
 	switch runtime.GOOS {
 	case "windows":
-		if version := commandOutput("cmd", "/c", "ver"); version != "" {
+		if version := commandOutputUTF16("cmd", "/u", "/c", "ver"); version != "" {
 			return version
 		}
 	case "darwin":
@@ -55,4 +56,28 @@ func commandOutput(name string, args ...string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// commandOutputUTF16 runs a command and decodes its UTF-16LE output.
+// On Windows, `cmd /u` forces UTF-16LE output, avoiding OEM codepage encoding issues.
+func commandOutputUTF16(name string, args ...string) string {
+	cmd := exec.Command(name, args...)
+	platform.HideCmdWindow(cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return ""
+	}
+	// Skip UTF-16LE BOM if present (0xFF 0xFE)
+	if len(out) >= 2 && out[0] == 0xFF && out[1] == 0xFE {
+		out = out[2:]
+	}
+	// Decode UTF-16LE bytes to runes
+	if len(out)%2 != 0 {
+		return strings.TrimSpace(string(out))
+	}
+	u16 := make([]uint16, len(out)/2)
+	for i := range u16 {
+		u16[i] = uint16(out[2*i]) | uint16(out[2*i+1])<<8
+	}
+	return strings.TrimSpace(string(utf16.Decode(u16)))
 }

@@ -69,9 +69,9 @@ export default function SetupWizard({onComplete}: {onComplete: (outputDir: strin
     return (
         <>
         <Dialog open={true} onOpenChange={() => {}}>
-            <DialogContent className="max-w-lg" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
+            <DialogContent className="max-w-lg rounded-2xl shadow-xl" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
                 <DialogHeader>
-                    <DialogTitle className="flex items-center justify-between">
+                    <DialogTitle className="flex items-center justify-between text-base font-bold tracking-tight">
                         {step === 1 ? t('setup.step1Title') : t('setup.step2Title')}
                         <Badge variant="secondary" className="text-xs ml-2">{step} / {totalSteps}</Badge>
                     </DialogTitle>

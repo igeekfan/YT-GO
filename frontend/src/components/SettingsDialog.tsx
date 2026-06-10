@@ -194,13 +194,13 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     return (
         <>
         <Dialog open={open} onOpenChange={(v: boolean) => { if (!v) onClose() }}>
-            <DialogContent className="max-w-2xl w-full h-[640px] max-h-[90vh] flex flex-col p-0 gap-0">
-                <DialogHeader className="px-6 py-4 border-b">
-                    <DialogTitle>{t('settings.title')}</DialogTitle>
+            <DialogContent className="max-w-2xl w-full h-[640px] max-h-[90vh] flex flex-col p-0 gap-0 rounded-2xl shadow-xl">
+                <DialogHeader className="px-6 py-4 border-b border-primary/10">
+                    <DialogTitle className="text-base font-bold tracking-tight">{t('settings.title')}</DialogTitle>
                 </DialogHeader>
                 <Tabs defaultValue="download" className="flex-1 flex flex-col min-h-0">
                     <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-6">
-                        {(['download', 'media', 'network', 'deps', 'tools', 'appearance', 'about'] as const).map(tab => (
+                        {(['download', 'media', 'network', 'deps', 'appearance', 'about'] as const).map(tab => (
                             <TabsTrigger key={tab} value={tab} className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none px-3 py-2.5 text-xs">
                                 {t(`settings.tab.${tab}` as any)}
                             </TabsTrigger>
@@ -442,37 +442,6 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                                 </div>
                             </TabsContent>
 
-                            {/* Tools Tab */}
-                            <TabsContent value="tools" className="mt-0 space-y-4">
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground">{t('settings.appUpdate')}</Label>
-                                    <Button size="sm" onClick={handleCheckForUpdate} disabled={isCheckingUpdate}>
-                                        <RefreshCw className={`h-4 w-4 mr-1 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-                                        {isCheckingUpdate ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
-                                    </Button>
-                                    {updateInfo && (
-                                        <div className="rounded-md border p-3 text-xs space-y-1">
-                                            {updateInfo.hasUpdate ? (
-                                                <>
-                                                    <div className="flex gap-2"><span className="text-muted-foreground">{t('settings.diagCurrent')}</span><span>v{updateInfo.currentVersion}</span></div>
-                                                    <div className="flex gap-2"><span className="text-muted-foreground">{t('settings.diagLatest')}</span><span className="text-green-500">v{updateInfo.latestVersion}</span></div>
-                                                    <Button size="sm" className="mt-2" onClick={handleOpenReleasePage}>{t('settings.appUpdateDownload')}</Button>
-                                                </>
-                                            ) : (
-                                                <span className="text-green-500">✓ {t('settings.appUpdateUpToDate')} (v{updateInfo.currentVersion})</span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                                <Separator />
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground">{t('settings.reset')}</Label>
-                                    <Button variant="outline" size="sm" onClick={handleResetSettings} disabled={isResetting}>
-                                        {isResetting ? t('settings.resetting') : t('settings.reset')}
-                                    </Button>
-                                </div>
-                            </TabsContent>
-
                             {/* Appearance Tab */}
                             <TabsContent value="appearance" className="mt-0 space-y-4">
                                 <div className="space-y-1.5">
@@ -500,39 +469,109 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
 
                             {/* About Tab */}
                             <TabsContent value="about" className="mt-0">
-                                <div className="flex flex-col items-center py-6 space-y-5">
-                                    {/* App Icon */}
-                                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-600 shadow-lg">
-                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                                            <path d="M8 5v14l11-7z"/>
-                                        </svg>
+                                <div className="flex flex-col items-center py-8 px-2">
+                                    {/* Hero area with ambient glow */}
+                                    <div className="relative mb-6">
+                                        <div className="absolute inset-0 rounded-full blur-2xl bg-primary/15 scale-150 pointer-events-none" />
+                                        <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-red-600 via-red-500 to-red-700 shadow-lg shadow-red-500/20">
+                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="white" className="drop-shadow-sm ml-0.5">
+                                                <path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/>
+                                            </svg>
+                                        </div>
                                     </div>
-                                    <div className="text-center space-y-1">
-                                        <h2 className="text-xl font-bold">YT-GO</h2>
-                                        {aboutInfo && <p className="text-xs text-muted-foreground">v{aboutInfo.appVersion}</p>}
+
+                                    <div className="text-center space-y-1.5 mb-7">
+                                        <h2 className="text-2xl font-bold tracking-tight">YT-GO</h2>
+                                        {aboutInfo && (
+                                            <span className="inline-block text-xs font-medium text-primary bg-primary/10 px-2.5 py-0.5 rounded-full tracking-wide">
+                                                v{aboutInfo.appVersion}
+                                            </span>
+                                        )}
                                     </div>
+
                                     {aboutInfo && (
-                                        <div className="w-full max-w-sm space-y-3">
-                                            <div className="rounded-lg border p-3 space-y-2.5">
-                                                <div className="flex items-center gap-2">
-                                                    <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-                                                    <span className="text-xs text-muted-foreground min-w-16">{t('settings.github')}</span>
-                                                    <a className="text-sm text-primary hover:underline break-all" href={aboutInfo.githubUrl} target="_blank" rel="noopener noreferrer">
-                                                        {aboutInfo.githubRepo} <ExternalLink className="h-3 w-3 inline" />
-                                                    </a>
+                                        <div className="w-full max-w-sm space-y-2.5">
+                                            {/* Info card */}
+                                            <div className="rounded-xl border bg-card/50 backdrop-blur-sm divide-y divide-border/50 overflow-hidden shadow-sm">
+                                                <div className="flex items-center gap-3 px-4 py-3 group">
+                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                        <Globe className="h-4 w-4" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-[10px] uppercase tracking-widest font-medium text-muted-foreground">{t('settings.github')}</div>
+                                                        <a className="text-sm font-medium text-primary hover:underline break-all leading-snug" href={aboutInfo.githubUrl} target="_blank" rel="noopener noreferrer">
+                                                            {aboutInfo.githubRepo} <ExternalLink className="h-3 w-3 inline opacity-50 group-hover:opacity-100 transition-opacity" />
+                                                        </a>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs text-muted-foreground min-w-20 ml-6">{t('settings.systemVersion')}</span>
-                                                    <span className="text-xs break-all">{aboutInfo.systemVersion}</span>
+
+                                                <div className="flex items-center gap-3 px-4 py-3">
+                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <rect x="2" y="3" width="20" height="14" rx="2"/>
+                                                            <line x1="8" y1="21" x2="16" y2="21"/>
+                                                            <line x1="12" y1="17" x2="12" y2="21"/>
+                                                        </svg>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-[10px] uppercase tracking-widest font-medium text-muted-foreground">{t('settings.systemVersion')}</div>
+                                                        <div className="text-sm font-medium leading-snug break-all">{aboutInfo.systemVersion}</div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs text-muted-foreground min-w-20 ml-6">{t('settings.authorEmail')}</span>
-                                                    <a className="text-xs text-primary hover:underline" href={`mailto:${aboutInfo.authorEmail}`}>{aboutInfo.authorEmail}</a>
+
+                                                <div className="flex items-center gap-3 px-4 py-3">
+                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                                            <polyline points="22,6 12,13 2,6"/>
+                                                        </svg>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-[10px] uppercase tracking-widest font-medium text-muted-foreground">{t('settings.authorEmail')}</div>
+                                                        <a className="text-sm font-medium text-primary hover:underline leading-snug" href={`mailto:${aboutInfo.authorEmail}`}>{aboutInfo.authorEmail}</a>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="text-center text-xs text-muted-foreground space-y-1 pt-2">
-                                                <p className="flex items-center justify-center gap-1"><Heart className="h-3 w-3 text-red-500" /> {t('about.openSource')}</p>
-                                                <p>{t('about.feedback')}</p>
+
+                                            {/* Check update */}
+                                            <div className="flex flex-col items-center gap-2 pt-2">
+                                                <Button size="sm" onClick={handleCheckForUpdate} disabled={isCheckingUpdate}>
+                                                    <RefreshCw className={`h-4 w-4 mr-1 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                                                    {isCheckingUpdate ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
+                                                </Button>
+                                                {updateInfo?.hasUpdate && (
+                                                    <Button size="sm" variant="outline" onClick={handleOpenReleasePage}>
+                                                        {t('settings.appUpdateDownload')}
+                                                    </Button>
+                                                )}
+                                                {updateInfo && (
+                                                    <div className="rounded-md border p-3 text-xs space-y-1 w-full">
+                                                        {updateInfo.hasUpdate ? (
+                                                            <>
+                                                                <div className="flex gap-2"><span className="text-muted-foreground">{t('settings.diagCurrent')}</span><span>v{updateInfo.currentVersion}</span></div>
+                                                                <div className="flex gap-2"><span className="text-muted-foreground">{t('settings.diagLatest')}</span><span className="text-green-500">v{updateInfo.latestVersion}</span></div>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-green-500">✓ {t('settings.appUpdateUpToDate')} (v{updateInfo.currentVersion})</span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Reset */}
+                                            <div className="flex flex-col items-center gap-2 pt-2">
+                                                <Button variant="outline" size="sm" onClick={handleResetSettings} disabled={isResetting}>
+                                                    {isResetting ? t('settings.resetting') : t('settings.reset')}
+                                                </Button>
+                                            </div>
+
+                                            {/* Footer attribution */}
+                                            <div className="text-center text-xs text-muted-foreground space-y-1.5 pt-3">
+                                                <p className="flex items-center justify-center gap-1.5">
+                                                    <Heart className="h-3.5 w-3.5 text-primary fill-primary/30" />
+                                                    <span className="font-medium">{t('about.openSource')}</span>
+                                                </p>
+                                                <p className="opacity-70">{t('about.feedback')}</p>
                                             </div>
                                         </div>
                                     )}
