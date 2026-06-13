@@ -1,5 +1,5 @@
-﻿import {useState, useEffect, useCallback, useRef} from 'react'
-import {CheckYtDlp, UpdateYtDlp, InstallYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, ResetSettings, CheckForUpdate, OpenReleasePage, backendMode, fetchWebConfig, getWebConfig} from './lib/backend'
+import {useState, useEffect, useCallback, useRef} from 'react'
+import {CheckYtDlp, UpdateYtDlp, InstallYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, CheckForUpdate, OpenReleasePage, backendMode, fetchWebConfig, getWebConfig, getAuthToken} from './lib/backend'
 import {EventsOn} from './lib/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions} from './types'
 import {useI18n} from './i18n/context'
@@ -9,6 +9,7 @@ import SettingsDialog from './components/SettingsDialog'
 import SetupWizard from './components/SetupWizard'
 import UpdateDialog from './components/UpdateDialog'
 import DirBrowser from './components/DirBrowser'
+import LoginPage from './components/LoginPage'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
 import {Badge} from '@/components/ui/badge'
@@ -147,6 +148,8 @@ function App() {
     const consoleEndRef = useRef<HTMLDivElement>(null)
     const [showUpdateDialog, setShowUpdateDialog] = useState(false)
     const [showDirBrowser, setShowDirBrowser] = useState(false)
+    const [needsAuth, setNeedsAuth] = useState(false)
+    const [isAuthenticated, setIsAuthenticated] = useState(() => !!getAuthToken())
     const [updateInfo, setUpdateInfo] = useState<{
         hasUpdate: boolean
         currentVersion: string
@@ -255,7 +258,24 @@ function App() {
 
     useEffect(() => {
         const init = async () => {
-            if (backendMode === 'web') await fetchWebConfig().catch(console.error)
+            if (backendMode === 'web') {
+                await fetchWebConfig().catch(console.error)
+                const cfg = getWebConfig()
+                if (cfg?.authRequired) {
+                    if (!getAuthToken()) {
+                        setNeedsAuth(true)
+                        return
+                    }
+                    // Verify existing token by calling a protected endpoint.
+                    try {
+                        await CheckYtDlp()
+                    } catch {
+                        setNeedsAuth(true)
+                        return
+                    }
+                }
+            }
+            setIsAuthenticated(true)
             CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
             if (backendMode === 'web') return
             IsFirstRun().then((firstRun: boolean) => {
@@ -544,6 +564,18 @@ function App() {
         if (dir) setOutputDir(dir)
     }
 
+    // Show login page when auth is required but not authenticated.
+    if (needsAuth && !isAuthenticated) {
+        return <LoginPage onAuthenticated={() => {
+            setIsAuthenticated(true)
+            setNeedsAuth(false)
+            // Re-run initialization after authentication.
+            CheckYtDlp().then(setYtdlp).catch(() => setYtdlp({available: false, version: '', path: ''}))
+            GetSettings().then(s => applySettingsToUI(s)).catch(() => {})
+            GetDownloads().then(tasks => { if (tasks) setDownloads(tasks) }).catch(() => {})
+        }} />
+    }
+
     return (
         <div className="min-h-screen bg-background">
             {/* Header */}
@@ -611,6 +643,9 @@ function App() {
                             <div><span className="text-[11px] text-muted-foreground font-medium">{t('install.linuxPip')}</span><code className="mt-0.5 block rounded bg-background px-2 py-1 text-[11px] text-primary">pip install yt-dlp</code></div>
                         </div>
                         <p className="text-[11px] text-muted-foreground">{t('ytdlp.installNote')}</p>
+                        {backendMode === 'web' && (
+                            <p className="text-[11px] text-muted-foreground">{t('ytdlp.envHint')}</p>
+                        )}
                         <div className="flex items-center justify-center gap-2">
                             <Button size="sm" onClick={handleInstallYtDlp} disabled={isInstallingYtDlp}>
                                 {isInstallingYtDlp ? t('ytdlp.installing') : t('ytdlp.autoInstall')}

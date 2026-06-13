@@ -1,4 +1,4 @@
-﻿const zhCN = {
+const zhCN = {
     'app.title': 'YT-GO',
     'app.theme.dark': '夜间',
     'app.theme.light': '日间',
@@ -6,6 +6,7 @@
     'lang.en': 'English',
 
     'ytdlp.notFound': '未检测到 yt-dlp，请先安装',
+    'ytdlp.envHint': '已尝试自动检测系统 PATH，如仍无法找到，可设置环境变量 YTGO_YTDLP_PATH 指向 yt-dlp 路径',
     'ytdlp.version': 'yt-dlp {version}',
     'ytdlp.checkFail': '检测 yt-dlp 失败',
     'ytdlp.update': '更新 yt-dlp',
@@ -302,6 +303,14 @@
     'web.noDir': '请先设置下载目录',
     'web.noDirHint': '下载目录为空，请在设置中配置服务器端保存路径',
     'web.openSettings': '打开设置',
+
+    'login.title': '身份验证',
+    'login.description': '请输入访问令牌以继续',
+    'login.tokenPlaceholder': '输入访问令牌',
+    'login.submit': '验证',
+    'login.verifying': '验证中...',
+    'login.invalidToken': '令牌无效，请重试',
+    'login.connectionError': '连接失败',
 }
 
 

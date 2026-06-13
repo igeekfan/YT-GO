@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,10 +14,11 @@ import (
 )
 
 type Server struct {
-	service   *core.Service
-	mux       *http.ServeMux
-	hub       *EventHub
+	service    *core.Service
+	mux        *http.ServeMux
+	hub        *EventHub
 	corsOrigin string // allowed CORS origin, empty means same-origin only
+	authToken  string // bearer token for web auth, empty means no auth
 }
 
 type URLRequest struct {
@@ -29,6 +31,7 @@ func New(service *core.Service) *Server {
 		mux:        http.NewServeMux(),
 		hub:        NewEventHub(),
 		corsOrigin: os.Getenv("YTGO_CORS_ORIGIN"),
+		authToken:  os.Getenv("YTGO_AUTH_TOKEN"),
 	}
 	server.registerRoutes()
 	return server
@@ -36,6 +39,11 @@ func New(service *core.Service) *Server {
 
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Security headers for all responses.
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+
 		// Apply CORS headers if YTGO_CORS_ORIGIN is configured.
 		if s.corsOrigin != "" {
 			origin := r.Header.Get("Origin")
@@ -49,8 +57,9 @@ func (s *Server) Handler() http.Handler {
 					return origin
 				}())
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 				w.Header().Set("Access-Control-Max-Age", "86400")
+				w.Header().Set("Vary", "Origin")
 			}
 			// Handle preflight requests.
 			if r.Method == http.MethodOptions {
@@ -58,6 +67,16 @@ func (s *Server) Handler() http.Handler {
 				return
 			}
 		}
+
+		// Auth check: verify Bearer token if YTGO_AUTH_TOKEN is set.
+		// Whitelist paths that don't require authentication.
+		if s.authToken != "" && !isAuthWhitelisted(r.URL.Path) {
+			if !s.checkAuth(r) {
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				return
+			}
+		}
+
 		s.mux.ServeHTTP(w, r)
 	})
 }
@@ -191,6 +210,11 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		var settings core.Settings
 		if err := decodeJSON(r, &settings); err != nil {
 			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		// Validate settings fields.
+		if settings.MaxConcurrent < 1 || settings.MaxConcurrent > 10 {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("maxConcurrent must be between 1 and 10"))
 			return
 		}
 		if err := s.service.SaveSettings(settings); err != nil {
@@ -332,6 +356,19 @@ func isSubPath(root, sub string) bool {
 	return !strings.HasPrefix(rel, "..") && rel != "."
 }
 
+// validateURL checks that the URL uses http or https scheme.
+func validateURL(rawURL string) error {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("URL scheme must be http or https, got %q", scheme)
+	}
+	return nil
+}
+
 // handleCookiesUpload accepts a cookies file upload for web mode.
 // The file is saved to the data directory and the path is returned.
 func (s *Server) handleCookiesUpload(w http.ResponseWriter, r *http.Request) {
@@ -391,7 +428,14 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		writeMethodNotAllowed(w, http.MethodGet)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.service.GetWebConfig())
+	cfg := s.service.GetWebConfig()
+	// Wrap to include auth status for the frontend.
+	writeJSON(w, http.StatusOK, map[string]any{
+		"downloadDir":  cfg.DownloadDir,
+		"externalURL":  cfg.ExternalURL,
+		"hasFixedDir":  cfg.HasFixedDir,
+		"authRequired": s.authToken != "",
+	})
 }
 
 func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
@@ -433,6 +477,10 @@ func (s *Server) handleVideoInfo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := validateURL(req.URL); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 	info, err := s.service.GetVideoInfo(req.URL)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -448,6 +496,10 @@ func (s *Server) handleFormats(w http.ResponseWriter, r *http.Request) {
 	}
 	var req URLRequest
 	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := validateURL(req.URL); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -469,6 +521,10 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := validateURL(req.URL); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 	info, err := s.service.GetPlaylistInfo(req.URL)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -484,6 +540,10 @@ func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		var req core.DownloadRequest
 		if err := decodeJSON(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		if err := validateURL(req.URL); err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
@@ -612,4 +672,36 @@ func writeError(w http.ResponseWriter, status int, err error) {
 func writeMethodNotAllowed(w http.ResponseWriter, methods ...string) {
 	w.Header().Set("Allow", strings.Join(methods, ", "))
 	writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+}
+
+// isAuthWhitelisted returns true if the path does not require authentication.
+func isAuthWhitelisted(path string) bool {
+	whitelist := []string{
+		"/api/health",
+		"/api/config",
+		"/api/events",
+	}
+	for _, p := range whitelist {
+		if path == p {
+			return true
+		}
+	}
+	return false
+}
+
+// checkAuth validates the Bearer token from Authorization header or ?token= query param.
+func (s *Server) checkAuth(r *http.Request) bool {
+	// Check Authorization: Bearer <token>
+	auth := r.Header.Get("Authorization")
+	if strings.HasPrefix(auth, "Bearer ") {
+		token := strings.TrimPrefix(auth, "Bearer ")
+		if token == s.authToken {
+			return true
+		}
+	}
+	// Check ?token= query parameter (useful for SSE/EventSource which can't set headers).
+	if r.URL.Query().Get("token") == s.authToken {
+		return true
+	}
+	return false
 }

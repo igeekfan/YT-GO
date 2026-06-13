@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -142,19 +144,47 @@ func applyFormatArgs(cmd *ytdlp.Command, quality string) *ytdlp.Command {
 func (s *Service) CheckYtDlp() YtDlpStatus {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	resolved, err := ytdlp.Install(ctx, &ytdlp.InstallOptions{
-		DisableDownload:      true,
-		DisableSystem:        false,
-		AllowVersionMismatch: true,
-	})
-	if err != nil || resolved.Executable == "" {
+
+	var execPath string
+	if s.ytdlpPath != "" {
+		if info, err := os.Stat(s.ytdlpPath); err == nil && !info.IsDir() {
+			execPath = s.ytdlpPath
+			s.emitLog("yt-dlp: using YTGO_YTDLP_PATH=%s", execPath)
+		} else {
+			s.emitLog("yt-dlp: YTGO_YTDLP_PATH=%s not found, err=%v", s.ytdlpPath, err)
+		}
+	}
+	if execPath == "" {
+		resolved, err := ytdlp.Install(ctx, &ytdlp.InstallOptions{
+			DisableDownload:      true,
+			DisableSystem:        false,
+			AllowVersionMismatch: true,
+		})
+		if err == nil && resolved.Executable != "" {
+			execPath = resolved.Executable
+			s.emitLog("yt-dlp: found via go-ytdlp=%s", execPath)
+		} else {
+			s.emitLog("yt-dlp: go-ytdlp install failed, err=%v", err)
+		}
+	}
+	if execPath == "" {
+		if p, err := exec.LookPath("yt-dlp"); err == nil {
+			execPath = p
+			s.emitLog("yt-dlp: found via LookPath=%s", execPath)
+		} else {
+			s.emitLog("yt-dlp: LookPath failed, err=%v", err)
+		}
+	}
+	if execPath == "" {
+		s.emitLog("yt-dlp: not found by any method")
 		return YtDlpStatus{Available: false}
 	}
-	versionResult, vErr := ytdlp.New().SetExecutable(resolved.Executable).Version(ctx)
+	versionResult, vErr := ytdlp.New().SetExecutable(execPath).Version(ctx)
 	if vErr != nil {
+		s.emitLog("yt-dlp: version check failed, err=%v", vErr)
 		return YtDlpStatus{Available: false}
 	}
-	return YtDlpStatus{Available: true, Version: strings.TrimSpace(versionResult.Stdout), Path: resolved.Executable}
+	return YtDlpStatus{Available: true, Version: strings.TrimSpace(versionResult.Stdout), Path: execPath}
 }
 
 // UpdateYtDlp runs yt-dlp self-update via go-ytdlp.

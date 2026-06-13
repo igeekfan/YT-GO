@@ -155,6 +155,7 @@ All API functions in `backend.ts` use `getDesktop()` to dispatch:
 | `YTGO_WEB_ADDR` | Listen address | `:8080` |
 | `YTGO_DOWNLOAD_DIR` | Fixed download directory (hides dir input in UI) | `""` (user selects) |
 | `YTGO_EXTERNAL_URL` | External base URL for download links (reverse proxy) | `""` (same-origin) |
+| `YTGO_YTDLP_PATH` | Explicit yt-dlp executable path (bypasses auto-detection) | `""` (auto-detect) |
 | `XDG_CONFIG_HOME` | App data directory (SQLite DB, cookies) | OS default |
 
 When `YTGO_DOWNLOAD_DIR` is set:
@@ -166,6 +167,10 @@ When `YTGO_DOWNLOAD_DIR` is set:
 When `YTGO_EXTERNAL_URL` is set:
 - `getDownloadFileURL()` uses it as base URL for browser download links
 - Enables download links when server is behind reverse proxy (e.g. `https://yt.example.com`)
+
+When `YTGO_YTDLP_PATH` is set:
+- Used as the yt-dlp executable directly, skipping system PATH search
+- Useful when yt-dlp is installed but not found by auto-detection (e.g. web mode with non-standard PATH)
 
 ## Key Libraries
 
