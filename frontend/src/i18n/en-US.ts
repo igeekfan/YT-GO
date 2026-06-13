@@ -1,4 +1,4 @@
-﻿const enUS: typeof import('./zh-CN').default = {
+const enUS: typeof import('./zh-CN').default = {
     'app.title': 'YT-GO',
     'app.theme.dark': 'Dark',
     'app.theme.light': 'Light',
@@ -6,6 +6,7 @@
     'lang.en': 'English',
 
     'ytdlp.notFound': 'yt-dlp not found, please install it first',
+    'ytdlp.envHint': 'If yt-dlp is installed but not detected in web mode, set YTGO_YTDLP_PATH env var to its path',
     'ytdlp.version': 'yt-dlp {version}',
     'ytdlp.checkFail': 'Failed to check yt-dlp',
     'ytdlp.update': 'Update yt-dlp',

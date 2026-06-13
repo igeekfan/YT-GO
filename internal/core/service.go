@@ -32,6 +32,7 @@ type Service struct {
 	hooks        Hooks
 	downloadDir  string // from YTGO_DOWNLOAD_DIR env
 	externalURL  string // from YTGO_EXTERNAL_URL env (for web mode download links)
+	ytdlpPath    string // from YTGO_YTDLP_PATH env (explicit yt-dlp path)
 }
 
 func NewService(appVersion string) *Service {
@@ -44,6 +45,7 @@ func NewService(appVersion string) *Service {
 		appVersion:  appVersion,
 		downloadDir: os.Getenv("YTGO_DOWNLOAD_DIR"),
 		externalURL: os.Getenv("YTGO_EXTERNAL_URL"),
+		ytdlpPath:   os.Getenv("YTGO_YTDLP_PATH"),
 	}
 	return s
 }
@@ -104,10 +106,16 @@ func (s *Service) emitDownloadLog(taskID string, line string) {
 	}
 }
 
-// resolveYtDlp resolves the yt-dlp executable path using go-ytdlp.
-// It checks the system PATH first, then falls back to go-ytdlp's cache.
+// resolveYtDlp resolves the yt-dlp executable path.
+// Priority: YTGO_YTDLP_PATH env > go-ytdlp library > exec.LookPath fallback.
 // Does NOT trigger a download — use InstallYtDlp for that.
 func (s *Service) resolveYtDlp() string {
+	if s.ytdlpPath != "" {
+		if info, err := os.Stat(s.ytdlpPath); err == nil && !info.IsDir() {
+			return s.ytdlpPath
+		}
+		s.emitLog("YTGO_YTDLP_PATH is set but file not found: %s", s.ytdlpPath)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	resolved, err := ytdlp.Install(ctx, &ytdlp.InstallOptions{
@@ -115,10 +123,13 @@ func (s *Service) resolveYtDlp() string {
 		DisableSystem:        false,
 		AllowVersionMismatch: true,
 	})
-	if err != nil {
-		return ""
+	if err == nil && resolved.Executable != "" {
+		return resolved.Executable
 	}
-	return resolved.Executable
+	if p, err := exec.LookPath("yt-dlp"); err == nil {
+		return p
+	}
+	return ""
 }
 
 // GetDataDir returns the application data directory path.

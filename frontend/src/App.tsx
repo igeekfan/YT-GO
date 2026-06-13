@@ -1,4 +1,4 @@
-﻿import {useState, useEffect, useCallback, useRef} from 'react'
+import {useState, useEffect, useCallback, useRef} from 'react'
 import {CheckYtDlp, UpdateYtDlp, InstallYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, CheckForUpdate, OpenReleasePage, backendMode, fetchWebConfig, getWebConfig, getAuthToken} from './lib/backend'
 import {EventsOn} from './lib/runtime'
 import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions} from './types'
@@ -643,6 +643,9 @@ function App() {
                             <div><span className="text-[11px] text-muted-foreground font-medium">{t('install.linuxPip')}</span><code className="mt-0.5 block rounded bg-background px-2 py-1 text-[11px] text-primary">pip install yt-dlp</code></div>
                         </div>
                         <p className="text-[11px] text-muted-foreground">{t('ytdlp.installNote')}</p>
+                        {backendMode === 'web' && (
+                            <p className="text-[11px] text-muted-foreground">{t('ytdlp.envHint')}</p>
+                        )}
                         <div className="flex items-center justify-center gap-2">
                             <Button size="sm" onClick={handleInstallYtDlp} disabled={isInstallingYtDlp}>
                                 {isInstallingYtDlp ? t('ytdlp.installing') : t('ytdlp.autoInstall')}

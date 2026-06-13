@@ -58,17 +58,25 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     })
 
     const text = await response.text()
-    const data = text ? JSON.parse(text) : null
 
     if (!response.ok) {
-        if (response.status === 401) {
-            clearAuthToken()
+        let message: string
+        try {
+            const data = text ? JSON.parse(text) : null
+            if (response.status === 401) clearAuthToken()
+            message = data?.error || data?.message || `${response.status} ${response.statusText}`
+        } catch {
+            message = `${response.status} ${response.statusText}`
         }
-        const message = data?.error || data?.message || `${response.status} ${response.statusText}`
         throw new Error(message)
     }
 
-    return data as T
+    if (!text) return null as T
+    try {
+        return JSON.parse(text) as T
+    } catch {
+        throw new Error(`API returned non-JSON response for ${path}`)
+    }
 }
 
 export async function fetchWebConfig(): Promise<WebConfig | null> {

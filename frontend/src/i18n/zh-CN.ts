@@ -1,4 +1,4 @@
-﻿const zhCN = {
+const zhCN = {
     'app.title': 'YT-GO',
     'app.theme.dark': '夜间',
     'app.theme.light': '日间',
@@ -6,6 +6,7 @@
     'lang.en': 'English',
 
     'ytdlp.notFound': '未检测到 yt-dlp，请先安装',
+    'ytdlp.envHint': '已尝试自动检测系统 PATH，如仍无法找到，可设置环境变量 YTGO_YTDLP_PATH 指向 yt-dlp 路径',
     'ytdlp.version': 'yt-dlp {version}',
     'ytdlp.checkFail': '检测 yt-dlp 失败',
     'ytdlp.update': '更新 yt-dlp',
