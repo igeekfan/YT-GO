@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -205,6 +206,8 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 		builder.SponsorblockMark("all")
 	}
 
+	builder.IgnoreErrors()
+
 	applyCookiesArgs(builder, settings)
 	s.applyMediaCommand(builder)
 
@@ -334,8 +337,30 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 			delete(s.downloads, taskID)
 			removed = true
 		case runErr != nil:
-			t.Status = "error"
-			t.Error = runErr.Error()
+			// If the output file was produced, treat as completed despite non-zero exit
+			// (e.g. subtitle/danmaku postprocessing errors shouldn't fail the whole download).
+			outputReady := false
+			if lastOutputFile != "" {
+				absPath := lastOutputFile
+				if !filepath.IsAbs(absPath) {
+					absPath = filepath.Join(t.OutputDir, absPath)
+				}
+				if _, statErr := os.Stat(absPath); statErr == nil {
+					outputReady = true
+				}
+			}
+			if outputReady {
+				t.Status = "completed"
+				t.Progress = 100
+				t.OutputPath = lastOutputFile
+				if !filepath.IsAbs(t.OutputPath) {
+					t.OutputPath = filepath.Join(t.OutputDir, t.OutputPath)
+				}
+				s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Download completed with warnings: %s", runErr.Error()))
+			} else {
+				t.Status = "error"
+				t.Error = runErr.Error()
+			}
 		default:
 			t.Status = "completed"
 			t.Progress = 100
