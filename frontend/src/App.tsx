@@ -1,9 +1,18 @@
 import {useState, useEffect, useCallback, useRef} from 'react'
 import {CheckYtDlp, UpdateYtDlp, InstallYtDlp, GetVideoInfo, GetPlaylistInfo, GetFormats, SelectFolder, StartDownload, GetDownloads, GetSettings, IsFirstRun, NeedsCookieConfig, SaveSettings, CheckForUpdate, OpenReleasePage, backendMode, fetchWebConfig, getWebConfig, getAuthToken} from './lib/backend'
 import {EventsOn} from './lib/runtime'
-import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings, DownloadOptions} from './types'
+import {YtDlpStatus, VideoInfo, PlaylistInfo, FormatInfo, DownloadTask, Settings} from './types'
 import {useI18n} from './i18n/context'
-import {formatDuration, formatFileSize} from './lib/formatUtils'
+import {formatDuration} from './lib/formatUtils'
+import {
+    buildDownloadOptions,
+    findFormatByID,
+    formatOptionLabel,
+    getSubtitleSelectionKey,
+    parseResolutionHeight,
+    resolveDownloadQuality,
+    sortFormats,
+} from './lib/downloadComposer'
 import DownloadList from './components/DownloadList'
 import SettingsDialog from './components/SettingsDialog'
 import SetupWizard from './components/SetupWizard'
@@ -24,74 +33,6 @@ import {
     Search, X, Sun, Moon, Settings as SettingsIcon, RefreshCw,
     Play, Download, ChevronDown, ChevronRight, Info, FolderOpen
 } from 'lucide-react'
-
-function getSubtitleSelectionKey(sub: {code: string, auto?: boolean, selector?: string}): string {
-    return sub.selector || `${sub.auto ? 'auto' : 'manual'}:${sub.code}`
-}
-
-function splitSelectedSubtitleLangs(subtitles: VideoInfo['subtitles'] | undefined, selectedKeys: Set<string>) {
-    const manualLangs = new Set<string>()
-    const autoLangs = new Set<string>()
-
-    for (const sub of subtitles || []) {
-        if (!selectedKeys.has(getSubtitleSelectionKey(sub))) continue
-        if (sub.auto) autoLangs.add(sub.code)
-        else manualLangs.add(sub.code)
-    }
-
-    return {
-        manualLangs: Array.from(manualLangs),
-        autoLangs: Array.from(autoLangs),
-    }
-}
-
-function parseResolutionHeight(res: string): number {
-    const m = res.match(/(\d+)p/)
-    if (m) return parseInt(m[1], 10)
-    const m2 = res.match(/(\d+)x(\d+)/)
-    if (m2) return parseInt(m2[2], 10)
-    return 0
-}
-
-function formatOptionLabel(format: FormatInfo['formats'][number]): string {
-    const parts: string[] = []
-    if (format.hasVideo && format.hasAudio) parts.push('[V+A]')
-    else if (format.hasVideo) parts.push('[V]')
-    else if (format.hasAudio) parts.push('[A]')
-    if (format.resolution && format.resolution !== 'audio only') {
-        parts.push(format.resolution)
-    } else if (format.hasAudio && !format.hasVideo) {
-        parts.push('audio')
-    }
-    if (format.fps && format.fps > 0 && format.hasVideo) {
-        parts.push(`${format.fps}fps`)
-    }
-    if (format.ext) parts.push(format.ext)
-    const codecs: string[] = []
-    if (format.vcodec && format.vcodec !== 'none') codecs.push(format.vcodec.split('.')[0])
-    if (format.acodec && format.acodec !== 'none') codecs.push(format.acodec.split('.')[0])
-    if (codecs.length > 0) parts.push(codecs.join('+'))
-    if (format.filesize) parts.push(formatFileSize(format.filesize))
-    if (format.note) parts.push(`(${format.note})`)
-    return parts.join(' | ')
-}
-
-function sortFormats(formats: FormatInfo['formats'][number][]): FormatInfo['formats'][number][] {
-    return [...formats].sort((a, b) => {
-        const aScore = (a.hasVideo ? 2 : 0) + (a.hasAudio ? 1 : 0)
-        const bScore = (b.hasVideo ? 2 : 0) + (b.hasAudio ? 1 : 0)
-        if (aScore !== bScore) return bScore - aScore
-        const aHeight = parseResolutionHeight(a.resolution || '')
-        const bHeight = parseResolutionHeight(b.resolution || '')
-        if (aHeight !== bHeight) return bHeight - aHeight
-        if ((b.filesize || 0) !== (a.filesize || 0)) return (b.filesize || 0) - (a.filesize || 0)
-        return (b.tbr || 0) - (a.tbr || 0)
-    })
-}
-
-function findFormatByID(formats: FormatInfo['formats'], formatId: string): FormatInfo['formats'][number] | undefined {
-    return formats.find(format => format.formatId === formatId)
-}
 
 function getConsoleLogType(line: string): 'error' | 'warning' | 'command' | 'info' {
     const normalized = line.toLowerCase()
@@ -399,47 +340,6 @@ function App() {
     const combineAudioFormats = audioOnlyFormats.sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0))
     const hasCustomFormatSelection = !!selectedFormat || !!selectedVideoFormat || !!selectedAudioFormat
 
-    const resolveDownloadQuality = () => {
-        if (formatMode === 'single' && selectedFormat && formatInfo) {
-            const format = findFormatByID(formatInfo.formats, selectedFormat)
-            if (format?.hasAudio && !format.hasVideo) return `fa:${selectedFormat}`
-            if (format?.hasVideo && !format.hasAudio) return `fv:${selectedFormat}`
-            return `f:${selectedFormat}`
-        }
-        if (formatMode === 'combine') {
-            if (selectedVideoFormat && selectedAudioFormat) return `f:${selectedVideoFormat}+${selectedAudioFormat}`
-            if (selectedVideoFormat) return `fv:${selectedVideoFormat}`
-            if (selectedAudioFormat) return `fa:${selectedAudioFormat}`
-        }
-        if (formatMode === 'audio-only') {
-            if (selectedAudioFormat) return `fa:${selectedAudioFormat}`
-            return 'audio'
-        }
-        if (formatMode === 'video-only') {
-            if (selectedVideoFormat) return `fv:${selectedVideoFormat}`
-            return 'best'
-        }
-        return quality
-    }
-
-    const buildDownloadOptions = (): DownloadOptions | undefined => {
-        const {manualLangs, autoLangs} = splitSelectedSubtitleLangs(videoInfo?.subtitles, selectedSubtitleLangs)
-        const hasExplicitSubtitleSelection = manualLangs.length > 0 || autoLangs.length > 0
-        return {
-            saveThumbnail: dlOptSaveThumbnail,
-            saveDescription: dlOptSaveDescription,
-            embedChapters: dlOptEmbedChapters,
-            writeSubtitles: dlOptWriteSubtitles,
-            writeManualSubs: hasExplicitSubtitleSelection ? manualLangs.length > 0 : undefined,
-            writeAutoSubs: hasExplicitSubtitleSelection ? autoLangs.length > 0 : undefined,
-            embedSubtitles: dlOptEmbedSubtitles,
-            sponsorBlock: dlOptSponsorBlock,
-            subtitleLangs: hasExplicitSubtitleSelection ? manualLangs.join(',') : '',
-            autoSubtitleLangs: hasExplicitSubtitleSelection ? autoLangs.join(',') : '',
-            filenameTemplate: dlOptFilenameTemplate.trim(),
-        } as DownloadOptions
-    }
-
     const handleSelectBestQuality = () => {
         if (!formatInfo) return
         const combined = sortFormats(formatInfo.formats.filter(f => f.hasVideo && f.hasAudio))
@@ -509,7 +409,14 @@ function App() {
         if (formatMode === 'combine' && !hasSeparateTrackFormats) { toast.error(t('format.combineUnavailable')); return }
         setIsStarting(true)
         try {
-            const downloadQuality = resolveDownloadQuality()
+            const downloadQuality = resolveDownloadQuality({
+                formatMode,
+                selectedFormat,
+                selectedVideoFormat,
+                selectedAudioFormat,
+                formatInfo,
+                quality,
+            })
             await StartDownload({
                 url: url.trim(), outputDir, quality: downloadQuality,
                 videoInfo: videoInfo ? {
@@ -517,7 +424,17 @@ function App() {
                     thumbnail: videoInfo.thumbnail, duration: videoInfo.duration,
                     uploader: videoInfo.uploader, platform: videoInfo.platform,
                 } : undefined,
-                options: buildDownloadOptions(),
+                options: buildDownloadOptions({
+                    videoInfo,
+                    selectedSubtitleLangs,
+                    saveThumbnail: dlOptSaveThumbnail,
+                    saveDescription: dlOptSaveDescription,
+                    embedChapters: dlOptEmbedChapters,
+                    writeSubtitles: dlOptWriteSubtitles,
+                    embedSubtitles: dlOptEmbedSubtitles,
+                    sponsorBlock: dlOptSponsorBlock,
+                    filenameTemplate: dlOptFilenameTemplate,
+                }),
             })
             toast.success(t('toast.downloadQueued'))
         } catch (e: any) {
@@ -535,7 +452,14 @@ function App() {
         }
         setIsStarting(true)
         try {
-            const downloadQuality = resolveDownloadQuality()
+            const downloadQuality = resolveDownloadQuality({
+                formatMode,
+                selectedFormat,
+                selectedVideoFormat,
+                selectedAudioFormat,
+                formatInfo,
+                quality,
+            })
             let startedCount = 0
             for (let i = 0; i < playlistInfo.videos.length; i++) {
                 if (!selectedPlaylistItems.has(i)) continue
@@ -548,7 +472,17 @@ function App() {
                             thumbnail: video.thumbnail, duration: video.duration,
                             uploader: video.uploader, platform: video.platform,
                         } : undefined,
-                        options: buildDownloadOptions(),
+                        options: buildDownloadOptions({
+                            videoInfo,
+                            selectedSubtitleLangs,
+                            saveThumbnail: dlOptSaveThumbnail,
+                            saveDescription: dlOptSaveDescription,
+                            embedChapters: dlOptEmbedChapters,
+                            writeSubtitles: dlOptWriteSubtitles,
+                            embedSubtitles: dlOptEmbedSubtitles,
+                            sponsorBlock: dlOptSponsorBlock,
+                            filenameTemplate: dlOptFilenameTemplate,
+                        }),
                     })
                     startedCount++
                 }
