@@ -1,5 +1,5 @@
 import {EventsOn as DesktopEventsOn} from '../../wailsjs/runtime/runtime'
-import {getAuthToken} from './backend'
+import {getAuthToken} from './api_client'
 
 const isDesktop = typeof window !== 'undefined' && typeof (window as any).go?.desktop?.App !== 'undefined'
 const eventSourceBase = `${(import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')}/api/events`
