@@ -70,6 +70,15 @@ brew install yt-dlp
 
 Get the latest release from [Releases](https://github.com/igeekfan/YT-GO/releases).
 
+### macOS Security Prompt
+
+The macOS DMG is currently not notarized by Apple. If macOS says `YTGO.app` is damaged, cannot be verified, or should be moved to the Trash:
+
+1. Drag `YTGO.app` into **Applications**.
+2. Open the DMG again and double-click **Repair**.
+3. Enter your macOS login password when prompted.
+4. Open `YTGO.app` from Applications.
+
 ## Dev
 
 ```bash

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+clear
+
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+NC="\033[0m"
+
+APP_NAME="YTGO.app"
+APP_DIR="/Applications/${APP_NAME}"
+
+echo "YT-GO macOS 损坏修复工具"
+echo ""
+echo "此工具用于修复 macOS 常见提示："
+echo "- \"YTGO.app 已损坏，无法打开\""
+echo "- \"Apple 无法验证 YTGO.app\""
+echo "- \"应将 YTGO.app 移到废纸篓\""
+echo ""
+
+if [ ! -d "$APP_DIR" ]; then
+  echo -e "执行结果：${RED}还没有在 /Applications 中安装 ${APP_NAME}。${NC}"
+  echo "请先把 YTGO.app 拖到 Applications（应用程序）后，再重新运行此修复工具。"
+else
+  echo -e "${YELLOW}请在提示时输入 macOS 开机密码。${NC}"
+  echo "（输入过程中密码不可见，输完后按回车。）"
+  echo ""
+  sudo xattr -rd com.apple.quarantine "$APP_DIR"
+  sudo xattr -rc "$APP_DIR"
+  sudo codesign --sign - --force --deep "$APP_DIR"
+  echo ""
+  echo -e "执行结果：${GREEN}修复完成。${NC}现在可以正常打开 ${APP_NAME}。"
+fi
+
+echo ""
+echo "现在可以关闭本窗口。"

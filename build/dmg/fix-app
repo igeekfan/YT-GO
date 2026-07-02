@@ -1,0 +1,36 @@
+#!/bin/bash
+
+clear
+
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+NC="\033[0m"
+
+APP_NAME="YTGO.app"
+APP_DIR="/Applications/${APP_NAME}"
+
+echo "YT-GO macOS repair tool"
+echo ""
+echo "This tool fixes common macOS messages such as:"
+echo "- \"YTGO.app is damaged and can't be opened\""
+echo "- \"Apple cannot verify YTGO.app\""
+echo "- \"YTGO.app should be moved to the Trash\""
+echo ""
+
+if [ ! -d "$APP_DIR" ]; then
+  echo -e "Result: ${RED}${APP_NAME} is not installed in /Applications yet.${NC}"
+  echo "Please drag YTGO.app to Applications first, then run this repair tool again."
+else
+  echo -e "${YELLOW}Please enter your macOS login password when prompted.${NC}"
+  echo "(The password is invisible while typing.)"
+  echo ""
+  sudo xattr -rd com.apple.quarantine "$APP_DIR"
+  sudo xattr -rc "$APP_DIR"
+  sudo codesign --sign - --force --deep "$APP_DIR"
+  echo ""
+  echo -e "Result: ${GREEN}Repair completed.${NC} You can open ${APP_NAME} now."
+fi
+
+echo ""
+echo "You can close this window now."

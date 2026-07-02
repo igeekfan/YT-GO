@@ -70,6 +70,15 @@ brew install yt-dlp
 
 从 [Releases](https://github.com/igeekfan/YT-GO/releases) 获取最新版本。
 
+### macOS 安全提示
+
+当前 macOS DMG 暂未经过 Apple 公证。如果系统提示 `YTGO.app` 已损坏、无法验证，或要求移到废纸篓：
+
+1. 先将 `YTGO.app` 拖到 **Applications（应用程序）**。
+2. 重新打开 DMG，双击 **损坏修复**。
+3. 按提示输入 macOS 开机密码。
+4. 从 Applications 中打开 `YTGO.app`。
+
 ## 开发
 
 ```bash

@@ -88,6 +88,7 @@ jobs:
         working-directory: ./build
         run: |
           mv bin/YT-GO.app "bin/YTGO.app"
+          chmod +x dmg/fix-app dmg/fix-app_zh
           ./create-dmg/create-dmg \
             --no-internet-enable \
             --volname "YTGO" \
@@ -98,6 +99,8 @@ jobs:
             --icon "YTGO.app" 180 180 \
             --hide-extension "YTGO.app" \
             --app-drop-link 480 180 \
+            --add-file "Repair" "dmg/fix-app" 230 290 \
+            --add-file "损坏修复" "dmg/fix-app_zh" 430 290 \
             "bin/YTGO-${{ steps.normalise_platform.outputs.tag }}.dmg" \
             "bin"
 
