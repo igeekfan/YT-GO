@@ -7,12 +7,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
-
-	"YT-GO/internal/platform"
 
 	"github.com/google/uuid"
 	"github.com/lrstanley/go-ytdlp"
@@ -112,104 +109,18 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	s.downloadSem <- struct{}{}
 	defer func() { <-s.downloadSem }()
 	ctx, cancel := context.WithCancel(context.Background())
-	s.mu.Lock()
-	s.cancelFns[taskID] = cancel
-	s.downloads[taskID].Status = "downloading"
-	cp := *s.downloads[taskID]
-	s.mu.Unlock()
-	s.emitDownloadUpdate(&cp)
+	if cp, ok := s.startDownloadTask(taskID, cancel); ok {
+		s.emitDownloadUpdate(cp)
+	} else {
+		cancel()
+		return
+	}
 
 	if isDouyinURL(req.URL) {
 		s.runDouyinDownload(taskID, req, ctx)
 		cancel()
 		return
 	}
-
-	settings := s.GetSettings()
-
-	// Build the download command using go-ytdlp builder.
-	builder := s.newYtdlpCommand().SetExecutable(ytdlpPath)
-	builder.SetSeparateProcessGroup(true)
-	builder.SetCancelMaxWait(3 * time.Second)
-	applyFormatArgs(builder, req.Quality)
-	builder.IgnoreConfig()
-
-	if runtime.GOOS == "windows" {
-		builder.WindowsFilenames()
-	}
-
-	outputTemplate := "%(title)s.%(ext)s"
-	if settings.FilenameTemplate != "" {
-		outputTemplate = settings.FilenameTemplate
-	}
-	// Per-download filename template overrides the global one when provided.
-	if req.Options != nil && strings.TrimSpace(req.Options.FilenameTemplate) != "" {
-		outputTemplate = strings.TrimSpace(req.Options.FilenameTemplate)
-	}
-	builder.Newline()
-	builder.Progress().ProgressDelta(0.5).ProgressTemplate(structuredProgressPrefix + "%()j")
-	builder.Print("after_move:[YT-GO-OUTPUT]%(filepath)s")
-	builder.Output(filepath.Join(req.OutputDir, outputTemplate))
-	builder.NoPlaylist()
-
-	if settings.RateLimit != "" {
-		builder.LimitRate(settings.RateLimit)
-	}
-	if settings.Proxy != "" {
-		builder.Proxy(settings.Proxy)
-	}
-	if settings.MergeOutputFormat != "" && shouldApplyMergeOutputFormat(req.Quality) {
-		builder.MergeOutputFormat(settings.MergeOutputFormat)
-	}
-	if requiresAudioExtraction(req.Quality) {
-		audioFmt := settings.AudioFormat
-		if audioFmt == "" && req.Quality == "audio" {
-			audioFmt = "mp3"
-		}
-		if audioFmt != "" {
-			builder.AudioFormat(audioFmt)
-		}
-	}
-
-	// Resolve per-download options (override global settings).
-	optSaveDescription := settings.SaveDescription
-	optSaveThumbnail := settings.SaveThumbnail
-	subtitleCfg := resolveSubtitleDownloadConfig(settings, req.Options)
-	optEmbedChapters := settings.EmbedChapters
-	optSponsorBlock := settings.SponsorBlock
-	if req.Options != nil {
-		if req.Options.SaveDescription != nil {
-			optSaveDescription = *req.Options.SaveDescription
-		}
-		if req.Options.SaveThumbnail != nil {
-			optSaveThumbnail = *req.Options.SaveThumbnail
-		}
-		if req.Options.EmbedChapters != nil {
-			optEmbedChapters = *req.Options.EmbedChapters
-		}
-		if req.Options.SponsorBlock != nil {
-			optSponsorBlock = *req.Options.SponsorBlock
-		}
-	}
-
-	if optSaveDescription {
-		builder.WriteDescription()
-	}
-	if optSaveThumbnail {
-		builder.WriteThumbnail()
-	}
-	applySubtitleDownloadConfig(builder, subtitleCfg, req.URL)
-	if optEmbedChapters {
-		builder.EmbedChapters()
-	}
-	if optSponsorBlock {
-		builder.SponsorblockMark("all")
-	}
-
-	builder.IgnoreErrors()
-
-	applyCookiesArgs(builder, settings)
-	s.applyMediaCommand(builder)
 
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Starting download: %s", req.URL))
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] yt-dlp path: %s", ytdlpPath))
@@ -218,14 +129,28 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	// Use BuildCommand to get exec.Cmd, then manage execution ourselves
 	// for proper cancel support. We use a lineWriter to parse progress
 	// from stdout/stderr, just like the old implementation.
-	execCmd := builder.BuildCommand(ctx, req.URL)
-	platform.ConfigureCmdWindow(execCmd, true)
-	s.emitLog("[runDownload] exec: %s", strings.Join(execCmd.Args, " "))
+	execCmd, buildErr := s.buildDownloadCommand(ctx, req, ytdlpPath)
+	if buildErr != nil {
+		cancel()
+		s.clearActiveDownload(taskID)
+		var updated *DownloadTask
+		s.mu.Lock()
+		if t, ok := s.downloads[taskID]; ok {
+			t.Status = "error"
+			t.Error = buildErr.Error()
+			copy := *t
+			updated = &copy
+		}
+		s.mu.Unlock()
+		if updated != nil {
+			s.emitDownloadUpdate(updated)
+			go s.upsertRecord(updated)
+		}
+		return
+	}
 
 	// Store the command so CancelDownload can kill the process.
-	s.mu.Lock()
-	s.cmds[taskID] = execCmd
-	s.mu.Unlock()
+	s.storeDownloadCommand(taskID, execCmd)
 
 	var lastOutputFile string
 	writer := &lineWriter{handler: func(line string) {
