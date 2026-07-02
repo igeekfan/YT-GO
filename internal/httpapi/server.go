@@ -93,6 +93,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/version", s.handleVersion)
 	s.mux.HandleFunc("/api/update", s.handleUpdate)
 	s.mux.HandleFunc("/api/ytdlp/status", s.handleYtDlpStatus)
+	s.mux.HandleFunc("/api/ytdlp/version-check", s.handleYtDlpVersionCheck)
 	s.mux.HandleFunc("/api/ytdlp/update", s.handleYtDlpUpdate)
 	s.mux.HandleFunc("/api/ytdlp/install", s.handleYtDlpInstall)
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
@@ -174,6 +175,19 @@ func (s *Server) handleYtDlpStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.service.CheckYtDlp())
+}
+
+func (s *Server) handleYtDlpVersionCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	result, err := s.service.CheckYtDlpVersion()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleYtDlpUpdate(w http.ResponseWriter, r *http.Request) {
@@ -679,7 +693,6 @@ func isAuthWhitelisted(path string) bool {
 	whitelist := []string{
 		"/api/health",
 		"/api/config",
-		"/api/events",
 	}
 	for _, p := range whitelist {
 		if path == p {
