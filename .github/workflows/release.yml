@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-desktop:
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            platform: windows-amd64
+            suffix: .exe
+          - goos: darwin
+            goarch: amd64
+            platform: darwin-amd64
+            suffix: ''
+          - goos: darwin
+            goarch: arm64
+            platform: darwin-arm64
+            suffix: ''
+          - goos: linux
+            goarch: amd64
+            platform: linux-amd64
+            suffix: ''
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          cd frontend && npm ci && npm run build && cd ..
+          wails build -platform ${{ matrix.platform }} -ldflags "-s -w" -o YT-GO${{ matrix.suffix }}
+
+      - name: Package Linux
+        if: matrix.goos == 'linux'
+        run: |
+          cd build/bin
+          tar czf YT-GO-${{ matrix.platform }}.tar.gz YT-GO
+
+      - name: Package macOS
+        if: matrix.goos == 'darwin'
+        run: |
+          cd build/bin
+          tar czf YT-GO-${{ matrix.platform }}.tar.gz YT-GO
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YT-GO-${{ matrix.platform }}
+          path: |
+            build/bin/YT-GO${{ matrix.suffix }}
+            build/bin/YT-GO-${{ matrix.platform }}.tar.gz
+
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: APP_VERSION=${{ steps.version.outputs.tag }}
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: [build-desktop, build-docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/YT-GO-windows-amd64.exe
+            artifacts/YT-GO-darwin-amd64.tar.gz
+            artifacts/YT-GO-darwin-arm64.tar.gz
+            artifacts/YT-GO-linux-amd64.tar.gz
