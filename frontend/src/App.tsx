@@ -46,10 +46,12 @@ function shouldTryPlaylistFallback(error: unknown): boolean {
     const message = String((error as any)?.message || error || '').toLowerCase()
     if (!message) return true
     const nonFallbackSignals = [
+        // English error signals (from backend i18n en-US)
         'js runtime', 'deno', 'node.js', 'sign in to confirm', 'not a bot',
         'dpapi', 'cookies', 'storyboard', 'rejected the current access',
         'requires valid login cookies',
-        '请安装 deno', 'node.js lts', 'youtube 拒绝了当前访问', '抖音需要有效的登录 cookies',
+        // Chinese error signals (from backend i18n zh-CN)
+        '请安装', '拒绝了当前访问', '需要有效的登录 cookies',
     ]
     return !nonFallbackSignals.some(signal => message.includes(signal))
 }
@@ -541,7 +543,7 @@ function App() {
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
                     <Button variant="ghost" size="sm" onClick={handleQuickLanguageToggle} className="text-xs h-7 px-2.5 font-medium tracking-wide">
-                        {lang === 'zh-CN' ? 'EN' : '中'}
+                        {lang === 'zh-CN' ? 'EN' : t('lang.zh')}
                     </Button>
                     <Tooltip>
                         <TooltipTrigger asChild>
