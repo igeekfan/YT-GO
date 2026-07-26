@@ -71,6 +71,7 @@ func (s *Service) deleteRecords(ids []string) {
 
 func (s *Service) StartDownload(req DownloadRequest) (string, error) {
 	// Validate URL protocol: only allow http/https.
+	req.URL = extractURLFromText(req.URL)
 	if req.URL == "" {
 		return "", fmt.Errorf("URL is required")
 	}
@@ -78,7 +79,7 @@ func (s *Service) StartDownload(req DownloadRequest) (string, error) {
 		return "", fmt.Errorf("invalid URL: only http and https protocols are allowed")
 	}
 	ytdlpPath := s.resolveYtDlp()
-	if ytdlpPath == "" && !isDouyinURL(req.URL) {
+	if ytdlpPath == "" && !isDouyinURL(req.URL) && !isWechatChannelsURL(req.URL) {
 		return "", fmt.Errorf("yt-dlp not found")
 	}
 	if err := ensureYouTubeJSRuntime(s.i18n, extractURLFromText(req.URL), s.GetSettings()); err != nil {
@@ -118,6 +119,11 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 
 	if isDouyinURL(req.URL) {
 		s.runDouyinDownload(taskID, req, ctx)
+		cancel()
+		return
+	}
+	if isWechatChannelsURL(req.URL) {
+		s.runWechatChannelsDownload(taskID, req, ctx)
 		cancel()
 		return
 	}

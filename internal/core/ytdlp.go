@@ -19,6 +19,9 @@ func (s *Service) GetVideoInfo(rawInput string) (VideoInfo, error) {
 	if isDouyinURL(videoURL) {
 		return s.GetDouyinVideoInfo(videoURL)
 	}
+	if isWechatChannelsURL(videoURL) {
+		return s.GetWechatChannelsVideoInfo(videoURL)
+	}
 	ytdlpPath := s.resolveYtDlp()
 	if ytdlpPath == "" {
 		return VideoInfo{}, fmt.Errorf("yt-dlp not found")
@@ -299,6 +302,20 @@ func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 		}
 		s.emitLog("[GetPlaylistInfo] Douyin custom handler failed (%v), falling back to yt-dlp", err)
 	}
+	if isWechatChannelsURL(videoURL) {
+		info, err := s.GetWechatChannelsVideoInfo(videoURL)
+		if err != nil {
+			return PlaylistInfo{}, err
+		}
+		return PlaylistInfo{
+			URL:      videoURL,
+			Kind:     "playlist",
+			Title:    info.Title,
+			Uploader: info.Uploader,
+			Count:    1,
+			Videos:   []VideoInfo{info},
+		}, nil
+	}
 	ytdlpPath := s.resolveYtDlp()
 	if ytdlpPath == "" {
 		return PlaylistInfo{}, fmt.Errorf("yt-dlp not found")
@@ -376,6 +393,9 @@ func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {
 	videoURL := extractURLFromText(rawInput)
 	if isDouyinURL(videoURL) {
 		return s.GetDouyinFormats(videoURL)
+	}
+	if isWechatChannelsURL(videoURL) {
+		return s.GetWechatChannelsFormats(videoURL)
 	}
 	ytdlpPath := s.resolveYtDlp()
 	if ytdlpPath == "" {

@@ -21,18 +21,20 @@ type Hooks struct {
 }
 
 type Service struct {
-	i18n         *I18n
-	downloads    map[string]*DownloadTask
-	cancelFns    map[string]context.CancelFunc
-	cmds         map[string]*exec.Cmd // running commands for forceful cancel
-	mu           sync.RWMutex
-	db           *gorm.DB
-	downloadSem  chan struct{}
-	appVersion   string
-	hooks        Hooks
-	downloadDir  string // from YTGO_DOWNLOAD_DIR env
-	externalURL  string // from YTGO_EXTERNAL_URL env (for web mode download links)
-	ytdlpPath    string // from YTGO_YTDLP_PATH env (explicit yt-dlp path)
+	i18n          *I18n
+	downloads     map[string]*DownloadTask
+	cancelFns     map[string]context.CancelFunc
+	cmds          map[string]*exec.Cmd // running commands for forceful cancel
+	mu            sync.RWMutex
+	wechatCacheMu sync.Mutex
+	wechatCache   map[string]wechatChannelsCacheEntry
+	db            *gorm.DB
+	downloadSem   chan struct{}
+	appVersion    string
+	hooks         Hooks
+	downloadDir   string // from YTGO_DOWNLOAD_DIR env
+	externalURL   string // from YTGO_EXTERNAL_URL env (for web mode download links)
+	ytdlpPath     string // from YTGO_YTDLP_PATH env (explicit yt-dlp path)
 }
 
 func NewService(appVersion string) *Service {
@@ -41,6 +43,7 @@ func NewService(appVersion string) *Service {
 		downloads:   make(map[string]*DownloadTask),
 		cancelFns:   make(map[string]context.CancelFunc),
 		cmds:        make(map[string]*exec.Cmd),
+		wechatCache: make(map[string]wechatChannelsCacheEntry),
 		downloadSem: make(chan struct{}, 3),
 		appVersion:  appVersion,
 		downloadDir: os.Getenv("YTGO_DOWNLOAD_DIR"),
@@ -159,16 +162,16 @@ func (s *Service) GetExternalURL() string {
 
 // WebConfig returns web-mode specific configuration for the frontend.
 type WebConfig struct {
-	DownloadDir  string `json:"downloadDir"`
-	ExternalURL  string `json:"externalURL"`
-	HasFixedDir  bool   `json:"hasFixedDir"`
+	DownloadDir string `json:"downloadDir"`
+	ExternalURL string `json:"externalURL"`
+	HasFixedDir bool   `json:"hasFixedDir"`
 }
 
 // GetWebConfig returns web-mode configuration.
 func (s *Service) GetWebConfig() WebConfig {
 	return WebConfig{
-		DownloadDir:  s.downloadDir,
-		ExternalURL:  s.externalURL,
-		HasFixedDir:  s.downloadDir != "",
+		DownloadDir: s.downloadDir,
+		ExternalURL: s.externalURL,
+		HasFixedDir: s.downloadDir != "",
 	}
 }

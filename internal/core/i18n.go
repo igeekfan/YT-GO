@@ -64,6 +64,11 @@ var translations = map[Lang]map[string]string{
 		"douyin.download_failed":        "抖音视频下载失败，状态码 %d",
 		"douyin.download_complete":      "[Douyin] 下载完成: %s",
 		"douyin.download_failed_log":    "[Douyin] 下载失败: %s",
+		// wechat_channels.go — sidecar files
+		"wechat.thumbnail_saved":    "[WechatChannels] 缩略图已保存: %s",
+		"wechat.thumbnail_failed":   "[WechatChannels] 缩略图保存失败: %s",
+		"wechat.description_saved":  "[WechatChannels] 描述文件已保存: %s",
+		"wechat.description_failed": "[WechatChannels] 描述文件保存失败: %s",
 	},
 	LangEnUS: {
 		// errhint.go — cookie source description
@@ -118,6 +123,11 @@ var translations = map[Lang]map[string]string{
 		"douyin.download_failed":        "Douyin video download failed, status code %d",
 		"douyin.download_complete":      "[Douyin] Download complete: %s",
 		"douyin.download_failed_log":    "[Douyin] Download failed: %s",
+		// wechat_channels.go — sidecar files
+		"wechat.thumbnail_saved":    "[WechatChannels] Thumbnail saved: %s",
+		"wechat.thumbnail_failed":   "[WechatChannels] Failed to save thumbnail: %s",
+		"wechat.description_saved":  "[WechatChannels] Description saved: %s",
+		"wechat.description_failed": "[WechatChannels] Failed to save description: %s",
 	},
 }
 

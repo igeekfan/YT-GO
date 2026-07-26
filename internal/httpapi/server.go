@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"YT-GO/internal/core"
@@ -372,6 +373,7 @@ func isSubPath(root, sub string) bool {
 
 // validateURL checks that the URL uses http or https scheme.
 func validateURL(rawURL string) error {
+	rawURL = extractURLFromText(rawURL)
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
@@ -381,6 +383,18 @@ func validateURL(rawURL string) error {
 		return fmt.Errorf("URL scheme must be http or https, got %q", scheme)
 	}
 	return nil
+}
+
+func extractURLFromText(input string) string {
+	trimmed := strings.TrimSpace(input)
+	if !strings.ContainsAny(trimmed, " \t\r\n") {
+		return trimmed
+	}
+	m := regexp.MustCompile(`https?://\S+`).FindString(trimmed)
+	if m == "" {
+		return trimmed
+	}
+	return strings.TrimRight(m, ".,;:!?)]}，。；：！？、）】》」』")
 }
 
 // handleCookiesUpload accepts a cookies file upload for web mode.

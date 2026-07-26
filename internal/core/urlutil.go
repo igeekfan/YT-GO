@@ -32,3 +32,8 @@ func isYouTubeURL(rawURL string) bool {
 	host := strings.ToLower(parsed.Hostname())
 	return host == "youtube.com" || host == "www.youtube.com" || strings.HasSuffix(host, ".youtube.com") || host == "youtu.be" || host == "www.youtu.be" || host == "youtube-nocookie.com" || strings.HasSuffix(host, ".youtube-nocookie.com")
 }
+
+func isWechatChannelsURL(rawURL string) bool {
+	_, err := parseWechatChannelsInput(rawURL)
+	return err == nil
+}

@@ -49,9 +49,11 @@ function shouldTryPlaylistFallback(error: unknown): boolean {
         // English error signals (from backend i18n en-US)
         'js runtime', 'deno', 'node.js', 'sign in to confirm', 'not a bot',
         'dpapi', 'cookies', 'storyboard', 'rejected the current access',
-        'requires valid login cookies',
+        'requires valid login cookies', 'wechat channels', 'yuanbao',
+        'weixin.qq.com', 'channels.weixin.qq.com',
         // Chinese error signals (from backend i18n zh-CN)
         '请安装', '拒绝了当前访问', '需要有效的登录 cookies',
+        '视频号', '元宝',
     ]
     return !nonFallbackSignals.some(signal => message.includes(signal))
 }
@@ -341,9 +343,22 @@ function App() {
     })
     const combineAudioFormats = audioOnlyFormats.sort((a, b) => (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0))
     const hasCustomFormatSelection = !!selectedFormat || !!selectedVideoFormat || !!selectedAudioFormat
+    const hasAvailableSubtitles = (videoInfo?.subtitles?.length || 0) > 0
+    const isWechatChannelsVideo = videoInfo?.platform === 'WeChat Channels'
+    const getFormatOptionLabel = (format: FormatInfo['formats'][number]) => {
+        if (format.formatId === 'wechat:origin') return t('format.wechatOriginal')
+        if (format.formatId === 'wechat:preview') return t('format.wechatPreview')
+        return formatOptionLabel(format)
+    }
 
     const handleSelectBestQuality = () => {
         if (!formatInfo) return
+        const declaredBest = formatInfo.formats.find(f => f.formatId === 'wechat:best')
+            || formatInfo.formats.find(f => f.formatId === 'wechat:origin')
+        if (declaredBest) {
+            setFormatMode('single'); setSelectedFormat(declaredBest.formatId)
+            setSelectedVideoFormat(''); setSelectedAudioFormat(''); return
+        }
         const combined = sortFormats(formatInfo.formats.filter(f => f.hasVideo && f.hasAudio))
         if (combined.length > 0) {
             setFormatMode('single'); setSelectedFormat(combined[0].formatId)
@@ -592,7 +607,7 @@ function App() {
                 )}
 
                 {/* URL Input */}
-                {ytdlp?.available && (
+                {ytdlp && (
                     <div className="flex gap-2.5 items-center animate-fade-in-up">
                         <div className="relative flex-1">
                             <Input
@@ -618,7 +633,7 @@ function App() {
                 )}
 
                 {/* Video/Playlist Info */}
-                {ytdlp?.available && (videoInfo || playlistInfo) && (
+                {(videoInfo || playlistInfo) && (
                     <div className="space-y-2.5 animate-fade-in-up delay-1">
                         {videoInfo && (
                             <div className="flex gap-3.5 rounded-xl border bg-card/70 backdrop-blur-sm p-3.5 shadow-sm">
@@ -686,7 +701,7 @@ function App() {
                 )}
 
                 {/* Controls Zone */}
-                {ytdlp?.available && (videoInfo || playlistInfo) && (
+                {(videoInfo || playlistInfo) && (
                     <div className="rounded-xl border bg-card/70 backdrop-blur-sm p-4 space-y-3.5 shadow-sm animate-fade-in-up delay-2">
                         {/* Output Directory */}
                         {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
@@ -721,7 +736,7 @@ function App() {
                                     {!formatExpanded && hasCustomFormatSelection && (
                                         <span className="text-xs text-primary truncate ml-1.5">
                                             {selectedFormat && formatInfo
-                                                ? formatOptionLabel(formatInfo.formats.find(f => f.formatId === selectedFormat)!)
+                                                ? getFormatOptionLabel(formatInfo.formats.find(f => f.formatId === selectedFormat)!)
                                                 : (selectedVideoFormat || selectedAudioFormat)
                                                     ? `${selectedVideoFormat ? t('format.video') : ''}${selectedVideoFormat && selectedAudioFormat ? ' + ' : ''}${selectedAudioFormat ? t('format.audio') : ''}`
                                                     : ''}
@@ -757,7 +772,7 @@ function App() {
                                                             <input type="radio" name="format-single" checked={selectedFormat === f.formatId}
                                                                 onChange={() => { setSelectedFormat(f.formatId); setSelectedVideoFormat(''); setSelectedAudioFormat('') }}
                                                                 className="mt-0.5 accent-primary" />
-                                                            <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                            <span className="flex-1 break-words leading-relaxed">{getFormatOptionLabel(f)}</span>
                                                         </label>
                                                     ))}
                                                 </div>
@@ -774,7 +789,7 @@ function App() {
                                                             <input type="radio" name="format-audio-only" checked={selectedAudioFormat === f.formatId}
                                                                 onChange={() => { setSelectedAudioFormat(f.formatId); setSelectedVideoFormat(''); setSelectedFormat('') }}
                                                                 className="mt-0.5 accent-primary" />
-                                                            <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                            <span className="flex-1 break-words leading-relaxed">{getFormatOptionLabel(f)}</span>
                                                         </label>
                                                     ))}
                                                 </div>
@@ -796,7 +811,7 @@ function App() {
                                                             <input type="radio" name="format-video-only" checked={selectedVideoFormat === f.formatId}
                                                                 onChange={() => { setSelectedVideoFormat(f.formatId); setSelectedAudioFormat(''); setSelectedFormat('') }}
                                                                 className="mt-0.5 accent-primary" />
-                                                            <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                            <span className="flex-1 break-words leading-relaxed">{getFormatOptionLabel(f)}</span>
                                                         </label>
                                                     ))}
                                                 </div>
@@ -814,7 +829,7 @@ function App() {
                                                             {combineVideoFormats.map(f => (
                                                                 <label key={f.formatId} className={`flex items-start gap-2 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedVideoFormat === f.formatId ? 'bg-primary/5' : ''}`}>
                                                                     <input type="radio" name="format-video" checked={selectedVideoFormat === f.formatId} onChange={() => setSelectedVideoFormat(f.formatId)} className="mt-0.5 accent-primary" />
-                                                                    <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                                    <span className="flex-1 break-words leading-relaxed">{getFormatOptionLabel(f)}</span>
                                                                 </label>
                                                             ))}
                                                         </div>
@@ -829,7 +844,7 @@ function App() {
                                                             {combineAudioFormats.map(f => (
                                                                 <label key={f.formatId} className={`flex items-start gap-2 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedAudioFormat === f.formatId ? 'bg-primary/5' : ''}`}>
                                                                     <input type="radio" name="format-audio" checked={selectedAudioFormat === f.formatId} onChange={() => setSelectedAudioFormat(f.formatId)} className="mt-0.5 accent-primary" />
-                                                                    <span className="flex-1 break-words leading-relaxed">{formatOptionLabel(f)}</span>
+                                                                    <span className="flex-1 break-words leading-relaxed">{getFormatOptionLabel(f)}</span>
                                                                 </label>
                                                             ))}
                                                         </div>
@@ -885,10 +900,12 @@ function App() {
                                     {([
                                         { key: 'saveThumbnail', checked: dlOptSaveThumbnail, set: setDlOptSaveThumbnail, label: t('downloadOpt.saveThumbnail') },
                                         { key: 'saveDescription', checked: dlOptSaveDescription, set: setDlOptSaveDescription, label: t('downloadOpt.saveDescription') },
-                                        { key: 'embedChapters', checked: dlOptEmbedChapters, set: setDlOptEmbedChapters, label: t('downloadOpt.embedChapters') },
-                                        { key: 'writeSubtitles', checked: dlOptWriteSubtitles, set: setDlOptWriteSubtitles, label: t('downloadOpt.writeSubtitles') },
-                                        ...(dlOptWriteSubtitles ? [{ key: 'embedSubtitles', checked: dlOptEmbedSubtitles, set: setDlOptEmbedSubtitles, label: t('downloadOpt.embedSubtitles') }] : []),
-                                        { key: 'sponsorBlock', checked: dlOptSponsorBlock, set: setDlOptSponsorBlock, label: t('downloadOpt.sponsorBlock') },
+                                        ...(!isWechatChannelsVideo ? [{ key: 'embedChapters', checked: dlOptEmbedChapters, set: setDlOptEmbedChapters, label: t('downloadOpt.embedChapters') }] : []),
+                                        ...(hasAvailableSubtitles ? [
+                                            { key: 'writeSubtitles', checked: dlOptWriteSubtitles, set: setDlOptWriteSubtitles, label: t('downloadOpt.writeSubtitles') },
+                                            ...(dlOptWriteSubtitles ? [{ key: 'embedSubtitles', checked: dlOptEmbedSubtitles, set: setDlOptEmbedSubtitles, label: t('downloadOpt.embedSubtitles') }] : []),
+                                        ] : []),
+                                        ...(!isWechatChannelsVideo ? [{ key: 'sponsorBlock', checked: dlOptSponsorBlock, set: setDlOptSponsorBlock, label: t('downloadOpt.sponsorBlock') }] : []),
                                     ] as const).map(opt => (
                                         <label key={opt.key} className="flex items-center gap-1.5 cursor-pointer">
                                             <Checkbox checked={opt.checked}
@@ -909,7 +926,7 @@ function App() {
                                     ))}
                                 </div>
 
-                                {dlOptWriteSubtitles && videoInfo.subtitles && videoInfo.subtitles.length > 0 && (
+                                {dlOptWriteSubtitles && hasAvailableSubtitles && (
                                     <div className="space-y-1.5">
                                         <Label className="text-[11px] text-muted-foreground">{t('downloadOpt.subtitleLangs')}</Label>
                                         <Input
@@ -943,9 +960,6 @@ function App() {
                                             ))}
                                         </div>
                                     </div>
-                                )}
-                                {dlOptWriteSubtitles && (!videoInfo.subtitles || videoInfo.subtitles.length === 0) && (
-                                    <p className="text-xs text-muted-foreground">{t('downloadOpt.noSubtitles')}</p>
                                 )}
                             </div>
                         )}

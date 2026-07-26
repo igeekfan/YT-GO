@@ -925,6 +925,9 @@ func readCookiesFromFile(filePath string, host string) ([]*http.Cookie, error) {
 	host = strings.ToLower(host)
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "#HttpOnly_") {
+			line = strings.TrimPrefix(line, "#HttpOnly_")
+		}
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -935,7 +938,8 @@ func readCookiesFromFile(filePath string, host string) ([]*http.Cookie, error) {
 		domain := strings.TrimSpace(fields[0])
 		// Check if cookie domain matches the host.
 		domainLower := strings.ToLower(domain)
-		if domainLower != host && !strings.HasSuffix(host, domainLower) {
+		domainMatch := strings.TrimPrefix(domainLower, ".")
+		if domainMatch != host && !strings.HasSuffix(host, "."+domainMatch) {
 			continue
 		}
 		secure := strings.TrimSpace(fields[3]) == "TRUE"
