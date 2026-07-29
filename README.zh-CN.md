@@ -97,7 +97,7 @@ go build -tags web -o build/bin/yt-go-web .
 
 ## Docker
 
-Docker 镜像以 Web 模式运行 YT-GO，并已内置 yt-dlp、FFmpeg 和 Deno。Node.js 仅用于编译前端，不会进入最终运行镜像。
+Docker 镜像以 Web 模式运行 YT-GO，并已内置 yt-dlp、Deno，以及共用运行库的精简 FFmpeg/FFprobe。Node.js 和 Go 工具链仅用于编译，不会进入最终运行镜像。
 
 ### 一键部署
 

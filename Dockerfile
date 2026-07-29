@@ -27,16 +27,18 @@ FROM ${RUNTIME_IMAGE} AS runtime-tools
 ARG TARGETARCH
 ARG DENO_VERSION=latest
 ARG YTDLP_VERSION=latest
+ARG FFMPEG_VERSION=latest
+ARG FFMPEG_BUILD=master-latest
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get -o Acquire::Retries=5 update \
-    && apt-get -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl unzip
+    && apt-get -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl unzip xz-utils
 
 RUN set -eux; \
     case "${TARGETARCH}" in \
-        amd64) deno_arch="x86_64"; ytdlp_asset="yt-dlp_linux" ;; \
-        arm64) deno_arch="aarch64"; ytdlp_asset="yt-dlp_linux_aarch64" ;; \
+        amd64) deno_arch="x86_64"; ytdlp_asset="yt-dlp_linux"; ffmpeg_arch="linux64" ;; \
+        arm64) deno_arch="aarch64"; ytdlp_asset="yt-dlp_linux_aarch64"; ffmpeg_arch="linuxarm64" ;; \
         *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
     if [ "${DENO_VERSION}" = "latest" ]; then \
@@ -49,25 +51,42 @@ RUN set -eux; \
     else \
         ytdlp_release="download/${YTDLP_VERSION}"; \
     fi; \
+    if [ "${FFMPEG_VERSION}" = "latest" ]; then \
+        ffmpeg_release="latest/download"; \
+    else \
+        ffmpeg_release="download/${FFMPEG_VERSION}"; \
+    fi; \
     curl -fsSL "https://github.com/denoland/deno/releases/${deno_release}/deno-${deno_arch}-unknown-linux-gnu.zip" -o /tmp/deno.zip; \
     unzip /tmp/deno.zip -d /usr/local/bin; \
     curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/${ytdlp_release}/${ytdlp_asset}" -o /usr/local/bin/yt-dlp; \
+    ffmpeg_asset="ffmpeg-${FFMPEG_BUILD}-${ffmpeg_arch}-gpl-shared.tar.xz"; \
+    ffmpeg_root="ffmpeg-${FFMPEG_BUILD}-${ffmpeg_arch}-gpl-shared"; \
+    curl -fsSL "https://github.com/BtbN/FFmpeg-Builds/releases/${ffmpeg_release}/${ffmpeg_asset}" -o /tmp/ffmpeg.tar.xz; \
+    mkdir -p /tmp/ffmpeg; \
+    tar -xJf /tmp/ffmpeg.tar.xz -C /tmp/ffmpeg --strip-components=1 \
+        "${ffmpeg_root}/bin/ffmpeg" \
+        "${ffmpeg_root}/bin/ffprobe" \
+        "${ffmpeg_root}/lib"; \
+    install -m 0755 /tmp/ffmpeg/bin/ffmpeg /tmp/ffmpeg/bin/ffprobe /usr/local/bin/; \
+    mkdir -p /usr/local/lib/ffmpeg; \
+    cp -a /tmp/ffmpeg/lib/. /usr/local/lib/ffmpeg/; \
     chmod 0755 /usr/local/bin/deno /usr/local/bin/yt-dlp; \
     deno --version; \
-    yt-dlp --version
+    yt-dlp --version; \
+    LD_LIBRARY_PATH=/usr/local/lib/ffmpeg ffmpeg -version; \
+    LD_LIBRARY_PATH=/usr/local/lib/ffmpeg ffprobe -version
 
 FROM ${RUNTIME_IMAGE}
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get -o Acquire::Retries=5 update \
-    && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl ffmpeg tzdata
+    && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=5 install -y --no-install-recommends busybox-static ca-certificates tzdata
 
 WORKDIR /app
 COPY --from=backend-builder /app/yt-go-server ./
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
-COPY --from=runtime-tools /usr/local/bin/deno /usr/local/bin/deno
-COPY --from=runtime-tools /usr/local/bin/yt-dlp /usr/local/bin/yt-dlp
+COPY --from=runtime-tools /usr/local/ /usr/local/
 
 RUN mkdir -p /data/config /data/downloads
 
@@ -78,11 +97,12 @@ ENV YTGO_WEB_ADDR=:8080 \
     YTGO_YTDLP_PATH=/usr/local/bin/yt-dlp \
     XDG_CONFIG_HOME=/data/config \
     XDG_CACHE_HOME=/data/config/cache \
-    DENO_DIR=/data/config/deno
+    DENO_DIR=/data/config/deno \
+    LD_LIBRARY_PATH=/usr/local/lib/ffmpeg
 
 VOLUME ["/data/config", "/data/downloads"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl --fail --silent --show-error http://127.0.0.1:8080/api/health || exit 1
+    CMD ["busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
 
 CMD ["./yt-go-server"]

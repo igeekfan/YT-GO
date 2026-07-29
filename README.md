@@ -97,7 +97,7 @@ go build -tags web -o build/bin/yt-go-web .
 
 ## Docker
 
-The Docker image runs YT-GO in web mode and includes yt-dlp, FFmpeg, and Deno. Node.js is used only to compile the frontend and is not included in the runtime image.
+The Docker image runs YT-GO in web mode and includes yt-dlp, Deno, and a compact shared FFmpeg/FFprobe distribution. Node.js and the Go toolchain are used only during compilation and are not included in the runtime image.
 
 ### One-click deployment
 
