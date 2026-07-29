@@ -97,14 +97,42 @@ go build -tags web -o build/bin/yt-go-web .
 
 ## Docker
 
+Docker 镜像以 Web 模式运行 YT-GO，并已内置 yt-dlp、FFmpeg 和 Deno。Node.js 仅用于编译前端，不会进入最终运行镜像。
+
+### 一键部署
+
 ```bash
-docker build -t yt-go:local .
-docker run --rm -p 8080:8080 yt-go:local
+docker compose up -d --build
 ```
+
+部署完成后访问 `http://localhost:8080`。设置、Cookies、依赖缓存和下载文件会持久化到 `./data/`。
+
+如果服务会暴露到公网，请先在 `.env` 中设置访问令牌和外部地址：
+
+```dotenv
+YTGO_AUTH_TOKEN=请替换为足够强的随机令牌
+YTGO_EXTERNAL_URL=https://yt.example.com
+```
+
+可选的 Compose 变量：
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `YTGO_PORT` | 映射到宿主机的端口 | `8080` |
+| `YTGO_VERSION` | 本地构建使用的镜像和应用版本 | `0.0.0` |
+| `YTGO_AUTH_TOKEN` | Web 登录令牌 | 空 |
+| `YTGO_EXTERNAL_URL` | 下载链接使用的外部访问地址 | 空 |
+| `YTGO_CORS_ORIGIN` | 允许跨域访问的前端地址 | 空 |
+| `TZ` | 容器时区 | `Asia/Shanghai` |
+| `NODE_IMAGE` | 前端构建基础镜像 | `docker.m.daocloud.io/library/node:22-alpine` |
+| `GO_IMAGE` | 后端构建基础镜像 | `docker.m.daocloud.io/library/golang:1.25-alpine` |
+| `RUNTIME_IMAGE` | 最终运行基础镜像 | `docker.m.daocloud.io/library/debian:bookworm-slim` |
+
+Compose 默认使用 Docker Hub 国内镜像源，以提升中国大陆网络下的构建稳定性。可在 `.env` 中设置以上三个镜像变量切换到其他源；直接构建 Dockerfile 和 CI 仍默认使用官方镜像。发布的 Docker 镜像支持 `linux/amd64` 和 `linux/arm64`。
 
 ## 常见问题
 
-- **格式不全**：确保已安装 Node.js，以便 yt-dlp 使用 JS 运行时。
+- **格式不全**：确保已安装 Deno 2 或更高版本，以便 yt-dlp 使用 JS 运行时。Docker 镜像已经内置 Deno。
 - **未检测到 yt-dlp**：将其放置在应用目录，或点击工具中的"重新检测"。
 
 ## 技术栈

@@ -1,0 +1,27 @@
+services:
+  yt-go:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${YTGO_VERSION:-0.0.0}
+        NODE_IMAGE: ${NODE_IMAGE:-docker.m.daocloud.io/library/node:22-alpine}
+        GO_IMAGE: ${GO_IMAGE:-docker.m.daocloud.io/library/golang:1.25-alpine}
+        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-docker.m.daocloud.io/library/debian:bookworm-slim}
+    image: yt-go:${YTGO_VERSION:-local}
+    restart: unless-stopped
+    ports:
+      - "${YTGO_PORT:-8080}:8080"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      YTGO_WEB_ADDR: ":8080"
+      YTGO_DOWNLOAD_DIR: /data/downloads
+      YTGO_YTDLP_PATH: /usr/local/bin/yt-dlp
+      XDG_CONFIG_HOME: /data/config
+      XDG_CACHE_HOME: /data/config/cache
+      DENO_DIR: /data/config/deno
+      YTGO_AUTH_TOKEN: ${YTGO_AUTH_TOKEN:-}
+      YTGO_EXTERNAL_URL: ${YTGO_EXTERNAL_URL:-}
+      YTGO_CORS_ORIGIN: ${YTGO_CORS_ORIGIN:-}
+    volumes:
+      - ./data/config:/data/config
+      - ./data/downloads:/data/downloads

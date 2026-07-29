@@ -97,14 +97,42 @@ go build -tags web -o build/bin/yt-go-web .
 
 ## Docker
 
+The Docker image runs YT-GO in web mode and includes yt-dlp, FFmpeg, and Deno. Node.js is used only to compile the frontend and is not included in the runtime image.
+
+### One-click deployment
+
 ```bash
-docker build -t yt-go:local .
-docker run --rm -p 8080:8080 yt-go:local
+docker compose up -d --build
 ```
+
+Open `http://localhost:8080`. Settings, cookies, dependency caches, and downloads are persisted under `./data/`.
+
+To expose the service publicly, configure a token and the external URL in `.env` before starting it:
+
+```dotenv
+YTGO_AUTH_TOKEN=replace-with-a-strong-random-token
+YTGO_EXTERNAL_URL=https://yt.example.com
+```
+
+Optional Compose variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `YTGO_PORT` | Host port | `8080` |
+| `YTGO_VERSION` | Image/app version used for a local build | `0.0.0` |
+| `YTGO_AUTH_TOKEN` | Web login token | empty |
+| `YTGO_EXTERNAL_URL` | Public base URL for download links | empty |
+| `YTGO_CORS_ORIGIN` | Allowed cross-origin frontend URL | empty |
+| `TZ` | Container timezone | `Asia/Shanghai` |
+| `NODE_IMAGE` | Frontend builder base image | `docker.m.daocloud.io/library/node:22-alpine` |
+| `GO_IMAGE` | Backend builder base image | `docker.m.daocloud.io/library/golang:1.25-alpine` |
+| `RUNTIME_IMAGE` | Runtime base image | `docker.m.daocloud.io/library/debian:bookworm-slim` |
+
+Compose defaults to a Docker Hub mirror for reliable builds in mainland China. Set the three image variables in `.env` to use another registry; direct Dockerfile and CI builds still default to the official images. The published image supports `linux/amd64` and `linux/arm64`.
 
 ## Troubleshooting
 
-- **Missing formats**: Ensure Node.js is installed for JS runtime support.
+- **Missing formats**: Ensure Deno 2 or later is installed for JS runtime support. Deno is already included in the Docker image.
 - **yt-dlp missing**: Place it in the app directory or click Re-check in Tools.
 
 ## Stack

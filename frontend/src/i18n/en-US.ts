@@ -126,6 +126,7 @@ const enUS: typeof import('./zh-CN').default = {
     'setup.howtoStep2': '2. Log in to the site that needs auth, such as YouTube or yuanbao.tencent.com',
     'setup.howtoStep3': '3. Click extension icon to export cookies',
     'settings.title': 'Settings',
+    'settings.description': 'Configure download, media, network, dependencies, and appearance options',
     'settings.tab.download': 'Download',
     'settings.tab.media': 'Media',
     'settings.tab.network': 'Network & Auth',

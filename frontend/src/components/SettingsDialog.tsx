@@ -3,7 +3,7 @@ import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
 import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
 import DirBrowser from './DirBrowser'
-import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter} from '@/components/ui/dialog'
+import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter} from '@/components/ui/dialog'
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
@@ -197,6 +197,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
             <DialogContent className="max-w-2xl w-full h-[640px] max-h-[90vh] flex flex-col p-0 gap-0 rounded-2xl shadow-xl">
                 <DialogHeader className="px-6 py-4 border-b border-primary/10">
                     <DialogTitle className="text-base font-bold tracking-tight">{t('settings.title')}</DialogTitle>
+                    <DialogDescription className="sr-only">{t('settings.description')}</DialogDescription>
                 </DialogHeader>
                 <Tabs defaultValue="download" className="flex-1 flex flex-col min-h-0">
                     <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-6">

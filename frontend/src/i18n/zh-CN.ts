@@ -126,6 +126,7 @@ const zhCN = {
     'setup.howtoStep2': '2. 登录需要认证的网站，如 YouTube 或 yuanbao.tencent.com',
     'setup.howtoStep3': '3. 点击浏览器插件图标，导出当前网站的 cookies',
     'settings.title': '设置',
+    'settings.description': '配置下载、媒体、网络、依赖和外观选项',
     'settings.tab.download': '下载设置',
     'settings.tab.media': '媒体选项',
     'settings.tab.network': '网络与认证',

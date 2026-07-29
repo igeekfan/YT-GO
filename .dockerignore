@@ -1,0 +1,15 @@
+.git
+.github
+.idea
+.vscode
+build
+data
+desktop
+images
+raycast
+frontend/dist
+frontend/node_modules
+*.db
+*.log
+YT-GO.exe
+yt-go-web
