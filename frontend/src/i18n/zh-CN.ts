@@ -160,6 +160,7 @@ const zhCN = {
     'setup.done': '完成',
     'settings.resetSuccess': '设置已重置，下次启动将显示设置向导',
     'settings.resetFailed': '重置失败',
+    'settings.saveFailed': '设置保存失败，请重试',
     'settings.reset': '重置设置',
     'settings.resetting': '重置中...',
     'settings.langZh': '中文',
@@ -314,6 +315,7 @@ const zhCN = {
     'login.verifying': '验证中...',
     'login.invalidToken': '令牌无效，请重试',
     'login.connectionError': '连接失败',
+    'login.retry': '重试连接',
 }
 
 

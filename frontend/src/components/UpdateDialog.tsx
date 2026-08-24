@@ -32,7 +32,7 @@ function UpdateDialog({open, updateInfo, loading, error, onClose, onOpenReleaseP
                 <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                 <span className="flex-1 text-destructive text-xs">{error}</span>
                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCheckUpdate}>{t('update.retry')}</Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}><X className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose} aria-label={t('action.close')}><X className="h-3 w-3" /></Button>
             </div>
         )
     }

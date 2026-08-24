@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"YT-GO/internal/core"
 
@@ -20,6 +21,10 @@ func NewApp(appVersion string) *App {
 
 func OnStartup(app *App) func(context.Context) {
 	return app.startup
+}
+
+func OnShutdown(app *App) func(context.Context) {
+	return app.shutdown
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -44,7 +49,17 @@ func (a *App) startup(ctx context.Context) {
 			wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": line})
 		},
 	})
-	_ = a.service.Startup()
+	if err := a.service.Startup(); err != nil {
+		a.emitLog("service startup failed: %v", err)
+	}
+}
+
+func (a *App) shutdown(context.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if err := a.service.Shutdown(ctx); err != nil {
+		fmt.Printf("service shutdown failed: %v\n", err)
+	}
 }
 
 func (a *App) emitLog(format string, args ...interface{}) {

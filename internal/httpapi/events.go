@@ -16,6 +16,7 @@ type eventMessage struct {
 type EventHub struct {
 	mu          sync.RWMutex
 	subscribers map[chan eventMessage]struct{}
+	closed      bool
 }
 
 func NewEventHub() *EventHub {
@@ -25,9 +26,28 @@ func NewEventHub() *EventHub {
 func (h *EventHub) Subscribe() chan eventMessage {
 	ch := make(chan eventMessage, 32)
 	h.mu.Lock()
-	h.subscribers[ch] = struct{}{}
+	if h.closed {
+		close(ch)
+	} else {
+		h.subscribers[ch] = struct{}{}
+	}
 	h.mu.Unlock()
 	return ch
+}
+
+// Close disconnects all subscribers and prevents new subscriptions. It is
+// idempotent and lets http.Server.Shutdown drain long-lived SSE handlers.
+func (h *EventHub) Close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return
+	}
+	h.closed = true
+	for ch := range h.subscribers {
+		delete(h.subscribers, ch)
+		close(ch)
+	}
 }
 
 func (h *EventHub) Unsubscribe(ch chan eventMessage) {
@@ -40,23 +60,18 @@ func (h *EventHub) Unsubscribe(ch chan eventMessage) {
 }
 
 func (h *EventHub) Emit(name string, data any) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	for ch := range h.subscribers {
 		select {
 		case ch <- eventMessage{Name: name, Data: data}:
 		default:
-			// Channel full — drain one stale message and resend.
-			// This ensures progress updates are not silently lost,
-			// which would cause the frontend progress bar to stall.
-			select {
-			case <-ch:
-			default:
-			}
-			select {
-			case ch <- eventMessage{Name: name, Data: data}:
-			default:
-			}
+			// A full channel means this subscriber can no longer receive a
+			// lossless event sequence. Disconnect it instead of silently
+			// dropping lifecycle events; EventSource will reconnect and the
+			// frontend reconciles from the current download snapshot on open.
+			delete(h.subscribers, ch)
+			close(ch)
 		}
 	}
 }

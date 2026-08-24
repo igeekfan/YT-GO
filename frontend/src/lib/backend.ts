@@ -1,9 +1,9 @@
 import * as DesktopApp from '../../wailsjs/go/desktop/App'
-import {apiFetch, getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken} from './api_client'
+import {apiFetch, apiFetchBlob, apiURL, getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken, onUnauthorized, notifyUnauthorizedIfCurrent} from './api_client'
 import type {WebConfig} from './api_client'
 
 // Re-export for consumers that import from backend.ts
-export {getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken}
+export {getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken, onUnauthorized}
 export type {WebConfig}
 
 // Lightweight interface types for API calls (avoids Wails model class requirements)
@@ -71,6 +71,13 @@ function getDesktop<T>(call: () => Promise<T>, fallback: () => Promise<T>) {
 
 export function CheckYtDlp() {
     return getDesktop(() => DesktopApp.CheckYtDlp(), () => apiFetch('/api/ytdlp/status'))
+}
+
+// Uses a protected endpoint in web mode, so a successful response proves that
+// the configured bearer token is valid. Desktop mode does not require auth.
+export async function VerifyAuthToken() {
+    if (backendMode === 'desktop') return
+    await apiFetch('/api/version')
 }
 
 export function CheckYtDlpVersion() {
@@ -177,14 +184,16 @@ export interface UploadCookiesResult {
 }
 
 export function UploadCookiesFile(file: File) {
-    const base = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
+    const requestToken = getAuthToken()
     const formData = new FormData()
     formData.append('file', file)
-    return fetch(`${base}/api/cookies/upload`, {
+    return fetch(apiURL('/api/cookies/upload'), {
         method: 'POST',
+        headers: requestToken ? {Authorization: `Bearer ${requestToken}`} : {},
         body: formData,
     }).then(async response => {
-        const data = await response.json()
+        if (response.status === 401) notifyUnauthorizedIfCurrent(requestToken)
+        const data = await response.json().catch(() => null)
         if (!response.ok) {
             throw new Error(data?.error || 'Upload failed')
         }
@@ -352,6 +361,32 @@ export function getDownloadFileURL(taskID: string) {
     const fallbackBase = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
     const base = externalBase || fallbackBase
     return `${base}/api/downloads/${encodeURIComponent(taskID)}/file`
+}
+
+// Download through fetch so authenticated web mode can send the bearer token
+// without placing a long-lived credential in the URL or browser history.
+export async function DownloadFile(taskID: string) {
+    const fileURL = getDownloadFileURL(taskID)
+    if (getWebConfig()?.authRequired === false) {
+        const anchor = document.createElement('a')
+        anchor.href = fileURL
+        anchor.style.display = 'none'
+        document.body.appendChild(anchor)
+        anchor.click()
+        anchor.remove()
+        return
+    }
+
+    const {blob, filename} = await apiFetchBlob(fileURL)
+    const objectURL = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = objectURL
+    anchor.download = filename || 'download'
+    anchor.style.display = 'none'
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    window.setTimeout(() => URL.revokeObjectURL(objectURL), 1000)
 }
 
 export function CancelDownload(id: string) {

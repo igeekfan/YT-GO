@@ -1,7 +1,7 @@
 ﻿import {useState, useEffect, useRef} from 'react'
 import {DownloadTask} from '../types'
 import {useI18n} from '../i18n/context'
-import {OpenFile, OpenFolder, CancelDownload, RemoveDownload, backendMode, getDownloadFileURL} from '../lib/backend'
+import {OpenFile, OpenFolder, CancelDownload, RemoveDownload, DownloadFile, backendMode} from '../lib/backend'
 import {EventsOn} from '../lib/runtime'
 import {formatDuration} from '../lib/formatUtils'
 import {Button} from '@/components/ui/button'
@@ -9,6 +9,7 @@ import {Badge} from '@/components/ui/badge'
 import {Progress} from '@/components/ui/progress'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Play, X, RotateCcw, FolderOpen, FileDown, ChevronDown, ChevronRight} from 'lucide-react'
+import {toast} from 'sonner'
 
 interface Props {
     task: DownloadTask
@@ -22,11 +23,13 @@ const STATUS_VARIANT: Record<string, 'secondary' | 'default' | 'destructive' | '
     pending: 'outline', downloading: 'default', completed: 'secondary', error: 'destructive', cancelled: 'outline',
 }
 
-function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Props) {
+function DownloadItem({task, onRemoved, onRetry, onRedownload}: Props) {
     const {t} = useI18n()
     const [showLogs, setShowLogs] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
     const [latestProgressLine, setLatestProgressLine] = useState('')
+    const [isCancelling, setIsCancelling] = useState(false)
+    const [isDownloadingFile, setIsDownloadingFile] = useState(false)
     const logEndRef = useRef<HTMLDivElement>(null)
     const isDesktop = backendMode === 'desktop'
 
@@ -49,13 +52,26 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
     }, [task.status])
 
     const handleCancel = async () => {
-        try { await CancelDownload(task.id) } catch { /* already cancelled */ }
-        onCancelled(task.id)
+        setIsCancelling(true)
+        try {
+            await CancelDownload(task.id)
+        } catch (error: any) {
+            toast.error(t('toast.cancelFail') + (error?.message ? `: ${error.message}` : ''))
+        } finally {
+            setIsCancelling(false)
+        }
     }
 
     const handleRemove = async () => {
         try { await RemoveDownload(task.id); onRemoved(task.id) }
         catch (error) { console.error(error) }
+    }
+
+    const handleDownloadFile = async () => {
+        setIsDownloadingFile(true)
+        try { await DownloadFile(task.id) }
+        catch (error: any) { toast.error(t('toast.openFail') + (error?.message ? `: ${error.message}` : '')) }
+        finally { setIsDownloadingFile(false) }
     }
 
     return (
@@ -113,7 +129,7 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
                         </Collapsible>
                     )}
                     {(task.status === 'downloading' || task.status === 'pending') && (
-                        <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={handleCancel}>
+                        <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={handleCancel} disabled={isCancelling}>
                             <X className="h-3 w-3 mr-0.5" />{t('action.cancel')}
                         </Button>
                     )}
@@ -139,10 +155,9 @@ function DownloadItem({task, onCancelled, onRemoved, onRetry, onRedownload}: Pro
                                     </Button>
                                 </>
                             ) : (
-                                <a href={getDownloadFileURL(task.id)} download target="_blank" rel="noopener"
-                                    className="inline-flex items-center gap-0.5 h-6 px-1.5 text-xs rounded-md hover:bg-accent hover:text-accent-foreground">
+                                <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={handleDownloadFile} disabled={isDownloadingFile}>
                                     <FileDown className="h-3 w-3" />{t('action.download')}
-                                </a>
+                                </Button>
                             )}
                             <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={() => onRedownload(task)}>
                                 <RotateCcw className="h-3 w-3 mr-0.5" />{t('action.redownload')}

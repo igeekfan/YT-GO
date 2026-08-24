@@ -1,7 +1,7 @@
-import {useState, useEffect} from 'react'
+import {useState, useEffect, useRef, useCallback} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {SaveSettings, GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
+import {GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
 import DirBrowser from './DirBrowser'
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter} from '@/components/ui/dialog'
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
@@ -32,6 +32,8 @@ interface Props {
     open: boolean
     initialSettings: Settings | null
     onClose: () => void
+    onSave: (settings: Settings) => void
+    onFlushSave: () => Promise<void>
     onSaved: (settings: Settings) => void
     onThemePreview: (theme: 'dark' | 'light') => void
     onLanguagePreview: (lang: 'zh-CN' | 'en-US') => void
@@ -41,9 +43,10 @@ const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
 const THEME_OPTIONS = ['dark', 'light']
 const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
 
-function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview, onLanguagePreview}: Props) {
+function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, onSaved, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
+    const settingsRef = useRef<Settings | null>(null)
     const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
     const [aboutInfo, setAboutInfo] = useState<AboutInfo | null>(null)
     const [loadingDiag, setLoadingDiag] = useState(false)
@@ -58,6 +61,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
     const [depStatus, setDepStatus] = useState<DepStatus | null>(null)
     const [loadingDeps, setLoadingDeps] = useState(false)
     const [showDirBrowser, setShowDirBrowser] = useState(false)
+    const wasOpenRef = useRef(false)
     const [updateInfo, setUpdateInfo] = useState<{
         hasUpdate: boolean; currentVersion: string; latestVersion: string
         releaseName: string; releaseBody: string; htmlUrl: string; publishedAt: string
@@ -81,17 +85,31 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
         try { await OpenReleasePage() } catch (e) { console.error('Failed to open release page:', e) }
     }
 
-    useEffect(() => {
-        if (open) {
-            setSettings(initialSettings); setDiagnostic(null); setUpdateInfo(null)
-            setDepStatus(null); setYtdlpVersionCheck(null)
-            GetAboutInfo().then(setAboutInfo).catch(console.error)
-        }
-    }, [open])
+    const handleRefreshDeps = useCallback(async () => {
+        setLoadingDeps(true)
+        try { const status = await GetDepStatus(); setDepStatus(status as DepStatus) }
+        catch (e) { console.error('Failed to get dep status:', e) }
+        finally { setLoadingDeps(false) }
+    }, [])
 
     useEffect(() => {
-        if (open && !depStatus && !loadingDeps) { handleRefreshDeps() }
-    }, [open])
+        const openedNow = open && !wasOpenRef.current
+        wasOpenRef.current = open
+        if (openedNow) {
+            settingsRef.current = initialSettings
+            setSettings(initialSettings); setDiagnostic(null); setUpdateInfo(null)
+            setDepStatus(null); setYtdlpVersionCheck(null)
+            void GetAboutInfo().then(setAboutInfo).catch(console.error)
+            void handleRefreshDeps()
+        }
+    }, [open, initialSettings, handleRefreshDeps])
+
+    useEffect(() => {
+        if (open && settingsRef.current === null && initialSettings) {
+            settingsRef.current = initialSettings
+            setSettings(initialSettings)
+        }
+    }, [open, initialSettings])
 
     useEffect(() => { if (open && settings?.theme) onThemePreview(settings.theme as 'dark' | 'light') }, [open, settings?.theme, onThemePreview])
     useEffect(() => { if (open && settings?.language) onLanguagePreview(settings.language as 'zh-CN' | 'en-US') }, [open, settings?.language, onLanguagePreview])
@@ -101,13 +119,6 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
         try { const info = await GetDiagnosticInfo(); setDiagnostic(info as DiagnosticInfo) }
         catch (e) { console.error('Failed to get diagnostic info:', e) }
         finally { setLoadingDiag(false) }
-    }
-
-    const handleRefreshDeps = async () => {
-        setLoadingDeps(true)
-        try { const status = await GetDepStatus(); setDepStatus(status as DepStatus) }
-        catch (e) { console.error('Failed to get dep status:', e) }
-        finally { setLoadingDeps(false) }
     }
 
     const handleUpdateYtDlp = async () => {
@@ -130,26 +141,37 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
 
     const handleResetSettings = async () => {
         setIsResetting(true)
-        try { await ResetSettings(); toast.success(t('settings.resetSuccess')) }
+        try {
+            await onFlushSave()
+            await ResetSettings()
+            const reset = await GetSettings()
+            settingsRef.current = reset
+            setSettings(reset)
+            onSaved(reset)
+            toast.success(t('settings.resetSuccess'))
+        }
         catch (e: any) { toast.error(e?.message || t('settings.resetFailed')) }
         finally { setIsResetting(false) }
     }
 
     if (!settings) return null
 
-    const autoSave = (next: Settings) => {
-        SaveSettings(next).then(() => onSaved(next)).catch(e => console.error('Failed to auto-save settings:', e))
+    const commitSettings = (next: Settings) => {
+        settingsRef.current = next
+        setSettings(next)
+        onSave(next)
     }
 
     const update = (key: keyof Settings, value: any) => {
-        setSettings(prev => {
-            if (!prev) return prev
-            const next = {...prev, [key]: value}
-            autoSave(next)
-            if (key === 'theme') onThemePreview(value as 'dark' | 'light')
-            if (key === 'language') onLanguagePreview(value as 'zh-CN' | 'en-US')
-            return next
-        })
+        const current = settingsRef.current
+        if (!current) return
+        const next = {...current, [key]: value}
+        commitSettings(next)
+    }
+
+    const handleClose = () => {
+        void onFlushSave()
+        onClose()
     }
 
     const renderDepCard = ({title, status, tone, rows, actions, note, guide}: {
@@ -193,7 +215,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
 
     return (
         <>
-        <Dialog open={open} onOpenChange={(v: boolean) => { if (!v) onClose() }}>
+        <Dialog open={open} onOpenChange={(v: boolean) => { if (!v) handleClose() }}>
             <DialogContent className="max-w-2xl w-full h-[640px] max-h-[90vh] flex flex-col p-0 gap-0 rounded-2xl shadow-xl">
                 <DialogHeader className="px-6 py-4 border-b border-primary/10">
                     <DialogTitle className="text-base font-bold tracking-tight">{t('settings.title')}</DialogTitle>
@@ -331,11 +353,8 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                                         <Label className="text-xs text-muted-foreground">{t('settings.cookiesFrom')}</Label>
                                         <SelectComp value={settings.cookiesFrom || '_none'} onValueChange={(val: string) => {
                                             const v = val === '_none' ? '' : val
-                                            setSettings(prev => {
-                                                if (!prev) return prev
-                                                const next = {...prev, cookiesFrom: v, cookiesFile: v ? '' : prev.cookiesFile}
-                                                autoSave(next); return next
-                                            })
+                                            const current = settingsRef.current
+                                            if (current) commitSettings({...current, cookiesFrom: v, cookiesFile: v ? '' : current.cookiesFile})
                                         }}>
                                             <SelectTrigger><SelectValue /></SelectTrigger>
                                             <SelectContent>
@@ -352,23 +371,25 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                                         <div className="flex gap-2">
                                             <Input type="text" value={settings.cookiesFile || ''} onChange={e => {
                                                 const val = e.target.value
-                                                setSettings(prev => {
-                                                    if (!prev) return prev
-                                                    const next = {...prev, cookiesFile: val, cookiesFrom: val ? '' : prev.cookiesFrom}
-                                                    autoSave(next); return next
-                                                })
+                                                const current = settingsRef.current
+                                                if (current) commitSettings({...current, cookiesFile: val, cookiesFrom: val ? '' : current.cookiesFrom})
                                             }} placeholder={t('settings.cookiesFilePlaceholder')} />
                                             {backendMode === 'desktop' ? (
                                                 <Button variant="outline" size="sm" onClick={async () => {
                                                     const file = await SelectCookiesFile()
-                                                    if (file) setSettings(prev => { if (!prev) return prev; const next = {...prev, cookiesFile: file, cookiesFrom: ''}; autoSave(next); return next })
+                                                    const current = settingsRef.current
+                                                    if (file && current) commitSettings({...current, cookiesFile: file, cookiesFrom: ''})
                                                 }}>{t('outputDir.browse')}</Button>
                                             ) : (
                                                 <Button variant="outline" size="sm" onClick={() => {
                                                     const input = document.createElement('input'); input.type = 'file'; input.accept = '.txt,.cookies'
                                                     input.onchange = async () => {
                                                         const file = input.files?.[0]; if (!file) return
-                                                        try { const result = await UploadCookiesFile(file); setSettings(prev => { if (!prev) return prev; const next = {...prev, cookiesFile: result.path, cookiesFrom: ''}; autoSave(next); return next }) }
+                                                        try {
+                                                            const result = await UploadCookiesFile(file)
+                                                            const current = settingsRef.current
+                                                            if (current) commitSettings({...current, cookiesFile: result.path, cookiesFrom: ''})
+                                                        }
                                                         catch (err) { console.error('Failed to upload cookies file:', err) }
                                                     }; input.click()
                                                 }}><Upload className="h-4 w-4 mr-1" />{t('action.upload')}</Button>
@@ -582,7 +603,7 @@ function SettingsDialog({open, initialSettings, onClose, onSaved, onThemePreview
                     </ScrollArea>
                 </Tabs>
                 <DialogFooter className="px-6 py-3 border-t">
-                    <Button variant="outline" onClick={onClose}>{t('action.close')}</Button>
+                    <Button variant="outline" onClick={handleClose}>{t('action.close')}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

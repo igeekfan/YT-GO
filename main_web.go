@@ -3,11 +3,16 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"YT-GO/internal/core"
 	"YT-GO/internal/httpapi"
@@ -17,7 +22,31 @@ import (
 func main() {
 	platform.EnableUTF8Console()
 	service := core.NewService(currentAppVersion())
-	apiServer := httpapi.New(service)
+	if err := service.Startup(); err != nil {
+		log.Printf("service startup failed: %v", err)
+		return
+	}
+
+	apiServer, err := httpapi.New(service)
+	if err != nil {
+		log.Printf("web server configuration failed: %v", err)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		if shutdownErr := service.Shutdown(shutdownCtx); shutdownErr != nil {
+			log.Printf("service shutdown failed: %v", shutdownErr)
+		}
+		return
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		if shutdownErr := service.Shutdown(shutdownCtx); shutdownErr != nil {
+			log.Printf("service shutdown failed: %v", shutdownErr)
+		}
+		if closeErr := apiServer.Close(); closeErr != nil {
+			log.Printf("api server close failed: %v", closeErr)
+		}
+	}()
 	service.SetHooks(core.Hooks{
 		AppLog: func(msg string) {
 			log.Println(msg)
@@ -36,18 +65,41 @@ func main() {
 		},
 	})
 
-	if err := service.Startup(); err != nil {
-		log.Printf("service startup failed: %v", err)
-	}
-
 	addr := os.Getenv("YTGO_WEB_ADDR")
 	if addr == "" {
-		addr = ":8080"
+		addr = "127.0.0.1:8080"
+	}
+	if err := httpapi.ValidateListenAddress(addr, os.Getenv("YTGO_AUTH_TOKEN")); err != nil {
+		log.Printf("refusing insecure web listener: %v", err)
+		return
 	}
 
-	log.Printf("YT-GO web mode listening on %s", addr)
-	if err := http.ListenAndServe(addr, webHandler(apiServer.Handler())); err != nil {
-		log.Fatal(err)
+	httpServer := httpapi.NewHTTPServer(addr, webHandler(apiServer.Handler()))
+	httpServer.RegisterOnShutdown(apiServer.Hub().Close)
+	errCh := make(chan error, 1)
+	go func() {
+		log.Printf("YT-GO web mode listening on %s (download root: %s)", addr, apiServer.DownloadRoot())
+		errCh <- httpServer.ListenAndServe()
+	}()
+
+	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	select {
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("web server failed: %v", err)
+		}
+		return
+	case <-signalCtx.Done():
+		log.Printf("shutting down web server")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("graceful shutdown timed out: %v", err)
+		_ = httpServer.Close()
 	}
 }
 

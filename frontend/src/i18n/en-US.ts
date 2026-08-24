@@ -160,6 +160,7 @@ const enUS: typeof import('./zh-CN').default = {
     'setup.done': 'Done',
     'settings.resetSuccess': 'Settings reset. Setup wizard will appear on next launch.',
     'settings.resetFailed': 'Reset failed',
+    'settings.saveFailed': 'Failed to save settings. Please try again.',
     'settings.reset': 'Reset Settings',
     'settings.resetting': 'Resetting...',
     'settings.langZh': '中文',
@@ -315,6 +316,7 @@ const enUS: typeof import('./zh-CN').default = {
     'login.verifying': 'Verifying...',
     'login.invalidToken': 'Invalid token, please try again',
     'login.connectionError': 'Connection failed',
+    'login.retry': 'Retry connection',
 }
 
 export default enUS

@@ -29,11 +29,12 @@ func (s *Service) GetSettings() Settings {
 		MergeOutputFormat: "",
 		AudioFormat:       "",
 	}
-	if s.db == nil {
+	db := s.database()
+	if db == nil {
 		return defaults
 	}
 	var rec SettingsRecord
-	if err := s.db.First(&rec, 1).Error; err != nil {
+	if err := db.First(&rec, 1).Error; err != nil {
 		return defaults
 	}
 	if rec.OutputDir != "" {
@@ -70,11 +71,12 @@ func (s *Service) GetSettings() Settings {
 }
 
 func (s *Service) IsFirstRun() bool {
-	if s.db == nil {
+	db := s.database()
+	if db == nil {
 		return true
 	}
 	var rec SettingsRecord
-	if err := s.db.First(&rec, 1).Error; err != nil {
+	if err := db.First(&rec, 1).Error; err != nil {
 		return true
 	}
 	return false
@@ -86,7 +88,7 @@ func (s *Service) NeedsCookieConfig() bool {
 }
 
 func (s *Service) SaveSettings(settings Settings) error {
-	if s.db == nil {
+	if s.database() == nil {
 		return fmt.Errorf("database not initialized")
 	}
 	// Validate OutputDir: reject empty, root, or sensitive system paths.
@@ -141,14 +143,30 @@ func (s *Service) SaveSettings(settings Settings) error {
 		CookiesFrom:       settings.CookiesFrom,
 		CookiesFile:       settings.CookiesFile,
 	}
-	return s.db.Save(&rec).Error
+	if err := s.ensureRuntime(); err != nil {
+		return err
+	}
+	done := make(chan error, 1)
+	if err := s.submitPersistence(persistenceOperation{kind: persistenceSaveSettings, settings: rec, done: done}); err != nil {
+		return err
+	}
+	s.limiter.SetLimit(settings.MaxConcurrent)
+	return nil
 }
 
 func (s *Service) ResetSettings() error {
-	if s.db == nil {
+	if s.database() == nil {
 		return fmt.Errorf("database not initialized")
 	}
-	return s.db.Where("id = ?", 1).Delete(&SettingsRecord{}).Error
+	if err := s.ensureRuntime(); err != nil {
+		return err
+	}
+	done := make(chan error, 1)
+	if err := s.submitPersistence(persistenceOperation{kind: persistenceDeleteSettings, done: done}); err != nil {
+		return err
+	}
+	s.limiter.SetLimit(defaultMaxConcurrentDownloads)
+	return nil
 }
 
 func (s *Service) GetDefaultDownloadDir() string {

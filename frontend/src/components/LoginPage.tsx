@@ -1,5 +1,5 @@
 import {useState} from 'react'
-import {setAuthToken} from '../lib/backend'
+import {setAuthToken, VerifyAuthToken} from '../lib/backend'
 import {useI18n} from '../i18n/context'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
@@ -22,20 +22,13 @@ export default function LoginPage({onAuthenticated}: Props) {
         setError('')
         try {
             setAuthToken(token.trim())
-            // Verify token by calling a protected endpoint.
-            const base = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
-            const resp = await fetch(`${base}/api/health`, {
-                headers: {Authorization: `Bearer ${token.trim()}`},
-            })
-            if (resp.ok) {
-                onAuthenticated()
-            } else {
-                setAuthToken(null)
-                setError(t('login.invalidToken'))
-            }
-        } catch {
+            await VerifyAuthToken()
+            onAuthenticated()
+        } catch (error) {
             setAuthToken(null)
-            setError(t('login.connectionError'))
+            setError((error as {status?: number})?.status === 401
+                ? t('login.invalidToken')
+                : t('login.connectionError'))
         } finally {
             setLoading(false)
         }
@@ -57,6 +50,7 @@ export default function LoginPage({onAuthenticated}: Props) {
                         value={token}
                         onChange={e => { setToken(e.target.value); setError('') }}
                         placeholder={t('login.tokenPlaceholder')}
+                        aria-label={t('login.tokenPlaceholder')}
                         autoFocus
                         disabled={loading}
                     />

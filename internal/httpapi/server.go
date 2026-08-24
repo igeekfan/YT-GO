@@ -1,14 +1,10 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"YT-GO/internal/core"
@@ -18,68 +14,105 @@ type Server struct {
 	service    *core.Service
 	mux        *http.ServeMux
 	hub        *EventHub
+	downloads  *downloadPolicy
+	urls       *urlPolicy
+	fixedDir   string
 	corsOrigin string // allowed CORS origin, empty means same-origin only
 	authToken  string // bearer token for web auth, empty means no auth
 }
 
-type URLRequest struct {
-	URL string `json:"url"`
+type serverOptions struct {
+	downloadRoot string
+	fixedDir     string
+	resolver     ipResolver
+	corsOrigin   string
+	authToken    string
 }
 
-func New(service *core.Service) *Server {
+func New(service *core.Service) (*Server, error) {
+	if service == nil {
+		return nil, fmt.Errorf("core service is required")
+	}
+	rawFixedDir := os.Getenv("YTGO_DOWNLOAD_DIR")
+	fixedDir := strings.TrimSpace(rawFixedDir)
+	if rawFixedDir != fixedDir {
+		return nil, fmt.Errorf("YTGO_DOWNLOAD_DIR must not have leading or trailing whitespace")
+	}
+	root := strings.TrimSpace(os.Getenv("YTGO_WEB_DOWNLOAD_ROOT"))
+	if root == "" {
+		root = fixedDir
+	}
+	if root == "" {
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			root = filepath.Join(home, "Downloads")
+		} else {
+			dataDir := service.GetDataDir()
+			if dataDir == "" {
+				return nil, fmt.Errorf("cannot determine a safe default web download root; set YTGO_WEB_DOWNLOAD_ROOT")
+			}
+			root = filepath.Join(dataDir, "downloads")
+		}
+	}
+	return newServer(service, serverOptions{
+		downloadRoot: root,
+		fixedDir:     fixedDir,
+		corsOrigin:   os.Getenv("YTGO_CORS_ORIGIN"),
+		authToken:    os.Getenv("YTGO_AUTH_TOKEN"),
+	})
+}
+
+func newServer(service *core.Service, options serverOptions) (*Server, error) {
+	if service == nil {
+		return nil, fmt.Errorf("core service is required")
+	}
+	downloads, err := newDownloadPolicy(options.downloadRoot)
+	if err != nil {
+		return nil, err
+	}
+	fixedDir := strings.TrimSpace(options.fixedDir)
+	if fixedDir != "" {
+		if !filepath.IsAbs(fixedDir) {
+			_ = downloads.close()
+			return nil, fmt.Errorf("YTGO_DOWNLOAD_DIR must be an absolute path when web mode is enabled")
+		}
+		absoluteFixedDir, err := filepath.Abs(fixedDir)
+		if err != nil {
+			_ = downloads.close()
+			return nil, fmt.Errorf("resolve YTGO_DOWNLOAD_DIR: %w", err)
+		}
+		resolvedFixedDir, err := downloads.ensureDir(absoluteFixedDir)
+		if err != nil {
+			_ = downloads.close()
+			return nil, fmt.Errorf("YTGO_DOWNLOAD_DIR must remain within the web download root: %w", err)
+		}
+		if !samePath(filepath.Clean(absoluteFixedDir), resolvedFixedDir) {
+			_ = downloads.close()
+			return nil, fmt.Errorf("YTGO_DOWNLOAD_DIR must not contain symbolic links in web mode")
+		}
+		fixedDir = resolvedFixedDir
+	}
+	service.EnableRestrictedNetworking()
 	server := &Server{
 		service:    service,
 		mux:        http.NewServeMux(),
 		hub:        NewEventHub(),
-		corsOrigin: os.Getenv("YTGO_CORS_ORIGIN"),
-		authToken:  os.Getenv("YTGO_AUTH_TOKEN"),
+		downloads:  downloads,
+		urls:       newURLPolicy(options.resolver),
+		fixedDir:   fixedDir,
+		corsOrigin: options.corsOrigin,
+		authToken:  strings.TrimSpace(options.authToken),
 	}
 	server.registerRoutes()
-	return server
+	return server, nil
 }
 
-func (s *Server) Handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Security headers for all responses.
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
-		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+func (s *Server) Close() error {
+	s.hub.Close()
+	return s.downloads.close()
+}
 
-		// Apply CORS headers if YTGO_CORS_ORIGIN is configured.
-		if s.corsOrigin != "" {
-			origin := r.Header.Get("Origin")
-			// If the configured origin is "*", allow any origin.
-			// Otherwise, only allow the configured origin.
-			if s.corsOrigin == "*" || origin == s.corsOrigin {
-				w.Header().Set("Access-Control-Allow-Origin", func() string {
-					if s.corsOrigin == "*" {
-						return "*"
-					}
-					return origin
-				}())
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-				w.Header().Set("Access-Control-Max-Age", "86400")
-				w.Header().Set("Vary", "Origin")
-			}
-			// Handle preflight requests.
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-		}
-
-		// Auth check: verify Bearer token if YTGO_AUTH_TOKEN is set.
-		// Whitelist paths that don't require authentication.
-		if s.authToken != "" && !isAuthWhitelisted(r.URL.Path) {
-			if !s.checkAuth(r) {
-				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-				return
-			}
-		}
-
-		s.mux.ServeHTTP(w, r)
-	})
+func (s *Server) DownloadRoot() string {
+	return s.downloads.path
 }
 
 func (s *Server) Hub() *EventHub {
@@ -114,621 +147,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/downloads/", s.handleDownloadAction)
 }
 
-func (s *Server) handleLang(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		writeJSON(w, http.StatusOK, map[string]string{"lang": s.service.GetLang()})
-	case http.MethodPost:
-		var req struct {
-			Lang string `json:"lang"`
-		}
-		if err := decodeJSON(r, &req); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		s.service.SetLang(req.Lang)
-		writeJSON(w, http.StatusOK, map[string]string{"lang": s.service.GetLang()})
-	default:
-		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost)
-	}
-}
-
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
-
-func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	writeJSON(w, http.StatusOK, s.service.GetAboutInfo())
-}
-
-func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"version": s.service.GetCurrentVersion()})
-}
-
-func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	info, err := s.service.CheckForUpdate()
-	if err != nil {
-		writeError(w, http.StatusBadGateway, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, info)
-}
-
-func (s *Server) handleYtDlpStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	writeJSON(w, http.StatusOK, s.service.CheckYtDlp())
-}
-
-func (s *Server) handleYtDlpVersionCheck(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	result, err := s.service.CheckYtDlpVersion()
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
-}
-
-func (s *Server) handleYtDlpUpdate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
-	output, err := s.service.UpdateYtDlp()
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error(), "output": output})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"output": output})
-}
-
-func (s *Server) handleYtDlpInstall(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
-	output, err := s.service.InstallYtDlp()
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error(), "output": output})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"output": output})
-}
-
-func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		writeJSON(w, http.StatusOK, s.service.GetSettings())
-	case http.MethodPost:
-		var settings core.Settings
-		if err := decodeJSON(r, &settings); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		// Validate settings fields.
-		if settings.MaxConcurrent < 1 || settings.MaxConcurrent > 10 {
-			writeError(w, http.StatusBadRequest, fmt.Errorf("maxConcurrent must be between 1 and 10"))
-			return
-		}
-		if err := s.service.SaveSettings(settings); err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, settings)
-	default:
-		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost)
-	}
-}
-
-func (s *Server) handleFirstRun(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"firstRun": s.service.IsFirstRun()})
-}
-
-func (s *Server) handleNeedsCookie(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"needsCookieConfig": s.service.NeedsCookieConfig()})
-}
-
-func (s *Server) handleResetSettings(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
-	if err := s.service.ResetSettings(); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
-// handleBrowseDir returns subdirectories of a given path for web mode directory browsing.
-// Restricted to the download directory when YTGO_DOWNLOAD_DIR is set, otherwise allows
-// browsing under the user's home directory.
-// POST body: {"path": "/home/user"} → {"path": "/home/user", "dirs": ["Downloads", "Videos", ...]}
-func (s *Server) handleBrowseDir(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
-
-	var req struct {
-		Path string `json:"path"`
-	}
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	// Determine allowed root: YTGO_DOWNLOAD_DIR if set, otherwise user home dir.
-	allowedRoot := s.service.GetDefaultDownloadDir()
-	if allowedRoot == "" {
-		allowedRoot, _ = os.UserHomeDir()
-	}
-	if allowedRoot == "" {
-		allowedRoot = "/"
-	}
-	allowedRoot = filepath.Clean(allowedRoot)
-
-	dir := req.Path
-	if dir == "" {
-		dir = allowedRoot
-	}
-
-	// Clean the path and verify it's within the allowed root.
-	dir = filepath.Clean(dir)
-	if !isSubPath(allowedRoot, dir) {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"path":    allowedRoot,
-			"parent":  filepath.Dir(allowedRoot),
-			"dirs":    []string{},
-			"homeDir": allowedRoot,
-		})
-		return
-	}
-
-	info, err := os.Stat(dir)
-	if err != nil || !info.IsDir() {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"path":    dir,
-			"parent":  filepath.Dir(dir),
-			"dirs":    []string{},
-			"homeDir": allowedRoot,
-		})
-		return
-	}
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"path":    dir,
-			"parent":  filepath.Dir(dir),
-			"dirs":    []string{},
-			"homeDir": allowedRoot,
-		})
-		return
-	}
-
-	var dirs []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			name := entry.Name()
-			// Skip hidden directories
-			if !strings.HasPrefix(name, ".") {
-				dirs = append(dirs, name)
-			}
-		}
-	}
-
-	parent := filepath.Dir(dir)
-	// Don't expose parent if it's outside the allowed root.
-	if !isSubPath(allowedRoot, parent) {
-		parent = ""
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"path":    dir,
-		"parent":  parent,
-		"dirs":    dirs,
-		"homeDir": allowedRoot,
-	})
-}
-
-// isSubPath returns true if sub is equal to or a child of root.
-func isSubPath(root, sub string) bool {
-	rel, err := filepath.Rel(root, sub)
-	if err != nil {
-		return false
-	}
-	return !strings.HasPrefix(rel, "..") && rel != "."
-}
-
-// validateURL checks that the URL uses http or https scheme.
-func validateURL(rawURL string) error {
-	rawURL = extractURLFromText(rawURL)
-	parsed, err := url.Parse(strings.TrimSpace(rawURL))
-	if err != nil {
-		return fmt.Errorf("invalid URL: %w", err)
-	}
-	scheme := strings.ToLower(parsed.Scheme)
-	if scheme != "http" && scheme != "https" {
-		return fmt.Errorf("URL scheme must be http or https, got %q", scheme)
-	}
-	return nil
-}
-
-func extractURLFromText(input string) string {
-	trimmed := strings.TrimSpace(input)
-	if !strings.ContainsAny(trimmed, " \t\r\n") {
-		return trimmed
-	}
-	m := regexp.MustCompile(`https?://\S+`).FindString(trimmed)
-	if m == "" {
-		return trimmed
-	}
-	return strings.TrimRight(m, ".,;:!?)]}，。；：！？、）】》」』")
-}
-
-// handleCookiesUpload accepts a cookies file upload for web mode.
-// The file is saved to the data directory and the path is returned.
-func (s *Server) handleCookiesUpload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
-
-	// Max 1MB cookies file
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Errorf("failed to read uploaded file: %w", err))
-		return
-	}
-	defer file.Close()
-
-	// Save to data directory
-	dataDir := s.service.GetDataDir()
-	if dataDir == "" {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("data directory not configured"))
-		return
-	}
-
-	cookiesDir := filepath.Join(dataDir, "cookies")
-	if err := os.MkdirAll(cookiesDir, 0755); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create cookies directory: %w", err))
-		return
-	}
-
-	// Use original filename but sanitize it
-	safeName := filepath.Base(header.Filename)
-	safeName = strings.ReplaceAll(safeName, " ", "_")
-	destPath := filepath.Join(cookiesDir, safeName)
-
-	dst, err := os.Create(destPath)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create file: %w", err))
-		return
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, file); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to save file: %w", err))
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]string{
-		"path": destPath,
-		"name": safeName,
-	})
-}
-
-func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	cfg := s.service.GetWebConfig()
-	// Wrap to include auth status for the frontend.
-	writeJSON(w, http.StatusOK, map[string]any{
-		"downloadDir":  cfg.DownloadDir,
-		"externalURL":  cfg.ExternalURL,
-		"hasFixedDir":  cfg.HasFixedDir,
-		"authRequired": s.authToken != "",
-	})
-}
-
-func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	writeJSON(w, http.StatusOK, s.service.GetDiagnosticInfo())
-}
-
-func (s *Server) handleDeps(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeMethodNotAllowed(w, http.MethodGet)
-		return
-	}
-	writeJSON(w, http.StatusOK, s.service.GetDepStatus())
-}
-
-func (s *Server) handleDenoUpdate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
-	output, err := s.service.UpdateDeno()
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error(), "output": output})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"output": output})
-}
-
-func (s *Server) handleVideoInfo(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
-	var req URLRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	if err := validateURL(req.URL); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	info, err := s.service.GetVideoInfo(req.URL)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, info)
-}
-
-func (s *Server) handleFormats(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
-	var req URLRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	if err := validateURL(req.URL); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	info, err := s.service.GetFormats(req.URL)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, info)
-}
-
-func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeMethodNotAllowed(w, http.MethodPost)
-		return
-	}
-	var req URLRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	if err := validateURL(req.URL); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	info, err := s.service.GetPlaylistInfo(req.URL)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, info)
-}
-
-func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		writeJSON(w, http.StatusOK, s.service.GetDownloads())
-	case http.MethodPost:
-		var req core.DownloadRequest
-		if err := decodeJSON(r, &req); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		if err := validateURL(req.URL); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		id, err := s.service.StartDownload(req)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		writeJSON(w, http.StatusAccepted, map[string]string{"id": id})
-	case http.MethodDelete:
-		s.service.ClearCompleted()
-		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-	default:
-		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost, http.MethodDelete)
-	}
-}
-
-func (s *Server) handleDownloadAction(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/api/downloads/")
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) == 1 {
-		if r.Method != http.MethodDelete {
-			writeMethodNotAllowed(w, http.MethodDelete)
-			return
-		}
-		if err := s.service.RemoveDownload(parts[0]); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-		return
-	}
-	if len(parts) != 2 {
-		http.NotFound(w, r)
-		return
-	}
-	taskID := parts[0]
-	action := parts[1]
-	switch action {
-	case "cancel":
-		if r.Method != http.MethodPost {
-			writeMethodNotAllowed(w, http.MethodPost)
-			return
-		}
-		if err := s.service.CancelDownload(taskID); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]string{"status": "cancelled"})
-	case "file":
-		// Web mode: download the completed file
-		if r.Method != http.MethodGet {
-			writeMethodNotAllowed(w, http.MethodGet)
-			return
-		}
-		s.serveDownloadFile(w, r, taskID)
-	default:
-		http.NotFound(w, r)
-	}
-}
-
-// serveDownloadFile serves a completed download file for web mode.
-// Validates that the file resides within the configured download directory
-// to prevent path traversal attacks.
-func (s *Server) serveDownloadFile(w http.ResponseWriter, r *http.Request, taskID string) {
-	task, err := s.service.GetDownload(taskID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, err)
-		return
-	}
-	if task.OutputPath == "" {
-		writeError(w, http.StatusNotFound, fmt.Errorf("file not available"))
-		return
-	}
-
-	filePath := filepath.Clean(task.OutputPath)
-
-	// Verify the file is within the allowed download directory.
-	downloadDir := filepath.Clean(s.service.GetDefaultDownloadDir())
-	if downloadDir != "" && !isSubPath(downloadDir, filePath) {
-		writeError(w, http.StatusForbidden, fmt.Errorf("access denied"))
-		return
-	}
-
-	info, err := os.Stat(filePath)
-	if err != nil {
-		writeError(w, http.StatusNotFound, fmt.Errorf("file not found: %w", err))
-		return
-	}
-
-	// If it's a directory, reject.
-	if info.IsDir() {
-		writeError(w, http.StatusNotFound, fmt.Errorf("path is a directory, not a file"))
-		return
-	}
-
-	f, err := os.Open(filePath)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to open file: %w", err))
-		return
-	}
-	defer f.Close()
-
-	fileName := filepath.Base(filePath)
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
-	http.ServeContent(w, r, fileName, info.ModTime(), f)
-}
-
-func decodeJSON(r *http.Request, target any) error {
-	defer r.Body.Close()
-	return json.NewDecoder(r.Body).Decode(target)
-}
-
-func writeJSON(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
-}
-
-func writeError(w http.ResponseWriter, status int, err error) {
-	writeJSON(w, status, map[string]string{"error": err.Error()})
-}
-
-func writeMethodNotAllowed(w http.ResponseWriter, methods ...string) {
-	w.Header().Set("Allow", strings.Join(methods, ", "))
-	writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
-}
-
-// isAuthWhitelisted returns true if the path does not require authentication.
-func isAuthWhitelisted(path string) bool {
-	whitelist := []string{
-		"/api/health",
-		"/api/config",
-	}
-	for _, p := range whitelist {
-		if path == p {
-			return true
-		}
-	}
-	return false
-}
-
-// checkAuth validates the Bearer token from Authorization header or ?token= query param.
-func (s *Server) checkAuth(r *http.Request) bool {
-	// Check Authorization: Bearer <token>
-	auth := r.Header.Get("Authorization")
-	if strings.HasPrefix(auth, "Bearer ") {
-		token := strings.TrimPrefix(auth, "Bearer ")
-		if token == s.authToken {
-			return true
-		}
-	}
-	// Check ?token= query parameter (useful for SSE/EventSource which can't set headers).
-	if r.URL.Query().Get("token") == s.authToken {
-		return true
-	}
-	return false
+func samePath(left, right string) bool {
+	if filepath.Separator == '\\' {
+		return strings.EqualFold(left, right)
+	}
+	return left == right
 }

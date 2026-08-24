@@ -3,12 +3,14 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,20 +33,22 @@ func isValidDownloadURL(rawURL string) bool {
 	return scheme == "http" || scheme == "https"
 }
 
-func (s *Service) cleanupTransientDownloads() {
-	if s.db == nil {
-		return
+func (s *Service) cleanupTransientDownloads() error {
+	db := s.database()
+	if db == nil {
+		return nil
 	}
-	s.db.Where("status IN ?", []string{"pending", "downloading", "cancelled"}).Delete(&DownloadRecord{})
+	return db.Where("status IN ?", []string{"pending", "downloading", "cancelled"}).Delete(&DownloadRecord{}).Error
 }
 
-func (s *Service) loadFromDB() {
-	if s.db == nil {
-		return
+func (s *Service) loadFromDB() error {
+	db := s.database()
+	if db == nil {
+		return nil
 	}
 	var records []DownloadRecord
-	if err := s.db.Order("created_at desc").Find(&records).Error; err != nil {
-		return
+	if err := db.Order("created_at desc").Find(&records).Error; err != nil {
+		return err
 	}
 	s.mu.Lock()
 	for _, record := range records {
@@ -52,21 +56,7 @@ func (s *Service) loadFromDB() {
 		s.downloads[task.ID] = task
 	}
 	s.mu.Unlock()
-}
-
-func (s *Service) upsertRecord(task *DownloadTask) {
-	if s.db == nil {
-		return
-	}
-	record := taskToRecord(task)
-	s.db.Save(&record)
-}
-
-func (s *Service) deleteRecords(ids []string) {
-	if s.db == nil || len(ids) == 0 {
-		return
-	}
-	s.db.Delete(&DownloadRecord{}, ids)
+	return nil
 }
 
 func (s *Service) StartDownload(req DownloadRequest) (string, error) {
@@ -78,55 +68,95 @@ func (s *Service) StartDownload(req DownloadRequest) (string, error) {
 	if !isValidDownloadURL(req.URL) {
 		return "", fmt.Errorf("invalid URL: only http and https protocols are allowed")
 	}
-	ytdlpPath := s.resolveYtDlp()
-	if ytdlpPath == "" && !isDouyinURL(req.URL) && !isWechatChannelsURL(req.URL) {
-		return "", fmt.Errorf("yt-dlp not found")
-	}
-	if err := ensureYouTubeJSRuntime(s.i18n, extractURLFromText(req.URL), s.GetSettings()); err != nil {
-		return "", err
-	}
 	// Override output dir with YTGO_DOWNLOAD_DIR if configured (web mode)
 	outputDir := req.OutputDir
 	if s.downloadDir != "" {
 		outputDir = s.downloadDir
 		req.OutputDir = outputDir
 	}
+	return s.enqueueDownload(req, "")
+}
+
+func (s *Service) enqueueDownload(req DownloadRequest, ytdlpPath string) (string, error) {
+	req = cloneDownloadRequest(req)
 	taskID := uuid.New().String()
-	task := &DownloadTask{ID: taskID, URL: req.URL, OutputDir: outputDir, Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339)}
+	task := &DownloadTask{ID: taskID, URL: req.URL, OutputDir: req.OutputDir, Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339)}
 	if req.VideoInfo != nil {
 		task.Title = req.VideoInfo.Title
 		task.Thumbnail = req.VideoInfo.Thumbnail
 	}
+	control := newDownloadControl(context.Background())
+	job := downloadJob{taskID: taskID, request: req, ytdlpPath: ytdlpPath, control: control, ready: make(chan struct{})}
+
+	s.lifecycleMu.Lock()
+	if !s.accepting {
+		s.lifecycleMu.Unlock()
+		control.cancel()
+		return "", ErrServiceClosed
+	}
+	s.ensureRuntimeLocked()
 	s.mu.Lock()
-	s.downloads[taskID] = task
+	select {
+	case s.jobs <- job:
+		s.downloads[taskID] = task
+		s.activeDownloads[taskID] = control
+		s.enqueueTaskSaveLocked(task)
+	default:
+		s.mu.Unlock()
+		s.lifecycleMu.Unlock()
+		control.cancel()
+		return "", ErrDownloadQueueFull
+	}
 	s.mu.Unlock()
-	go s.upsertRecord(task)
 	s.emitDownloadUpdate(task)
-	go s.runDownload(taskID, req, ytdlpPath)
+	close(job.ready)
+	s.lifecycleMu.Unlock()
 	return taskID, nil
 }
 
-func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath string) {
-	s.downloadSem <- struct{}{}
-	defer func() { <-s.downloadSem }()
-	ctx, cancel := context.WithCancel(context.Background())
-	if cp, ok := s.startDownloadTask(taskID, cancel); ok {
-		s.emitDownloadUpdate(cp)
-	} else {
-		cancel()
+func (s *Service) executeDownload(job downloadJob) {
+	var result downloadResult
+	var err error
+	if err = ensureYouTubeJSRuntime(s.i18n, job.request.URL, s.GetSettings()); err != nil {
+		s.finishDownload(job.taskID, job.control, downloadFailed, downloadResult{}, err)
 		return
 	}
+	switch {
+	case isDouyinURL(job.request.URL):
+		result, err = s.runDouyinDownload(job.taskID, job.request, job.control.ctx)
+	case isWechatChannelsURL(job.request.URL):
+		result, err = s.runWechatChannelsDownload(job.taskID, job.request, job.control.ctx)
+	default:
+		if job.ytdlpPath == "" {
+			job.ytdlpPath = s.resolveYtDlp()
+		}
+		if job.ytdlpPath == "" {
+			err = errors.New("yt-dlp not found")
+			break
+		}
+		result, err = s.runYtDlpDownload(job)
+	}
+	if job.control.ctx.Err() != nil {
+		s.finishDownload(job.taskID, job.control, downloadCancelled, downloadResult{}, context.Canceled)
+		return
+	}
+	if err != nil {
+		s.finishDownload(job.taskID, job.control, downloadFailed, downloadResult{}, err)
+		return
+	}
+	if result.warning != "" {
+		s.emitDownloadLog(job.taskID, result.warning)
+	}
+	s.finishDownload(job.taskID, job.control, downloadCompleted, result, nil)
+}
 
-	if isDouyinURL(req.URL) {
-		s.runDouyinDownload(taskID, req, ctx)
-		cancel()
-		return
-	}
-	if isWechatChannelsURL(req.URL) {
-		s.runWechatChannelsDownload(taskID, req, ctx)
-		cancel()
-		return
-	}
+func (s *Service) runYtDlpDownload(job downloadJob) (downloadResult, error) {
+	taskID := job.taskID
+	req := job.request
+	ctx := job.control.ctx
+	ytdlpPath := job.ytdlpPath
+	processCtx, processCancel := context.WithCancel(context.Background())
+	defer processCancel()
 
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Starting download: %s", req.URL))
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] yt-dlp path: %s", ytdlpPath))
@@ -135,28 +165,13 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 	// Use BuildCommand to get exec.Cmd, then manage execution ourselves
 	// for proper cancel support. We use a lineWriter to parse progress
 	// from stdout/stderr, just like the old implementation.
-	execCmd, buildErr := s.buildDownloadCommand(ctx, req, ytdlpPath)
+	execCmd, buildErr := s.buildDownloadCommand(processCtx, req, ytdlpPath)
 	if buildErr != nil {
-		cancel()
-		s.clearActiveDownload(taskID)
-		var updated *DownloadTask
-		s.mu.Lock()
-		if t, ok := s.downloads[taskID]; ok {
-			t.Status = "error"
-			t.Error = buildErr.Error()
-			copy := *t
-			updated = &copy
-		}
-		s.mu.Unlock()
-		if updated != nil {
-			s.emitDownloadUpdate(updated)
-			go s.upsertRecord(updated)
-		}
-		return
+		return downloadResult{}, buildErr
 	}
-
-	// Store the command so CancelDownload can kill the process.
-	s.storeDownloadCommand(taskID, execCmd)
+	if ctx.Err() != nil {
+		return downloadResult{}, context.Canceled
+	}
 
 	var lastOutputFile string
 	writer := &lineWriter{handler: func(line string) {
@@ -193,7 +208,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 			}
 			s.mu.Unlock()
 			if updated != nil {
-				s.emitDownloadUpdate(updated)
+				s.emitActiveDownloadUpdate(taskID, updated)
 			}
 		} else if m := progressDoneRe.FindStringSubmatch(line); m != nil {
 			pct, _ := strconv.ParseFloat(m[1], 64)
@@ -209,7 +224,7 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 			}
 			s.mu.Unlock()
 			if updated != nil {
-				s.emitDownloadUpdate(updated)
+				s.emitActiveDownloadUpdate(taskID, updated)
 			}
 		} else if m := destRe1.FindStringSubmatch(line); m != nil {
 			lastOutputFile = m[1]
@@ -225,108 +240,66 @@ func (s *Service) runDownload(taskID string, req DownloadRequest, ytdlpPath stri
 
 	runErr := execCmd.Start()
 	if runErr != nil {
-		wasCancelled := ctx.Err() != nil
-		cancel()
-		s.mu.Lock()
-		delete(s.cancelFns, taskID)
-		delete(s.cmds, taskID)
-		if t, ok := s.downloads[taskID]; ok {
-			if wasCancelled {
-				delete(s.downloads, taskID)
-				s.mu.Unlock()
-				s.emitDownloadRemove(taskID)
-				go s.deleteRecords([]string{taskID})
-				return
-			}
-			t.Status = "error"
-			t.Error = runErr.Error()
-			copy := *t
-			s.mu.Unlock()
-			s.emitDownloadUpdate(&copy)
-			go s.upsertRecord(&copy)
-		} else {
-			s.mu.Unlock()
-		}
-		return
+		return downloadResult{}, runErr
+	}
+	pid := execCmd.Process.Pid
+	if err := job.control.attachProcess(pid, processCancel); err != nil {
+		s.emitLog("failed to terminate cancelled process tree for task %s: %v", taskID, err)
 	}
 
 	// Wait for the process to finish.
 	runErr = execCmd.Wait()
+	job.control.detachProcess(pid)
 	// Emit any remaining buffered bytes that lacked a trailing newline.
 	writer.Flush()
 
-	wasCancelled := ctx.Err() != nil
-	cancel()
-	s.mu.Lock()
-	delete(s.cancelFns, taskID)
-	delete(s.cmds, taskID)
-	var finalTask *DownloadTask
-	var removed bool
-	if t, ok := s.downloads[taskID]; ok {
-		switch {
-		case wasCancelled:
-			delete(s.downloads, taskID)
-			removed = true
-		case runErr != nil:
-			// If the output file was produced, treat as completed despite non-zero exit
-			// (e.g. subtitle/danmaku postprocessing errors shouldn't fail the whole download).
-			outputReady := false
-			if lastOutputFile != "" {
-				absPath := lastOutputFile
-				if !filepath.IsAbs(absPath) {
-					absPath = filepath.Join(t.OutputDir, absPath)
-				}
-				if _, statErr := os.Stat(absPath); statErr == nil {
-					outputReady = true
-				}
+	if ctx.Err() != nil {
+		return downloadResult{}, context.Canceled
+	}
+	result := downloadResult{}
+	if runErr != nil {
+		// If the output file was produced, treat as completed despite non-zero exit
+		// (e.g. subtitle/danmaku postprocessing errors shouldn't fail the whole download).
+		outputReady := false
+		if lastOutputFile != "" {
+			absPath := lastOutputFile
+			if !filepath.IsAbs(absPath) {
+				absPath = filepath.Join(req.OutputDir, absPath)
 			}
-			if outputReady {
-				t.Status = "completed"
-				t.Progress = 100
-				t.OutputPath = lastOutputFile
-				if !filepath.IsAbs(t.OutputPath) {
-					t.OutputPath = filepath.Join(t.OutputDir, t.OutputPath)
-				}
-				s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] Download completed with warnings: %s", runErr.Error()))
-			} else {
-				t.Status = "error"
-				t.Error = runErr.Error()
-			}
-		default:
-			t.Status = "completed"
-			t.Progress = 100
-			if lastOutputFile != "" {
-				// Ensure outputPath is absolute
-				if !filepath.IsAbs(lastOutputFile) {
-					lastOutputFile = filepath.Join(t.OutputDir, lastOutputFile)
-				}
-				t.OutputPath = lastOutputFile
+			if _, statErr := os.Stat(absPath); statErr == nil {
+				outputReady = true
 			}
 		}
-		copy := *t
-		finalTask = &copy
+		if outputReady {
+			result.outputPath = lastOutputFile
+			if !filepath.IsAbs(result.outputPath) {
+				result.outputPath = filepath.Join(req.OutputDir, result.outputPath)
+			}
+			result.warning = fmt.Sprintf("[YT-GO] Download completed with warnings: %s", runErr.Error())
+		} else {
+			return downloadResult{}, runErr
+		}
+	} else if lastOutputFile != "" {
+		if !filepath.IsAbs(lastOutputFile) {
+			lastOutputFile = filepath.Join(req.OutputDir, lastOutputFile)
+		}
+		result.outputPath = lastOutputFile
 	}
-	s.mu.Unlock()
-	if removed {
-		s.emitDownloadRemove(taskID)
-		go s.deleteRecords([]string{taskID})
-		return
-	}
-	if finalTask != nil {
-		s.emitDownloadUpdate(finalTask)
-		go s.upsertRecord(finalTask)
-	}
+	return result, nil
 }
 
 // lineWriter buffers bytes into complete lines and calls handler for each.
 // Splits on both '\n' and '\r' so yt-dlp progress bars (which can use
 // carriage-return overwrites when --newline isn't honored) still stream.
 type lineWriter struct {
+	mu      sync.Mutex
 	buf     []byte
 	handler func(string)
 }
 
 func (lw *lineWriter) Write(p []byte) (int, error) {
+	lw.mu.Lock()
+	defer lw.mu.Unlock()
 	lw.buf = append(lw.buf, p...)
 	for {
 		idx := bytes.IndexAny(lw.buf, "\r\n")
@@ -345,6 +318,8 @@ func (lw *lineWriter) Write(p []byte) (int, error) {
 // Flush emits any bytes still in the buffer as a final line. Call after the
 // process exits so the last update (which may lack a trailing newline) isn't lost.
 func (lw *lineWriter) Flush() {
+	lw.mu.Lock()
+	defer lw.mu.Unlock()
 	if len(lw.buf) == 0 {
 		return
 	}
@@ -576,7 +551,7 @@ func (s *Service) handleStructuredProgressLog(taskID string, progress structured
 	s.mu.Unlock()
 
 	if updated != nil {
-		s.emitDownloadUpdate(updated)
+		s.emitActiveDownloadUpdate(taskID, updated)
 		if logLine != "" {
 			s.emitDownloadLog(taskID, logLine)
 		}
@@ -597,26 +572,10 @@ func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%d:%02d", m, s)
 }
 
-func (s *Service) CancelDownload(taskID string) error {
-	s.mu.Lock()
-	cancel, ok := s.cancelFns[taskID]
-	cmd := s.cmds[taskID]
-	s.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("task not found or not active")
-	}
-	// Cancel the context — this signals exec.CommandContext to kill the process.
-	cancel()
-	// Additionally, forcefully kill the process if it's still running.
-	// On Windows with CREATE_NEW_PROCESS_GROUP, this ensures the yt-dlp
-	// process and its children (ffmpeg, etc.) are terminated.
-	if cmd != nil && cmd.Process != nil {
-		cmd.Process.Kill()
-	}
-	return nil
-}
-
 func (s *Service) RemoveDownload(taskID string) error {
+	if err := s.ensureRuntime(); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	task, ok := s.downloads[taskID]
 	if !ok {
@@ -628,10 +587,10 @@ func (s *Service) RemoveDownload(taskID string) error {
 		return fmt.Errorf("active task cannot be removed")
 	}
 	delete(s.downloads, taskID)
+	s.enqueueTaskDeleteLocked([]string{taskID})
 	s.mu.Unlock()
 
 	s.emitDownloadRemove(taskID)
-	go s.deleteRecords([]string{taskID})
 	return nil
 }
 
@@ -647,6 +606,10 @@ func (s *Service) GetDownloads() []*DownloadTask {
 }
 
 func (s *Service) ClearCompleted() {
+	if err := s.ensureRuntime(); err != nil {
+		s.emitLog("failed to clear completed downloads: %v", err)
+		return
+	}
 	s.mu.Lock()
 	var ids []string
 	for id, task := range s.downloads {
@@ -655,6 +618,9 @@ func (s *Service) ClearCompleted() {
 			delete(s.downloads, id)
 		}
 	}
+	s.enqueueTaskDeleteLocked(ids)
 	s.mu.Unlock()
-	go s.deleteRecords(ids)
+	for _, id := range ids {
+		s.emitDownloadRemove(id)
+	}
 }

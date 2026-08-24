@@ -21,9 +21,9 @@ func main() {
 	app := desktop.NewApp(currentAppVersion())
 
 	err := wails.Run(&options.App{
-		Title:  "YT-GO",
-		Width:  960,
-		Height: 700,
+		Title:     "YT-GO",
+		Width:     960,
+		Height:    700,
 		MinWidth:  720,
 		MinHeight: 520,
 		AssetServer: &assetserver.Options{
@@ -31,6 +31,7 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        desktop.OnStartup(app),
+		OnShutdown:       desktop.OnShutdown(app),
 		Bind: []interface{}{
 			app,
 		},
