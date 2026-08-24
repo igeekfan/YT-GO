@@ -12,6 +12,12 @@ import (
 	"github.com/lrstanley/go-ytdlp"
 )
 
+type passthroughNetworkPolicy struct{}
+
+func (passthroughNetworkPolicy) ConfigureTransport(*http.Transport) {}
+
+func (passthroughNetworkPolicy) CheckRedirect(*http.Request, []*http.Request) error { return nil }
+
 func TestExtractURLFromText(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -217,6 +223,7 @@ func TestWechatChannelsSidecarsAreWritten(t *testing.T) {
 	saveThumbnail := true
 	saveDescription := true
 	service := NewService("test")
+	service.outboundPolicy = passthroughNetworkPolicy{}
 	service.saveWechatChannelsSidecars(context.Background(), "task", outputPath, VideoInfo{
 		Title:     "video description",
 		Thumbnail: server.URL + "/cover",
