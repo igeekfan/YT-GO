@@ -99,15 +99,17 @@ go build -tags web -o build/bin/yt-go-web .
 
 The Docker image runs YT-GO in web mode and includes yt-dlp, Deno, and a compact shared FFmpeg/FFprobe distribution. Node.js and the Go toolchain are used only during compilation and are not included in the runtime image.
 
-### One-click deployment
+### Secure deployment
 
 ```bash
+cp .env.example .env
+# Edit .env and set a long, random YTGO_AUTH_TOKEN first.
 docker compose up -d --build
 ```
 
-Open `http://localhost:8080`. Settings, cookies, dependency caches, and downloads are persisted under `./data/`.
+Open `http://localhost:8080`. Compose refuses to start without `YTGO_AUTH_TOKEN`. Settings/caches and downloads are persisted in the `ytgo-config` and `ytgo-downloads` named volumes. The container runs as an unprivileged user with all Linux capabilities dropped, a read-only root filesystem, `no-new-privileges`, and configurable CPU, memory, and PID limits.
 
-To expose the service publicly, configure a token and the external URL in `.env` before starting it:
+To expose the service through a TLS reverse proxy, also set its external URL and, only when needed, the exact cross-origin frontend origin:
 
 ```dotenv
 YTGO_AUTH_TOKEN=replace-with-a-strong-random-token
@@ -118,17 +120,25 @@ Optional Compose variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `YTGO_BIND_ADDRESS` | Host address used by the published Compose port | `127.0.0.1` |
 | `YTGO_PORT` | Host port | `8080` |
 | `YTGO_VERSION` | Image/app version used for a local build | `0.0.0` |
-| `YTGO_AUTH_TOKEN` | Web login token | empty |
+| `YTGO_AUTH_TOKEN` | Web login token; required by Compose | none |
 | `YTGO_EXTERNAL_URL` | Public base URL for download links | empty |
 | `YTGO_CORS_ORIGIN` | Allowed cross-origin frontend URL | empty |
+| `YTGO_CPU_LIMIT` | Container CPU limit | `2.0` |
+| `YTGO_MEMORY_LIMIT` | Container memory limit | `2g` |
+| `YTGO_PIDS_LIMIT` | Container PID limit | `256` |
 | `TZ` | Container timezone | `Asia/Shanghai` |
 | `NODE_IMAGE` | Frontend builder base image | `docker.m.daocloud.io/library/node:22-alpine` |
 | `GO_IMAGE` | Backend builder base image | `docker.m.daocloud.io/library/golang:1.25-alpine` |
 | `RUNTIME_IMAGE` | Runtime base image | `docker.m.daocloud.io/library/debian:bookworm-slim` |
 
 Compose defaults to a Docker Hub mirror for reliable builds in mainland China. Set the three image variables in `.env` to use another registry; direct Dockerfile and CI builds still default to the official images. The published image supports `linux/amd64` and `linux/arm64`.
+
+Compose publishes the port on host loopback by default. Set `YTGO_BIND_ADDRESS=0.0.0.0` only when direct network access is intentional and protect it with TLS at a reverse proxy. For a bare web build, the default listener is `127.0.0.1:8080` and the default web download root is `~/Downloads`. Use `YTGO_WEB_DOWNLOAD_ROOT` to choose another root. A non-loopback `YTGO_WEB_ADDR` is rejected unless `YTGO_AUTH_TOKEN` is set. Every API-selected output directory must remain under the configured root, and filename templates cannot contain paths.
+
+The API rejects initial URLs that resolve to loopback, private, link-local, reserved, or common metadata endpoints. yt-dlp is a separate process and performs its own DNS lookups and redirects, so application validation cannot prevent later DNS rebinding or redirects by itself. Public deployments must also enforce outbound firewall/container egress rules that deny private, link-local, and cloud metadata networks while allowing normal public video sites. Rebuild the image to update bundled yt-dlp/Deno/FFmpeg; the hardened non-root container intentionally cannot replace system binaries in place.
 
 ## Troubleshooting
 

@@ -8,20 +8,38 @@ services:
         GO_IMAGE: ${GO_IMAGE:-docker.m.daocloud.io/library/golang:1.25-alpine}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-docker.m.daocloud.io/library/debian:bookworm-slim}
     image: yt-go:${YTGO_VERSION:-local}
+    init: true
+    user: "10001:10001"
     restart: unless-stopped
+    stop_grace_period: 45s
     ports:
-      - "${YTGO_PORT:-8080}:8080"
+      - "${YTGO_BIND_ADDRESS:-127.0.0.1}:${YTGO_PORT:-8080}:8080"
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       YTGO_WEB_ADDR: ":8080"
       YTGO_DOWNLOAD_DIR: /data/downloads
+      YTGO_WEB_DOWNLOAD_ROOT: /data/downloads
       YTGO_YTDLP_PATH: /usr/local/bin/yt-dlp
       XDG_CONFIG_HOME: /data/config
       XDG_CACHE_HOME: /data/config/cache
       DENO_DIR: /data/config/deno
-      YTGO_AUTH_TOKEN: ${YTGO_AUTH_TOKEN:-}
+      YTGO_AUTH_TOKEN: ${YTGO_AUTH_TOKEN:?Set a strong YTGO_AUTH_TOKEN in .env before starting}
       YTGO_EXTERNAL_URL: ${YTGO_EXTERNAL_URL:-}
       YTGO_CORS_ORIGIN: ${YTGO_CORS_ORIGIN:-}
     volumes:
-      - ./data/config:/data/config
-      - ./data/downloads:/data/downloads
+      - ytgo-config:/data/config
+      - ytgo-downloads:/data/downloads
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: ${YTGO_PIDS_LIMIT:-256}
+    mem_limit: ${YTGO_MEMORY_LIMIT:-2g}
+    cpus: ${YTGO_CPU_LIMIT:-2.0}
+
+volumes:
+  ytgo-config:
+  ytgo-downloads:

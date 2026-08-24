@@ -99,15 +99,17 @@ go build -tags web -o build/bin/yt-go-web .
 
 Docker 镜像以 Web 模式运行 YT-GO，并已内置 yt-dlp、Deno，以及共用运行库的精简 FFmpeg/FFprobe。Node.js 和 Go 工具链仅用于编译，不会进入最终运行镜像。
 
-### 一键部署
+### 安全部署
 
 ```bash
+cp .env.example .env
+# 先编辑 .env，为 YTGO_AUTH_TOKEN 填入足够长的随机值。
 docker compose up -d --build
 ```
 
-部署完成后访问 `http://localhost:8080`。设置、Cookies、依赖缓存和下载文件会持久化到 `./data/`。
+部署完成后访问 `http://localhost:8080`。未设置 `YTGO_AUTH_TOKEN` 时 Compose 会拒绝启动。设置/缓存和下载文件分别持久化在 `ytgo-config`、`ytgo-downloads` 命名卷中。容器使用非特权用户，移除全部 Linux capabilities，根文件系统只读，启用 `no-new-privileges`，并设置可调整的 CPU、内存和 PID 上限。
 
-如果服务会暴露到公网，请先在 `.env` 中设置访问令牌和外部地址：
+如果通过 HTTPS 反向代理公开服务，还应设置外部地址；仅在确实使用跨域前端时配置精确的允许来源：
 
 ```dotenv
 YTGO_AUTH_TOKEN=请替换为足够强的随机令牌
@@ -118,17 +120,25 @@ YTGO_EXTERNAL_URL=https://yt.example.com
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
+| `YTGO_BIND_ADDRESS` | Compose 映射端口使用的宿主机地址 | `127.0.0.1` |
 | `YTGO_PORT` | 映射到宿主机的端口 | `8080` |
 | `YTGO_VERSION` | 本地构建使用的镜像和应用版本 | `0.0.0` |
-| `YTGO_AUTH_TOKEN` | Web 登录令牌 | 空 |
+| `YTGO_AUTH_TOKEN` | Web 登录令牌，Compose 必填 | 无 |
 | `YTGO_EXTERNAL_URL` | 下载链接使用的外部访问地址 | 空 |
 | `YTGO_CORS_ORIGIN` | 允许跨域访问的前端地址 | 空 |
+| `YTGO_CPU_LIMIT` | 容器 CPU 上限 | `2.0` |
+| `YTGO_MEMORY_LIMIT` | 容器内存上限 | `2g` |
+| `YTGO_PIDS_LIMIT` | 容器 PID 上限 | `256` |
 | `TZ` | 容器时区 | `Asia/Shanghai` |
 | `NODE_IMAGE` | 前端构建基础镜像 | `docker.m.daocloud.io/library/node:22-alpine` |
 | `GO_IMAGE` | 后端构建基础镜像 | `docker.m.daocloud.io/library/golang:1.25-alpine` |
 | `RUNTIME_IMAGE` | 最终运行基础镜像 | `docker.m.daocloud.io/library/debian:bookworm-slim` |
 
 Compose 默认使用 Docker Hub 国内镜像源，以提升中国大陆网络下的构建稳定性。可在 `.env` 中设置以上三个镜像变量切换到其他源；直接构建 Dockerfile 和 CI 仍默认使用官方镜像。发布的 Docker 镜像支持 `linux/amd64` 和 `linux/arm64`。
+
+Compose 默认只在宿主机回环地址发布端口；仅当确实需要网络直连时才设置 `YTGO_BIND_ADDRESS=0.0.0.0`，并在反向代理处启用 TLS。直接运行 Web 二进制时，默认只监听 `127.0.0.1:8080`，Web 下载根默认为 `~/Downloads`；可通过 `YTGO_WEB_DOWNLOAD_ROOT` 指定其他根目录。若 `YTGO_WEB_ADDR` 监听非回环地址但没有设置 `YTGO_AUTH_TOKEN`，服务会拒绝启动。API 指定的输出目录必须位于下载根下，文件名模板也不能包含路径。
+
+API 会拒绝初始解析结果为回环、私网、链路本地、保留地址或常见云元数据端点的 URL。yt-dlp 是独立进程，会自行进行 DNS 查询和重定向，因此仅靠应用校验无法完全阻止后续 DNS rebinding 或跳转。公网部署还必须在宿主机/容器网络层配置出站规则，禁止访问私网、链路本地和云元数据网段，同时放行正常的视频网站公网地址。更新镜像内置的 yt-dlp、Deno 和 FFmpeg 应通过重新构建镜像完成；加固后的非 root 容器不会原地替换系统二进制。
 
 ## 常见问题
 

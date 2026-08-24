@@ -390,3 +390,8 @@ src/WebSPA/fluent-emoji-ms/src/assets/modern/*
 YT-GO.exe
 yt-go-web
 /data/
+
+# Local deployment secrets
+.env
+.env.*
+!.env.example

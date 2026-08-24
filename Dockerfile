@@ -83,24 +83,30 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get -o Acquire::Retries=5 update \
     && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=5 install -y --no-install-recommends busybox-static ca-certificates tzdata
 
-WORKDIR /app
-COPY --from=backend-builder /app/yt-go-server ./
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
-COPY --from=runtime-tools /usr/local/ /usr/local/
+RUN groupadd --system --gid 10001 ytgo \
+    && useradd --system --uid 10001 --gid ytgo --home-dir /home/ytgo --create-home --shell /usr/sbin/nologin ytgo \
+    && install -d -o ytgo -g ytgo -m 0750 /app /data/config /data/downloads
 
-RUN mkdir -p /data/config /data/downloads
+WORKDIR /app
+COPY --chown=ytgo:ytgo --from=backend-builder /app/yt-go-server ./
+COPY --chown=ytgo:ytgo --from=frontend-builder /app/frontend/dist ./frontend/dist
+COPY --from=runtime-tools /usr/local/ /usr/local/
 
 EXPOSE 8080
 
 ENV YTGO_WEB_ADDR=:8080 \
     YTGO_DOWNLOAD_DIR=/data/downloads \
+    YTGO_WEB_DOWNLOAD_ROOT=/data/downloads \
     YTGO_YTDLP_PATH=/usr/local/bin/yt-dlp \
     XDG_CONFIG_HOME=/data/config \
     XDG_CACHE_HOME=/data/config/cache \
     DENO_DIR=/data/config/deno \
-    LD_LIBRARY_PATH=/usr/local/lib/ffmpeg
+    LD_LIBRARY_PATH=/usr/local/lib/ffmpeg \
+    HOME=/home/ytgo
 
 VOLUME ["/data/config", "/data/downloads"]
+
+USER 10001:10001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
