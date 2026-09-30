@@ -91,50 +91,46 @@ jobs:
           -tags webkit2_41 \
           -o YT-GO
 
-      - name: Locate Linux package directory
+      - name: Create deb package structure
         shell: bash
         run: |
-          build_dir=$(find build/linux -mindepth 1 -maxdepth 1 -type d -name 'YT-GO_*_amd64' -print -quit)
-          test -n "$build_dir"
-          echo "YTGO_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
-
-      - name: Setup control template
-        shell: bash
-        run: |
-          build_dir="$YTGO_BUILD_DIR"
-          content=$(cat "$build_dir/DEBIAN/control")
-          name=$(jq -r '.name' wails.json | tr -d ' ' | tr '[:upper:]' '[:lower:]')
-          content=$(echo "$content" | sed -e "s/{{.Name}}/$name/g")
-          content=$(echo "$content" | sed -e "s/{{.Info.ProductVersion}}/$(jq -r '.info.productVersion' wails.json)/g")
-          content=$(echo "$content" | sed -e "s/{{.Author.Name}}/$(jq -r '.author.name' wails.json)/g")
-          content=$(echo "$content" | sed -e "s/{{.Author.Email}}/$(jq -r '.author.email' wails.json)/g")
-          content=$(echo "$content" | sed -e "s/{{.Info.Comments}}/$(jq -r '.info.comments' wails.json)/g")
-          content=$(echo "$content" | sed -e "s/{{.libwebkit2gtk.PackageName}}/libwebkit2gtk-4.1-0/g")
-          echo $content
-          echo "$content" > "$build_dir/DEBIAN/control"
-
-      - name: Setup app template
-        shell: bash
-        run: |
-          build_dir="$YTGO_BUILD_DIR"
-          content=$(cat "$build_dir/usr/share/applications/YT-GO.desktop")
-          content=$(echo "$content" | sed -e "s/{{.Info.ProductName}}/$(jq -r '.info.productName' wails.json)/g")
-          content=$(echo "$content" | sed -e "s/{{.Info.Comments}}/$(jq -r '.info.comments' wails.json)/g")
-          echo $content
-          echo "$content" > "$build_dir/usr/share/applications/YT-GO.desktop"
+          build_dir="build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
+          mkdir -p "$build_dir/DEBIAN" "$build_dir/usr/local/bin"
+          mkdir -p "$build_dir/usr/share/applications"
+          mkdir -p "$build_dir/usr/share/icons/hicolor/512x512/apps"
+          cat > "$build_dir/DEBIAN/control" << EOF
+          Package: YT-GO
+          Version: ${{ steps.normalise_version.outputs.version }}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: igeekfan <igeekfan@foxmail.com>
+          Depends: libwebkit2gtk-4.1-0
+          Description: YTGO - Youtube Downloader
+           A cross-platform YouTube downloader powered by yt-dlp.
+          EOF
+          cp build/bin/YT-GO "$build_dir/usr/local/bin/"
+          cp build/appicon.png "$build_dir/usr/share/icons/hicolor/512x512/apps/YT-GO.png"
+          cat > "$build_dir/usr/share/applications/YT-GO.desktop" << EOF
+          [Desktop Entry]
+          Name=YT-GO
+          Comment=Youtube Downloader
+          Exec=/usr/local/bin/YT-GO
+          Icon=YT-GO
+          Terminal=false
+          Type=Application
+          Categories=Utility;
+          EOF
 
       - name: Package up deb file
         shell: bash
         run: |
-          build_dir="$YTGO_BUILD_DIR"
-          mv build/bin/YT-GO "$build_dir/usr/local/bin/"
           cd build/linux
-          package_dir=$(basename "$YTGO_BUILD_DIR")
-          dpkg-deb --build -Zxz "$package_dir"
+          dpkg-deb --build -Zxz "YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
 
       - name: Rename deb
         working-directory: ./build/linux
-        run: mv "$(basename "$YTGO_BUILD_DIR").deb" "YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}_webkit2_41.deb"
+        run: mv "YT-GO_${{ steps.normalise_version.outputs.version }}_amd64.deb" "YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}_webkit2_41.deb"
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v1
