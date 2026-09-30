@@ -66,7 +66,7 @@ brew install yt-dlp
 |----------|-----------|----------|
 | Windows | `YT-GO_Setup_{version}_windows_x64.exe` | `YT-GO_Portable_{version}_windows_x64.zip` |
 | macOS | `YT-GO_{version}_mac_arm64.dmg` / `YT-GO_{version}_mac_intel.dmg` | - |
-| Linux | `YT-GO_{version}_linux_amd64.deb` | `YT-GO_{version}_linux_amd64.AppImage` |
+| Linux | `YT-GO_{version}_linux_amd64.deb` | `YT-GO_{version}_x86_64.AppImage` |
 
 Get the latest release from [Releases](https://github.com/igeekfan/YT-GO/releases).
 

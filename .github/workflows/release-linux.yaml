@@ -152,6 +152,11 @@ jobs:
           cp -r $build_dir/usr/share/icons/hicolor/512x512/apps/YT-GO.png AppDir/usr/share/icons/hicolor/512x512/apps/
           cp $build_dir/usr/local/bin/YT-GO AppDir/usr/bin/
 
+          # AppImage desktop files must refer to the bundled executable by name.
+          # The Debian desktop file uses the system install path instead.
+          sed -i 's#^Exec=/usr/local/bin/YT-GO$#Exec=YT-GO#' \
+            $build_dir/usr/share/applications/YT-GO.desktop
+
           curl -o linuxdeploy-plugin-gtk.sh "https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
           chmod +x linuxdeploy-plugin-gtk.sh
 
@@ -169,7 +174,7 @@ jobs:
           mv build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64.deb \
              build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.deb
           mv YTGO-${{ steps.normalise_platform_arch.outputs.arch }}.AppImage \
-             YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.AppImage
+             YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform_arch.outputs.arch }}.AppImage
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
@@ -177,5 +182,5 @@ jobs:
           tag_name: v${{ steps.normalise_version.outputs.version }}
           files: |
             ./build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.deb
-            YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.AppImage
+            YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform_arch.outputs.arch }}.AppImage
           token: ${{ secrets.GITHUB_TOKEN }}
