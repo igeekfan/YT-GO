@@ -91,10 +91,17 @@ jobs:
           -tags webkit2_41 \
           -o YT-GO
 
+      - name: Locate Linux package directory
+        shell: bash
+        run: |
+          build_dir=$(find build/linux -mindepth 1 -maxdepth 1 -type d -name 'YT-GO_*_amd64' -print -quit)
+          test -n "$build_dir"
+          echo "YTGO_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
+
       - name: Setup control template
         shell: bash
         run: |
-          build_dir="build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
+          build_dir="$YTGO_BUILD_DIR"
           content=$(cat "$build_dir/DEBIAN/control")
           name=$(jq -r '.name' wails.json | tr -d ' ' | tr '[:upper:]' '[:lower:]')
           content=$(echo "$content" | sed -e "s/{{.Name}}/$name/g")
@@ -109,7 +116,7 @@ jobs:
       - name: Setup app template
         shell: bash
         run: |
-          build_dir="build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
+          build_dir="$YTGO_BUILD_DIR"
           content=$(cat "$build_dir/usr/share/applications/YT-GO.desktop")
           content=$(echo "$content" | sed -e "s/{{.Info.ProductName}}/$(jq -r '.info.productName' wails.json)/g")
           content=$(echo "$content" | sed -e "s/{{.Info.Comments}}/$(jq -r '.info.comments' wails.json)/g")
@@ -119,14 +126,15 @@ jobs:
       - name: Package up deb file
         shell: bash
         run: |
-          build_dir="build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
+          build_dir="$YTGO_BUILD_DIR"
           mv build/bin/YT-GO "$build_dir/usr/local/bin/"
           cd build/linux
-          dpkg-deb --build -Zxz "YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
+          package_dir=$(basename "$YTGO_BUILD_DIR")
+          dpkg-deb --build -Zxz "$package_dir"
 
       - name: Rename deb
         working-directory: ./build/linux
-        run: mv "YT-GO_${{ steps.normalise_version.outputs.version }}_amd64.deb" "YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}_webkit2_41.deb"
+        run: mv "$(basename "$YTGO_BUILD_DIR").deb" "YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}_webkit2_41.deb"
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v1
