@@ -94,7 +94,8 @@ jobs:
       - name: Setup control template
         shell: bash
         run: |
-          content=$(cat build/linux/YT-GO_0.0.0_amd64/DEBIAN/control)
+          build_dir="build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
+          content=$(cat "$build_dir/DEBIAN/control")
           name=$(jq -r '.name' wails.json | tr -d ' ' | tr '[:upper:]' '[:lower:]')
           content=$(echo "$content" | sed -e "s/{{.Name}}/$name/g")
           content=$(echo "$content" | sed -e "s/{{.Info.ProductVersion}}/$(jq -r '.info.productVersion' wails.json)/g")
@@ -103,24 +104,24 @@ jobs:
           content=$(echo "$content" | sed -e "s/{{.Info.Comments}}/$(jq -r '.info.comments' wails.json)/g")
           content=$(echo "$content" | sed -e "s/{{.libwebkit2gtk.PackageName}}/libwebkit2gtk-4.1-0/g")
           echo $content
-          echo "$content" > build/linux/YT-GO_0.0.0_amd64/DEBIAN/control
+          echo "$content" > "$build_dir/DEBIAN/control"
 
       - name: Setup app template
         shell: bash
         run: |
-          content=$(cat build/linux/YT-GO_0.0.0_amd64/usr/share/applications/YT-GO.desktop)
+          build_dir="build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
+          content=$(cat "$build_dir/usr/share/applications/YT-GO.desktop")
           content=$(echo "$content" | sed -e "s/{{.Info.ProductName}}/$(jq -r '.info.productName' wails.json)/g")
           content=$(echo "$content" | sed -e "s/{{.Info.Comments}}/$(jq -r '.info.comments' wails.json)/g")
           echo $content
-          echo "$content" > build/linux/YT-GO_0.0.0_amd64/usr/share/applications/YT-GO.desktop
+          echo "$content" > "$build_dir/usr/share/applications/YT-GO.desktop"
 
       - name: Package up deb file
         shell: bash
         run: |
-          mv build/bin/YT-GO build/linux/YT-GO_0.0.0_amd64/usr/local/bin/
+          build_dir="build/linux/YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
+          mv build/bin/YT-GO "$build_dir/usr/local/bin/"
           cd build/linux
-          mv YT-GO_0.0.0_amd64 "YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
-          sed -i 's/0.0.0/${{ steps.normalise_version.outputs.version }}/g' "YT-GO_${{ steps.normalise_version.outputs.version }}_amd64/DEBIAN/control"
           dpkg-deb --build -Zxz "YT-GO_${{ steps.normalise_version.outputs.version }}_amd64"
 
       - name: Rename deb
