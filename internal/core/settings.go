@@ -12,7 +12,7 @@ func (s *Service) GetSettings() Settings {
 	defaults := Settings{
 		OutputDir:         s.GetDefaultDownloadDir(),
 		Quality:           "best",
-		Language:          "zh-CN",
+		Language:          string(defaultLang()),
 		Theme:             "dark",
 		Proxy:             "",
 		RateLimit:         "",

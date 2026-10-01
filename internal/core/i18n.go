@@ -1,6 +1,10 @@
 package core
 
-import "sync"
+import (
+	"os"
+	"strings"
+	"sync"
+)
 
 type Lang string
 
@@ -8,6 +12,34 @@ const (
 	LangZhCN Lang = "zh-CN"
 	LangEnUS Lang = "en-US"
 )
+
+var localeEnvKeys = []string{"LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"}
+
+// defaultLang selects Chinese for Chinese locales and English for all other
+// locales. An explicit language saved in settings still takes precedence.
+func defaultLang() Lang {
+	return langFromEnvironment(os.Getenv)
+}
+
+func langFromEnvironment(getenv func(string) string) Lang {
+	for _, key := range localeEnvKeys {
+		if locale := getenv(key); locale != "" {
+			return langFromLocale(locale)
+		}
+	}
+	return LangEnUS
+}
+
+func langFromLocale(locale string) Lang {
+	locale = strings.ToLower(strings.TrimSpace(locale))
+	if separator := strings.IndexAny(locale, ":;"); separator >= 0 {
+		locale = locale[:separator]
+	}
+	if strings.HasPrefix(locale, "zh") || strings.Contains(locale, "chinese") {
+		return LangZhCN
+	}
+	return LangEnUS
+}
 
 // translations holds all backend user-facing strings keyed by language.
 var translations = map[Lang]map[string]string{
@@ -137,9 +169,9 @@ type I18n struct {
 	lang Lang
 }
 
-// NewI18n creates an I18n instance with the default language (zh-CN).
+// NewI18n creates an I18n instance with the system locale's default language.
 func NewI18n() *I18n {
-	return &I18n{lang: LangZhCN}
+	return &I18n{lang: defaultLang()}
 }
 
 // SetLang switches the active language.

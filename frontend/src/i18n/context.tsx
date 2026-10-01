@@ -12,10 +12,20 @@ const translations: Record<Lang, Record<string, string>> = {
 
 const STORAGE_KEY_LANG = 'YT-GOto-lang'
 
+function detectSystemLang(): Lang {
+    if (typeof navigator === 'undefined') return 'en-US'
+
+    const locale = [navigator.language, ...(navigator.languages || [])]
+        .find(value => value.trim().length > 0)
+        ?.toLowerCase()
+
+    return locale?.startsWith('zh') ? 'zh-CN' : 'en-US'
+}
+
 function loadLang(): Lang {
     const stored = localStorage.getItem(STORAGE_KEY_LANG)
     if (stored === 'en-US' || stored === 'zh-CN') return stored
-    return 'zh-CN'
+    return detectSystemLang()
 }
 
 interface I18nContextValue {
@@ -26,7 +36,7 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue>({
     t: (key) => key,
-    lang: 'zh-CN',
+    lang: 'en-US',
     setLang: () => {},
 })
 
