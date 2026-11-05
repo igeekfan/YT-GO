@@ -143,5 +143,6 @@ func (a *App) CheckForUpdate() (UpdateInfo, error) {
 	info, err := a.service.CheckForUpdate()
 	return fromCoreUpdateInfo(info), err
 }
-func (a *App) GetDepStatus() DepStatus       { return fromCoreDepStatus(a.service.GetDepStatus()) }
-func (a *App) InstallYtDlp() (string, error) { return a.service.InstallYtDlp() }
+func (a *App) DownloadAndInstallUpdate() error { return a.downloadAndInstallUpdate() }
+func (a *App) GetDepStatus() DepStatus         { return fromCoreDepStatus(a.service.GetDepStatus()) }
+func (a *App) InstallYtDlp() (string, error)   { return a.service.InstallYtDlp() }

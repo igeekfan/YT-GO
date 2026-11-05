@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useState} from 'react'
-import {CheckForUpdate, OpenReleasePage} from '../lib/backend'
+import {CheckForUpdate, DownloadAndInstallUpdate, OpenReleasePage} from '../lib/backend'
 import {AuthStatus} from '../lib/auth'
 import {useI18n} from '../i18n/context'
 
@@ -11,6 +11,7 @@ interface UpdateInfo {
     releaseBody: string
     htmlUrl: string
     publishedAt: string
+    canInstall?: boolean
 }
 
 export function useUpdateDialog(authStatus: AuthStatus) {
@@ -18,6 +19,7 @@ export function useUpdateDialog(authStatus: AuthStatus) {
     const [open, setOpen] = useState(false)
     const [info, setInfo] = useState<UpdateInfo | null>(null)
     const [loading, setLoading] = useState(false)
+    const [installing, setInstalling] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     const check = useCallback(async () => {
@@ -38,6 +40,24 @@ export function useUpdateDialog(authStatus: AuthStatus) {
         catch (openError) { console.error('Failed to open release page:', openError) }
     }, [])
 
+    const downloadUpdate = useCallback(async () => {
+        if (info?.canInstall === false) {
+            await openReleasePage()
+            setOpen(false)
+            return
+        }
+        setInstalling(true)
+        setError(null)
+        try {
+            await DownloadAndInstallUpdate()
+            setOpen(false)
+        } catch (downloadError: any) {
+            setError(downloadError?.message || t('update.installError'))
+        } finally {
+            setInstalling(false)
+        }
+    }, [info, openReleasePage, t])
+
     useEffect(() => {
         if (authStatus !== 'ready') return
         const timer = setTimeout(() => { void check() }, 3000)
@@ -46,5 +66,5 @@ export function useUpdateDialog(authStatus: AuthStatus) {
 
     const close = useCallback(() => setOpen(false), [])
 
-    return {open, info, loading, error, check, openReleasePage, close}
+    return {open, info, loading, installing, error, check, openReleasePage, downloadUpdate, close}
 }

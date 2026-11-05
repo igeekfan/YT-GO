@@ -303,6 +303,19 @@ export function OpenReleasePage() {
     )
 }
 
+export function DownloadAndInstallUpdate() {
+    if (backendMode === 'desktop') {
+        const fn = (window as any)?.go?.desktop?.App?.DownloadAndInstallUpdate
+        if (typeof fn !== 'function') {
+            throw new Error('DownloadAndInstallUpdate is not available')
+        }
+        return fn() as Promise<void>
+    }
+    // A web server cannot replace its own running process. Open the release
+    // page so the user can download the package and restart the service.
+    return OpenReleasePage()
+}
+
 export function GetDiagnosticInfo() {
     return getDesktop(() => DesktopApp.GetDiagnosticInfo(), () => apiFetch('/api/diagnostics'))
 }

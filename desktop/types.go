@@ -152,6 +152,11 @@ type UpdateInfo struct {
 	ReleaseBody    string `json:"releaseBody"`
 	HTMLURL        string `json:"htmlUrl"`
 	PublishedAt    string `json:"publishedAt"`
+	AssetName      string `json:"assetName"`
+	AssetURL       string `json:"assetUrl"`
+	AssetSize      int64  `json:"assetSize"`
+	AssetDigest    string `json:"assetDigest"`
+	CanInstall     bool   `json:"canInstall"`
 }
 
 type DepItem struct {

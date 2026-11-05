@@ -5,14 +5,15 @@ import {RefreshCw, Download, AlertTriangle, X} from 'lucide-react'
 interface UpdateInfo {
     hasUpdate: boolean; currentVersion: string; latestVersion: string
     releaseName: string; releaseBody: string; htmlUrl: string; publishedAt: string
+    canInstall?: boolean
 }
 
 interface UpdateDialogProps {
-    open: boolean; updateInfo: UpdateInfo | null; loading?: boolean; error?: string | null
-    onClose: () => void; onOpenReleasePage: () => void; onCheckUpdate: () => void
+    open: boolean; updateInfo: UpdateInfo | null; loading?: boolean; installing?: boolean; error?: string | null
+    onClose: () => void; onOpenReleasePage: () => void; onDownloadUpdate: () => void; onCheckUpdate: () => void
 }
 
-function UpdateDialog({open, updateInfo, loading, error, onClose, onOpenReleasePage, onCheckUpdate}: UpdateDialogProps) {
+function UpdateDialog({open, updateInfo, loading, installing, error, onClose, onOpenReleasePage, onDownloadUpdate, onCheckUpdate}: UpdateDialogProps) {
     const {t} = useI18n()
 
     if (!open) return null
@@ -48,8 +49,21 @@ function UpdateDialog({open, updateInfo, loading, error, onClose, onOpenReleaseP
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onClose}>{t('update.later')}</Button>
-                    <Button size="sm" className="h-7 text-xs" onClick={() => { onOpenReleasePage(); onClose() }}>
-                        <Download className="h-3 w-3 mr-1" />{t('update.download')}
+                    <Button
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={installing}
+                        onClick={() => {
+                            if (updateInfo.canInstall === false) {
+                                onOpenReleasePage()
+                                onClose()
+                            } else {
+                                onDownloadUpdate()
+                            }
+                        }}
+                    >
+                        {installing ? <RefreshCw className="h-3 w-3 mr-1 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
+                        {installing ? t('update.downloading') : t('update.download')}
                     </Button>
                 </div>
             </div>

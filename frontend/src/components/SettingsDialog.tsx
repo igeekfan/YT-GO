@@ -1,7 +1,7 @@
 import {useState, useEffect, useRef, useCallback} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
+import {GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, DownloadAndInstallUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
 import DirBrowser from './DirBrowser'
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter} from '@/components/ui/dialog'
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
@@ -58,13 +58,15 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
     const [isCheckingYtDlpVersion, setIsCheckingYtDlpVersion] = useState(false)
     const [ytdlpVersionCheck, setYtdlpVersionCheck] = useState<{currentVersion: string; latestVersion: string; isLatest: boolean} | null>(null)
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
+    const [isInstallingUpdate, setIsInstallingUpdate] = useState(false)
+    const [updateError, setUpdateError] = useState<string | null>(null)
     const [depStatus, setDepStatus] = useState<DepStatus | null>(null)
     const [loadingDeps, setLoadingDeps] = useState(false)
     const [showDirBrowser, setShowDirBrowser] = useState(false)
     const wasOpenRef = useRef(false)
     const [updateInfo, setUpdateInfo] = useState<{
         hasUpdate: boolean; currentVersion: string; latestVersion: string
-        releaseName: string; releaseBody: string; htmlUrl: string; publishedAt: string
+        releaseName: string; releaseBody: string; htmlUrl: string; publishedAt: string; canInstall?: boolean
     } | null>(null)
 
     const handleCheckYtDlpVersion = async () => {
@@ -76,13 +78,26 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
 
     const handleCheckForUpdate = async () => {
         setIsCheckingUpdate(true)
+        setUpdateError(null)
         try { const info = await CheckForUpdate(); setUpdateInfo(info) }
-        catch (e: any) { setUpdateInfo({ hasUpdate: false, currentVersion: '0.0.1', latestVersion: '0.0.0', releaseName: '', releaseBody: e?.message || 'Failed', htmlUrl: '', publishedAt: '' }) }
+        catch (e: any) { setUpdateInfo(null); setUpdateError(e?.message || t('settings.appUpdateError')) }
         finally { setIsCheckingUpdate(false) }
     }
 
     const handleOpenReleasePage = async () => {
         try { await OpenReleasePage() } catch (e) { console.error('Failed to open release page:', e) }
+    }
+
+    const handleDownloadUpdate = async () => {
+        setIsInstallingUpdate(true)
+        try {
+            await DownloadAndInstallUpdate()
+            toast.success(t('settings.appUpdateStarted'))
+        } catch (e: any) {
+            toast.error(e?.message || t('settings.appUpdateError'))
+        } finally {
+            setIsInstallingUpdate(false)
+        }
     }
 
     const handleRefreshDeps = useCallback(async () => {
@@ -97,7 +112,7 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
         wasOpenRef.current = open
         if (openedNow) {
             settingsRef.current = initialSettings
-            setSettings(initialSettings); setDiagnostic(null); setUpdateInfo(null)
+            setSettings(initialSettings); setDiagnostic(null); setUpdateInfo(null); setUpdateError(null)
             setDepStatus(null); setYtdlpVersionCheck(null)
             void GetAboutInfo().then(setAboutInfo).catch(console.error)
             void handleRefreshDeps()
@@ -562,9 +577,19 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
                                                     {isCheckingUpdate ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
                                                 </Button>
                                                 {updateInfo?.hasUpdate && (
-                                                    <Button size="sm" variant="outline" onClick={handleOpenReleasePage}>
-                                                        {t('settings.appUpdateDownload')}
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled={isInstallingUpdate}
+                                                        onClick={updateInfo.canInstall === false ? handleOpenReleasePage : handleDownloadUpdate}
+                                                    >
+                                                        {isInstallingUpdate ? t('settings.appUpdateDownloading') : t('settings.appUpdateDownload')}
                                                     </Button>
+                                                )}
+                                                {updateError && (
+                                                    <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive w-full">
+                                                        {updateError}
+                                                    </div>
                                                 )}
                                                 {updateInfo && (
                                                     <div className="rounded-md border p-3 text-xs space-y-1 w-full">

@@ -6,6 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
+
+	"YT-GO/internal/platform"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -98,4 +101,43 @@ func (a *App) OpenReleasePage() error {
 		cmd = exec.Command("xdg-open", releasePageURL)
 	}
 	return cmd.Start()
+}
+
+func (a *App) downloadAndInstallUpdate() error {
+	updatePath, err := a.service.DownloadUpdate()
+	if err != nil {
+		return err
+	}
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command(updatePath)
+	case "darwin":
+		cmd = exec.Command("open", updatePath)
+	case "linux":
+		if filepath.Ext(updatePath) == ".AppImage" {
+			if err := os.Chmod(updatePath, 0o755); err != nil {
+				return fmt.Errorf("failed to prepare downloaded update: %w", err)
+			}
+			cmd = exec.Command(updatePath)
+		} else {
+			cmd = exec.Command("xdg-open", updatePath)
+		}
+	default:
+		_ = os.Remove(updatePath)
+		return fmt.Errorf("automatic installation is not supported on %s", runtime.GOOS)
+	}
+	platform.HideCmdWindow(cmd)
+	if err := cmd.Start(); err != nil {
+		_ = os.Remove(updatePath)
+		return fmt.Errorf("failed to open downloaded update: %w", err)
+	}
+	if runtime.GOOS == "windows" && a.ctx != nil {
+		go func() {
+			time.Sleep(750 * time.Millisecond)
+			wailsRuntime.Quit(a.ctx)
+		}()
+	}
+	return nil
 }

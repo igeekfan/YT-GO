@@ -91,9 +91,11 @@ function App() {
                     open={updateDialog.open}
                     updateInfo={updateDialog.info}
                     loading={updateDialog.loading}
+                    installing={updateDialog.installing}
                     error={updateDialog.error}
                     onClose={updateDialog.close}
                     onOpenReleasePage={updateDialog.openReleasePage}
+                    onDownloadUpdate={updateDialog.downloadUpdate}
                     onCheckUpdate={updateDialog.check}
                 />
 

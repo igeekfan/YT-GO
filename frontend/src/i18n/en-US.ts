@@ -219,6 +219,9 @@ const enUS: typeof import('./zh-CN').default = {
     'settings.appUpdateAvailable': 'New version v{version} available!',
     'settings.appUpdateUpToDate': 'You are up to date',
     'settings.appUpdateDownload': 'Download Update',
+    'settings.appUpdateDownloading': 'Downloading...',
+    'settings.appUpdateStarted': 'Update downloaded, opening the installer',
+    'settings.appUpdateError': 'Failed to download update',
 
     'update.checking': 'Checking for updates...',
     'update.error': 'Failed to check for updates',
@@ -226,6 +229,8 @@ const enUS: typeof import('./zh-CN').default = {
     'update.available': 'New version v{version} available!',
     'update.later': 'Later',
     'update.download': 'Download',
+    'update.downloading': 'Downloading...',
+    'update.installError': 'Failed to download update',
 
     'downloadOpt.filenameTemplate': 'Filename (This Download Only)',
     'downloadOpt.filenameTemplateHelp': 'Uses yt-dlp template syntax; leave empty to use the global template from Settings. Common placeholders:',

@@ -219,6 +219,9 @@ const zhCN = {
     'settings.appUpdateAvailable': '发现新版本 v{version}！',
     'settings.appUpdateUpToDate': '已是最新版本',
     'settings.appUpdateDownload': '下载更新',
+    'settings.appUpdateDownloading': '下载中...',
+    'settings.appUpdateStarted': '更新包已下载，正在打开安装程序',
+    'settings.appUpdateError': '下载更新失败',
 
     'update.checking': '正在检查更新...',
     'update.error': '检查更新失败',
@@ -226,6 +229,8 @@ const zhCN = {
     'update.available': '发现新版本 v{version}！',
     'update.later': '稍后',
     'update.download': '下载更新',
+    'update.downloading': '下载中...',
+    'update.installError': '下载更新失败',
 
     'format.label': '格式',
     'format.detect': '检测格式',
