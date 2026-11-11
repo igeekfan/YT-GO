@@ -70,6 +70,23 @@ jobs:
         shell: bash
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
 
+      - name: Prepare Ubuntu package sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for source in /etc/apt/sources.list.d/*; do
+            if [[ -f "$source" && "$source" != *ubuntu* ]]; then
+              sudo mv "$source" "$source.disabled"
+            fi
+          done
+          apt_sources=(/etc/apt/sources.list /etc/apt/sources.list.d/*ubuntu*)
+          for source in "${apt_sources[@]}"; do
+            if [[ -f "$source" ]]; then
+              sudo sed -i -E 's#https?://[^[:space:]]*ubuntu.com/ubuntu#http://archive.ubuntu.com/ubuntu#g' "$source"
+            fi
+          done
+
       - name: Install Ubuntu prerequisites
         shell: bash
         run: |
