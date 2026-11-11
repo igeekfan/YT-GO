@@ -3,7 +3,6 @@ import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
 import {GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, DownloadAndInstallUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
 import DirBrowser from './DirBrowser'
-import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter} from '@/components/ui/dialog'
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
@@ -15,7 +14,7 @@ import {Separator} from '@/components/ui/separator'
 import {ScrollArea} from '@/components/ui/scroll-area'
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {toast} from 'sonner'
-import {FolderOpen, RefreshCw, Upload, ExternalLink, X, Globe, Heart, Info} from 'lucide-react'
+import {ArrowLeft, FolderOpen, RefreshCw, Upload, ExternalLink, Globe, Heart, Info} from 'lucide-react'
 
 interface DiagnosticInfo {
     ytdlpPath: string; ytdlpVersion: string; ytdlpFound: boolean
@@ -43,7 +42,7 @@ const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
 const THEME_OPTIONS = ['dark', 'light']
 const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
 
-function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, onSaved, onThemePreview, onLanguagePreview}: Props) {
+function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave, onSaved, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
     const settingsRef = useRef<Settings | null>(null)
@@ -64,6 +63,8 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
     const [loadingDeps, setLoadingDeps] = useState(false)
     const [showDirBrowser, setShowDirBrowser] = useState(false)
     const wasOpenRef = useRef(false)
+    const closeButtonRef = useRef<HTMLButtonElement>(null)
+    const hasFocusedOpenRef = useRef(false)
     const [updateInfo, setUpdateInfo] = useState<{
         hasUpdate: boolean; currentVersion: string; latestVersion: string
         releaseName: string; releaseBody: string; htmlUrl: string; publishedAt: string; canInstall?: boolean
@@ -109,15 +110,17 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
 
     useEffect(() => {
         const openedNow = open && !wasOpenRef.current
+        const closedNow = !open && wasOpenRef.current
+        if (closedNow) void onFlushSave()
         wasOpenRef.current = open
         if (openedNow) {
             settingsRef.current = initialSettings
             setSettings(initialSettings); setDiagnostic(null); setUpdateInfo(null); setUpdateError(null)
-            setDepStatus(null); setYtdlpVersionCheck(null)
-            void GetAboutInfo().then(setAboutInfo).catch(console.error)
-            void handleRefreshDeps()
+            setYtdlpVersionCheck(null)
+            if (!aboutInfo) void GetAboutInfo().then(setAboutInfo).catch(console.error)
+            if (!depStatus) void handleRefreshDeps()
         }
-    }, [open, initialSettings, handleRefreshDeps])
+    }, [open, initialSettings, handleRefreshDeps, onFlushSave, aboutInfo, depStatus])
 
     useEffect(() => {
         if (open && settingsRef.current === null && initialSettings) {
@@ -128,6 +131,38 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
 
     useEffect(() => { if (open && settings?.theme) onThemePreview(settings.theme as 'dark' | 'light') }, [open, settings?.theme, onThemePreview])
     useEffect(() => { if (open && settings?.language) onLanguagePreview(settings.language as 'zh-CN' | 'en-US') }, [open, settings?.language, onLanguagePreview])
+
+    useEffect(() => {
+        if (!open) return
+        const previousOverflow = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        return () => { document.body.style.overflow = previousOverflow }
+    }, [open])
+
+    useEffect(() => {
+        if (!open) {
+            hasFocusedOpenRef.current = false
+            return
+        }
+        if (!settings || hasFocusedOpenRef.current) return
+        hasFocusedOpenRef.current = true
+        window.requestAnimationFrame(() => closeButtonRef.current?.focus())
+    }, [open, settings])
+
+    const handleClose = useCallback(() => {
+        onClose()
+    }, [onClose])
+
+    useEffect(() => {
+        if (!open) return
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape' || event.defaultPrevented || showDirBrowser) return
+            event.preventDefault()
+            handleClose()
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [open, showDirBrowser, handleClose])
 
     const handleGetDiagnostic = async () => {
         setLoadingDiag(true)
@@ -169,7 +204,7 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
         finally { setIsResetting(false) }
     }
 
-    if (!settings) return null
+    if (!open || !settings) return null
 
     const commitSettings = (next: Settings) => {
         settingsRef.current = next
@@ -182,11 +217,6 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
         if (!current) return
         const next = {...current, [key]: value}
         commitSettings(next)
-    }
-
-    const handleClose = () => {
-        void onFlushSave()
-        onClose()
     }
 
     const renderDepCard = ({title, status, tone, rows, actions, note, guide}: {
@@ -230,14 +260,26 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
 
     return (
         <>
-        <Dialog open={open} onOpenChange={(v: boolean) => { if (!v) handleClose() }}>
-            <DialogContent className="max-w-2xl w-full h-[640px] max-h-[90vh] flex flex-col p-0 gap-0 rounded-2xl shadow-xl">
-                <DialogHeader className="px-6 py-4 border-b border-primary/10">
-                    <DialogTitle className="text-base font-bold tracking-tight">{t('settings.title')}</DialogTitle>
-                    <DialogDescription className="sr-only">{t('settings.description')}</DialogDescription>
-                </DialogHeader>
-                <Tabs defaultValue="download" className="flex-1 flex flex-col min-h-0">
-                    <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-6">
+        <section
+            className="fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-background"
+            aria-labelledby="settings-page-title"
+            aria-describedby="settings-page-description"
+        >
+            <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-primary/10 bg-background px-4 py-3 sm:px-8">
+                <div className="flex min-w-0 items-center gap-3">
+                    <Button ref={closeButtonRef} variant="ghost" size="sm" onClick={handleClose} className="shrink-0 gap-2" aria-label={t('action.close')}>
+                        <ArrowLeft className="h-4 w-4" />
+                        <span className="hidden sm:inline">{t('action.close')}</span>
+                    </Button>
+                    <div className="min-w-0">
+                        <h1 id="settings-page-title" className="truncate text-base font-bold tracking-tight">{t('settings.title')}</h1>
+                        <p id="settings-page-description" className="truncate text-xs text-muted-foreground">{t('settings.description')}</p>
+                    </div>
+                </div>
+            </header>
+
+            <Tabs defaultValue="download" className="flex min-h-0 flex-1 flex-col">
+                    <TabsList className="mx-auto flex h-auto w-full max-w-7xl justify-start overflow-x-auto rounded-none border-b bg-transparent p-0 px-4 sm:px-8">
                         {(['download', 'media', 'network', 'deps', 'appearance', 'about'] as const).map(tab => (
                             <TabsTrigger key={tab} value={tab} className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none px-3 py-2.5 text-xs">
                                 {t(`settings.tab.${tab}` as any)}
@@ -245,8 +287,9 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
                         ))}
                     </TabsList>
 
-                    <ScrollArea className="flex-1 min-h-0">
-                        <div className="p-6 space-y-4">
+                    <ScrollArea className="min-h-0 flex-1">
+                        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 lg:py-8">
+                            <div className="max-w-4xl space-y-4">
                             {/* Download Tab */}
                             <TabsContent value="download" className="mt-0 space-y-4">
                                 {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
@@ -624,17 +667,19 @@ function SettingsDialog({open, initialSettings, onClose, onSave, onFlushSave, on
                                     )}
                                 </div>
                             </TabsContent>
+                            </div>
                         </div>
                     </ScrollArea>
                 </Tabs>
-                <DialogFooter className="px-6 py-3 border-t">
+            <footer className="shrink-0 border-t bg-background/95 px-4 py-3 sm:px-8">
+                <div className="mx-auto flex w-full max-w-7xl justify-end">
                     <Button variant="outline" onClick={handleClose}>{t('action.close')}</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </div>
+            </footer>
+        </section>
         <DirBrowser open={showDirBrowser} initialPath={settings?.outputDir || ''} onSelect={dir => update('outputDir', dir)} onClose={() => setShowDirBrowser(false)} />
         </>
     )
 }
 
-export default SettingsDialog
+export default SettingsWorkspace

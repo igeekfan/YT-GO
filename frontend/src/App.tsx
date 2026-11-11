@@ -1,4 +1,4 @@
-import {useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {useAuthStatus} from './hooks/useAuthStatus'
 import {useSettingsController} from './hooks/useSettingsController'
 import {useAppBootstrap} from './hooks/useAppBootstrap'
@@ -10,7 +10,7 @@ import AppHeader from './components/app/AppHeader'
 import ConsolePanel from './components/app/ConsolePanel'
 import DownloadWorkspace from './components/download/DownloadWorkspace'
 import DownloadList from './components/DownloadList'
-import SettingsDialog from './components/SettingsDialog'
+import SettingsWorkspace from './components/SettingsWorkspace'
 import SetupWizard from './components/SetupWizard'
 import UpdateDialog from './components/UpdateDialog'
 import DirBrowser from './components/DirBrowser'
@@ -28,6 +28,45 @@ function App() {
         downloadOptions: settings.downloadOptions,
     })
     const [showSettings, setShowSettings] = useState(false)
+    const homeScrollYRef = useRef(0)
+
+    const openSettings = useCallback(() => {
+        if (showSettings) return
+
+        homeScrollYRef.current = window.scrollY
+        if (window.history.state?.ytGoSettings !== true) {
+            window.history.pushState(
+                {...(window.history.state ?? {}), ytGoSettings: true},
+                '',
+                window.location.href,
+            )
+        }
+        setShowSettings(true)
+    }, [showSettings])
+
+    const closeSettings = useCallback(() => {
+        if (!showSettings) return
+        if (window.history.state?.ytGoSettings === true) {
+            window.history.back()
+            return
+        }
+        setShowSettings(false)
+    }, [showSettings])
+
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            const settingsOpen = event.state?.ytGoSettings === true
+            setShowSettings(settingsOpen)
+            if (!settingsOpen) {
+                window.requestAnimationFrame(() => {
+                    window.scrollTo({top: homeScrollYRef.current, left: 0, behavior: 'auto'})
+                })
+            }
+        }
+
+        window.addEventListener('popstate', handlePopState)
+        return () => window.removeEventListener('popstate', handlePopState)
+    }, [])
     const [showDirBrowser, setShowDirBrowser] = useState(false)
 
     return (
@@ -41,7 +80,7 @@ function App() {
                     onUpdateYtDlp={bootstrap.updateYtDlp}
                     onToggleLanguage={settings.handleQuickLanguageToggle}
                     onToggleTheme={settings.handleQuickThemeToggle}
-                    onOpenSettings={() => setShowSettings(true)}
+                    onOpenSettings={openSettings}
                 />
 
                 <main className="mx-auto max-w-3xl px-4 py-5 flex flex-col gap-4">
@@ -53,7 +92,7 @@ function App() {
                         onInstallYtDlp={bootstrap.installYtDlp}
                         onRecheckYtDlp={bootstrap.recheckYtDlp}
                         onBrowseDirectory={() => setShowDirBrowser(true)}
-                        onOpenSettings={() => setShowSettings(true)}
+                        onOpenSettings={openSettings}
                     />
 
                     <div className="space-y-3 animate-fade-in-up delay-3">
@@ -67,10 +106,10 @@ function App() {
                     </div>
                 </main>
 
-                <SettingsDialog
+                <SettingsWorkspace
                     open={showSettings}
                     initialSettings={settings.currentSettings}
-                    onClose={() => setShowSettings(false)}
+                    onClose={closeSettings}
                     onSave={settings.stageSettingsSave}
                     onFlushSave={settings.flushSettings}
                     onSaved={settings.handleSettingsSaved}
