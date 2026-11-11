@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lrstanley/go-ytdlp"
 	"YT-GO/internal/platform"
+	"github.com/lrstanley/go-ytdlp"
 )
 
 func (s *Service) GetDiagnosticInfo() DiagnosticInfo {

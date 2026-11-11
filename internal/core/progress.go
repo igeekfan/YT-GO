@@ -19,13 +19,13 @@ import (
 // The `~?\s*` allows the optional approximate-size marker before the size token.
 var (
 	structuredProgressPrefix = "progress:"
-	ansiEscapeRe   = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
-	progressRe     = regexp.MustCompile(`\[download\]\s+([\d.]+)%\s+of\s+~?\s*(\S+)\s+at\s+(\S+)(?:\s+ETA\s+(\S+))?`)
-	progressDoneRe = regexp.MustCompile(`\[download\]\s+([\d.]+)%\s+of\s+~?\s*(\S+)\s+in\s+\S+\s+at\s+(\S+)`)
-	destRe1        = regexp.MustCompile(`^\[download\] Destination: (.+)$`)
-	destRe2        = regexp.MustCompile(`Merging formats into "(.+)"`)
-	destRe3        = regexp.MustCompile(`^\[ExtractAudio\] Destination: (.+)$`)
-	finalPathRe    = regexp.MustCompile(`^\[YT-GO-OUTPUT\](.+)$`)
+	ansiEscapeRe             = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+	progressRe               = regexp.MustCompile(`\[download\]\s+([\d.]+)%\s+of\s+~?\s*(\S+)\s+at\s+(\S+)(?:\s+ETA\s+(\S+))?`)
+	progressDoneRe           = regexp.MustCompile(`\[download\]\s+([\d.]+)%\s+of\s+~?\s*(\S+)\s+in\s+\S+\s+at\s+(\S+)`)
+	destRe1                  = regexp.MustCompile(`^\[download\] Destination: (.+)$`)
+	destRe2                  = regexp.MustCompile(`Merging formats into "(.+)"`)
+	destRe3                  = regexp.MustCompile(`^\[ExtractAudio\] Destination: (.+)$`)
+	finalPathRe              = regexp.MustCompile(`^\[YT-GO-OUTPUT\](.+)$`)
 )
 
 type structuredProgressUpdate struct {
