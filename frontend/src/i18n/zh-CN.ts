@@ -227,8 +227,11 @@ const zhCN = {
     'update.error': '检查更新失败',
     'update.retry': '重试',
     'update.available': '发现新版本 v{version}！',
+    'update.currentVersion': '当前版本',
+    'update.latestVersion': '可用版本',
     'update.later': '稍后',
     'update.download': '下载更新',
+    'update.openRelease': '打开发布页',
     'update.downloading': '下载中...',
     'update.installError': '下载更新失败',
 

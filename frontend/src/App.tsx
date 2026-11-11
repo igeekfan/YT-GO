@@ -45,6 +45,18 @@ function App() {
                 />
 
                 <main className="mx-auto max-w-3xl px-4 py-5 flex flex-col gap-4">
+                    <UpdateDialog
+                        open={updateDialog.open}
+                        updateInfo={updateDialog.info}
+                        loading={updateDialog.loading}
+                        installing={updateDialog.installing}
+                        error={updateDialog.error}
+                        onClose={updateDialog.close}
+                        onOpenReleasePage={updateDialog.openReleasePage}
+                        onDownloadUpdate={updateDialog.downloadUpdate}
+                        onCheckUpdate={updateDialog.check}
+                    />
+
                     <DownloadWorkspace
                         ytdlp={bootstrap.ytdlp}
                         installingYtDlp={bootstrap.isInstallingYtDlp}
@@ -86,18 +98,6 @@ function App() {
                         }}
                     />
                 )}
-
-                <UpdateDialog
-                    open={updateDialog.open}
-                    updateInfo={updateDialog.info}
-                    loading={updateDialog.loading}
-                    installing={updateDialog.installing}
-                    error={updateDialog.error}
-                    onClose={updateDialog.close}
-                    onOpenReleasePage={updateDialog.openReleasePage}
-                    onDownloadUpdate={updateDialog.downloadUpdate}
-                    onCheckUpdate={updateDialog.check}
-                />
 
                 <DirBrowser
                     open={showDirBrowser}
