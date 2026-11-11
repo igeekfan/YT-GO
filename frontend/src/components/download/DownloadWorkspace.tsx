@@ -52,7 +52,7 @@ export default function DownloadWorkspace({
                             onKeyDown={event => { if (event.key === 'Enter') void media.getInfo() }}
                             placeholder={t('url.placeholder')}
                             disabled={media.isGettingInfo}
-                            className="pr-8 h-10 text-sm bg-card/60 backdrop-blur-sm border-glow focus-visible:ring-primary/30 transition-all duration-200"
+                            className="h-10 bg-card/60 pr-8 text-sm backdrop-blur-sm"
                         />
                         {media.url && (
                             <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground" onClick={media.clearCurrentInput} aria-label={t('action.clear')}>

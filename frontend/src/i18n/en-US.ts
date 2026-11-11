@@ -227,8 +227,11 @@ const enUS: typeof import('./zh-CN').default = {
     'update.error': 'Failed to check for updates',
     'update.retry': 'Retry',
     'update.available': 'New version v{version} available!',
+    'update.currentVersion': 'Current version',
+    'update.latestVersion': 'Available version',
     'update.later': 'Later',
     'update.download': 'Download',
+    'update.openRelease': 'Open release page',
     'update.downloading': 'Downloading...',
     'update.installError': 'Failed to download update',
 
