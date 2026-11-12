@@ -9,7 +9,7 @@ on:
       tag:
         description: 'Version tag'
         required: true
-        default: '1.0.0'
+        default: '0.0.16'
 
 permissions:
   contents: write
@@ -56,7 +56,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.27'
 
       - name: Install chocolatey
         uses: crazy-max/ghaction-chocolatey@v3
@@ -65,7 +65,7 @@ jobs:
 
       - name: Install wails
         shell: bash
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
 
       - name: Setup Node
         uses: actions/setup-node@v4
