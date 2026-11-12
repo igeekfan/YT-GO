@@ -437,6 +437,11 @@ export namespace desktop {
 	    releaseBody: string;
 	    htmlUrl: string;
 	    publishedAt: string;
+	    assetName: string;
+	    assetUrl: string;
+	    assetSize: number;
+	    assetDigest: string;
+	    canInstall: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateInfo(source);
@@ -451,6 +456,11 @@ export namespace desktop {
 	        this.releaseBody = source["releaseBody"];
 	        this.htmlUrl = source["htmlUrl"];
 	        this.publishedAt = source["publishedAt"];
+	        this.assetName = source["assetName"];
+	        this.assetUrl = source["assetUrl"];
+	        this.assetSize = source["assetSize"];
+	        this.assetDigest = source["assetDigest"];
+	        this.canInstall = source["canInstall"];
 	    }
 	}
 	

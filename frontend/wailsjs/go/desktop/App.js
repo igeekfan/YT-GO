@@ -22,6 +22,10 @@ export function ClearCompleted() {
   return window['go']['desktop']['App']['ClearCompleted']();
 }
 
+export function DownloadAndInstallUpdate() {
+  return window['go']['desktop']['App']['DownloadAndInstallUpdate']();
+}
+
 export function GetAboutInfo() {
   return window['go']['desktop']['App']['GetAboutInfo']();
 }

@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the existing dual-mode design: desktop uses Wails bindings, web uses HTTP plus SSE, and both share `internal/core`. The first rounds repair correctness and security regressions. Later rounds split shallow modules only where the split improves locality, leverage, and testability.
 
-**Tech Stack:** Go 1.25, Wails v2, React, TypeScript, Vite, SQLite via GORM, `github.com/lrstanley/go-ytdlp`.
+**Tech Stack:** Go 1.27, Wails v2.17.1, React, TypeScript, Vite, SQLite via GORM, `github.com/lrstanley/go-ytdlp` v1.5.6.
 
 ---
 

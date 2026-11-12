@@ -39,7 +39,7 @@ Both modes share the same core business logic in `internal/core/`.
 ├── main.go              # Desktop mode entry point (Wails app)
 ├── main_web.go          # Web mode entry point (HTTP server, build tag: web)
 ├── version.go           # App version
-├── go.mod / go.sum      # Go module (Go 1.25, Wails v2.12.0)
+├── go.mod / go.sum      # Go module (Go 1.27, Wails v2.17.1)
 ├── wails.json           # Wails project config
 ├── Dockerfile           # Docker build for web mode
 ├── desktop/
@@ -174,7 +174,7 @@ When `YTGO_YTDLP_PATH` is set:
 
 ## Key Libraries
 
-### go-ytdlp (v1.3.5)
+### go-ytdlp (v1.5.6)
 Used for all yt-dlp operations. Key patterns:
 - **Builder pattern**: `ytdlp.New().Format("best").Output("/path").BuildCommand(ctx, url)`
 - **Install/resolve**: `ytdlp.Install(ctx, &ytdlp.InstallOptions{DisableDownload: true})` for PATH resolution

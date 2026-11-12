@@ -12,6 +12,8 @@ export function CheckYtDlpVersion():Promise<desktop.YtDlpVersionCheck>;
 
 export function ClearCompleted():Promise<void>;
 
+export function DownloadAndInstallUpdate():Promise<void>;
+
 export function GetAboutInfo():Promise<desktop.AboutInfo>;
 
 export function GetCurrentVersion():Promise<string>;
