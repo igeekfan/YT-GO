@@ -11,9 +11,9 @@ export default function MediaSummary({media}: {media: MediaDownloadController}) 
     return (
         <div className="space-y-2.5 animate-fade-in-up delay-1">
             {videoInfo && (
-                <div className="flex gap-3.5 rounded-xl border bg-card/70 backdrop-blur-sm p-3.5 shadow-sm">
+                <div className="flex gap-3.5 rounded-xl border bg-card/70 backdrop-blur-xs p-3.5 shadow-xs">
                     {videoInfo.thumbnail && (
-                        <img src={videoInfo.thumbnail} alt={videoInfo.title} className="w-36 h-[81px] object-cover rounded-lg shrink-0 shadow-sm" onError={event => { (event.target as HTMLImageElement).style.display = 'none' }} />
+                        <img src={videoInfo.thumbnail} alt={videoInfo.title} className="w-36 h-[81px] object-cover rounded-lg shrink-0 shadow-xs" onError={event => { (event.target as HTMLImageElement).style.display = 'none' }} />
                     )}
                     <div className="flex-1 min-w-0 space-y-1">
                         <div className="font-semibold text-sm line-clamp-2 leading-snug">{videoInfo.title}</div>
@@ -28,7 +28,7 @@ export default function MediaSummary({media}: {media: MediaDownloadController}) 
 
             {playlistInfo && (
                 <>
-                    <div className="flex gap-3.5 rounded-xl border bg-card/70 backdrop-blur-sm p-3.5 shadow-sm">
+                    <div className="flex gap-3.5 rounded-xl border bg-card/70 backdrop-blur-xs p-3.5 shadow-xs">
                         <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 text-primary shrink-0">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                         </div>
@@ -43,7 +43,7 @@ export default function MediaSummary({media}: {media: MediaDownloadController}) 
                             </div>
                         </div>
                     </div>
-                    <div className="rounded-xl border overflow-hidden shadow-sm">
+                    <div className="rounded-xl border overflow-hidden shadow-xs">
                         <div className="flex gap-1.5 px-2.5 py-1.5 border-b bg-muted/40">
                             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedPlaylistItems(new Set(playlistInfo.videos.map((_, index) => index)))}>
                                 {t('collection.selectAll')}

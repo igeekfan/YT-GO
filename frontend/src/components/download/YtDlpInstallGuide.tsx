@@ -11,7 +11,7 @@ interface Props {
 export default function YtDlpInstallGuide({installing, onInstall, onRecheck}: Props) {
     const {t} = useI18n()
     return (
-        <div className="rounded-xl border bg-card/70 backdrop-blur-sm p-5 text-center space-y-3 shadow-sm animate-fade-in-up">
+        <div className="rounded-xl border bg-card/70 backdrop-blur-xs p-5 text-center space-y-3 shadow-xs animate-fade-in-up">
             <div className="text-4xl leading-none">⚠️</div>
             <h3 className="text-base font-semibold">{t('ytdlp.notFound')}</h3>
             <p className="text-xs text-muted-foreground">{t('ytdlp.installGuide')}</p>

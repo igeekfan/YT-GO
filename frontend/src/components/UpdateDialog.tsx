@@ -33,7 +33,7 @@ function UpdateDialog({open, updateInfo, loading, installing, error, onClose, on
 
     if (loading) {
         return (
-            <div className="flex items-center gap-3 rounded-xl border bg-card/80 p-4 text-sm shadow-sm" role="status" aria-live="polite" aria-busy="true">
+            <div className="flex items-center gap-3 rounded-xl border bg-card/80 p-4 text-sm shadow-xs" role="status" aria-live="polite" aria-busy="true">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                     <RefreshCw className="h-4 w-4 animate-spin" />
                 </div>
@@ -47,7 +47,7 @@ function UpdateDialog({open, updateInfo, loading, installing, error, onClose, on
 
     if (error) {
         return (
-            <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm shadow-sm sm:flex-row sm:items-center" role="alert">
+            <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm shadow-xs sm:flex-row sm:items-center" role="alert">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
                         <AlertTriangle className="h-4 w-4" />
@@ -80,7 +80,7 @@ function UpdateDialog({open, updateInfo, loading, installing, error, onClose, on
                 : t('update.download')
 
         return (
-            <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-card/90 shadow-sm" role="status" aria-live="polite">
+            <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-card/90 shadow-xs" role="status" aria-live="polite">
                 <div className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true" />
                 <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
                     <div className="flex min-w-0 items-start gap-3">

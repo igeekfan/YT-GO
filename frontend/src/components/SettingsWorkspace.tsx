@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef, useCallback} from 'react'
+import {useState, useEffect, useRef, useCallback, type ReactNode} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
 import {GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, DownloadAndInstallUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
@@ -221,8 +221,8 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
 
     const renderDepCard = ({title, status, tone, rows, actions, note, guide}: {
         title: string; status: string; tone: 'ready' | 'missing' | 'loading'
-        rows?: Array<{label: string; value?: string}>; actions?: JSX.Element
-        note?: string | null; guide?: JSX.Element | null
+        rows?: Array<{label: string; value?: string}>; actions?: ReactNode
+        note?: string | null; guide?: ReactNode
     }) => {
         const visibleRows = (rows || []).filter(row => row.value)
         return (
@@ -554,7 +554,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                     <div className="relative mb-6">
                                         <div className="absolute inset-0 rounded-full blur-2xl bg-primary/15 scale-150 pointer-events-none" />
                                         <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-red-600 via-red-500 to-red-700 shadow-lg shadow-red-500/20">
-                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="white" className="drop-shadow-sm ml-0.5">
+                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="white" className="drop-shadow-xs ml-0.5">
                                                 <path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/>
                                             </svg>
                                         </div>
@@ -572,7 +572,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                     {aboutInfo && (
                                         <div className="w-full max-w-sm space-y-2.5">
                                             {/* Info card */}
-                                            <div className="rounded-xl border bg-card/50 backdrop-blur-sm divide-y divide-border/50 overflow-hidden shadow-sm">
+                                            <div className="rounded-xl border bg-card/50 backdrop-blur-xs divide-y divide-border/50 overflow-hidden shadow-xs">
                                                 <div className="flex items-center gap-3 px-4 py-3 group">
                                                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                                         <Globe className="h-4 w-4" />
@@ -671,11 +671,6 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                         </div>
                     </ScrollArea>
                 </Tabs>
-            <footer className="shrink-0 border-t bg-background/95 px-4 py-3 sm:px-8">
-                <div className="mx-auto flex w-full max-w-7xl justify-end">
-                    <Button variant="outline" onClick={handleClose}>{t('action.close')}</Button>
-                </div>
-            </footer>
         </section>
         <DirBrowser open={showDirBrowser} initialPath={settings?.outputDir || ''} onSelect={dir => update('outputDir', dir)} onClose={() => setShowDirBrowser(false)} />
         </>

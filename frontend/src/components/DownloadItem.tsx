@@ -75,12 +75,12 @@ function DownloadItem({task, onRemoved, onRetry, onRedownload}: Props) {
     }
 
     return (
-        <div className="rounded-xl border p-3 space-y-2 bg-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+        <div className="rounded-xl border p-3 space-y-2 bg-card/50 backdrop-blur-xs shadow-xs hover:shadow-md transition-shadow duration-200">
             {/* Top row: thumbnail + info + actions */}
             <div className="flex items-start gap-3">
                 {/* Thumbnail */}
                 {task.thumbnail ? (
-                    <img src={task.thumbnail} alt="" className="w-20 h-[45px] object-cover rounded-lg shrink-0 shadow-sm"
+                    <img src={task.thumbnail} alt="" className="w-20 h-[45px] object-cover rounded-lg shrink-0 shadow-xs"
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                 ) : (
                     <div className="w-20 h-[45px] bg-muted rounded-lg shrink-0 flex items-center justify-center text-muted-foreground">

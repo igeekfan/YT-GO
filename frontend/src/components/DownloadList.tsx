@@ -56,7 +56,7 @@ function DownloadList({downloads, onUpdate}: Props) {
     const sorted = [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
     return (
-        <section className="rounded-xl border bg-card/70 backdrop-blur-sm shadow-sm">
+        <section className="rounded-xl border bg-card/70 backdrop-blur-xs shadow-xs">
             <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 flex-wrap">
                 <h2 className="text-sm font-semibold">{t('downloads.title')}</h2>
                 <div className="flex items-center gap-1">

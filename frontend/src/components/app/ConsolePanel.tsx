@@ -24,7 +24,7 @@ export default function ConsolePanel({logs, open, onToggle, onClear}: Props) {
     if (logs.length === 0) return null
 
     return (
-        <div className="rounded-xl border overflow-hidden shadow-sm">
+        <div className="rounded-xl border overflow-hidden shadow-xs">
             <div className="flex items-center justify-between px-2.5 py-1.5 border-b bg-muted/40">
                 <Button variant="ghost" size="sm" onClick={onToggle} className="text-xs h-7 px-1.5">
                     {open ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
