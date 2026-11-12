@@ -87,6 +87,7 @@ jobs:
         shell: bash
         run: |
           CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
+          -ldflags "-s -w" -trimpath \
           -webview2 embed
 
       - name: Compress portable binary
@@ -106,6 +107,7 @@ jobs:
           export PATH="/c/Program Files (x86)/NSIS:$PATH"
           which makensis && echo "makensis found" || echo "makensis NOT found"
           CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
+          -ldflags "-s -w" -trimpath \
           -nsis -webview2 embed
 
       - name: Rename installer
