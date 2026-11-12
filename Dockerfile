@@ -1,5 +1,5 @@
 ARG NODE_IMAGE=node:22-alpine
-ARG GO_IMAGE=golang:1.25-alpine
+ARG GO_IMAGE=golang:1.27-alpine
 ARG RUNTIME_IMAGE=debian:bookworm-slim
 
 FROM ${NODE_IMAGE} AS frontend-builder
