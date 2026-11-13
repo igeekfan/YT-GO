@@ -279,16 +279,17 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
             </header>
 
             <Tabs defaultValue="download" className="flex min-h-0 flex-1 flex-col">
-                    <TabsList className="mx-auto flex h-auto w-full max-w-7xl justify-start overflow-x-auto rounded-none border-b bg-transparent p-0 px-4 sm:px-8">
+                <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5 sm:px-8 lg:flex-row lg:gap-8 lg:py-8">
+                    <TabsList className="flex h-auto w-full shrink-0 justify-start gap-1 overflow-x-auto rounded-xl border border-foreground/10 bg-card/45 p-1 lg:w-56 lg:flex-col lg:justify-start lg:overflow-visible">
                         {(['download', 'media', 'network', 'deps', 'appearance', 'about'] as const).map(tab => (
-                            <TabsTrigger key={tab} value={tab} className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none px-3 py-2.5 text-xs">
+                            <TabsTrigger key={tab} value={tab} className="h-9 shrink-0 justify-start rounded-lg px-3 text-xs text-muted-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none lg:w-full">
                                 {t(`settings.tab.${tab}` as any)}
                             </TabsTrigger>
                         ))}
                     </TabsList>
 
                     <ScrollArea className="min-h-0 flex-1">
-                        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 lg:py-8">
+                        <div className="w-full">
                             <div className="settings-panel max-w-4xl space-y-6 rounded-2xl border border-foreground/10 bg-card/35 p-4 shadow-sm sm:p-6">
                             {/* Download Tab */}
                             <TabsContent value="download" className="mt-0 space-y-4">
@@ -675,6 +676,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                             </div>
                         </div>
                     </ScrollArea>
+                </div>
                 </Tabs>
         </section>
         <DirBrowser open={showDirBrowser} initialPath={settings?.outputDir || ''} onSelect={dir => update('outputDir', dir)} onClose={() => setShowDirBrowser(false)} />
