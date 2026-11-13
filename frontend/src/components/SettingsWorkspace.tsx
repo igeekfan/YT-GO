@@ -14,7 +14,7 @@ import {Separator} from '@/components/ui/separator'
 import {ScrollArea} from '@/components/ui/scroll-area'
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {toast} from 'sonner'
-import {ArrowLeft, FolderOpen, RefreshCw, Upload, ExternalLink, Globe, Heart, Info} from 'lucide-react'
+import {ArrowLeft, FolderOpen, RefreshCw, Upload, ExternalLink, Globe, Heart, Info, Download, SlidersHorizontal, Network, Wrench, Palette} from 'lucide-react'
 
 interface DiagnosticInfo {
     ytdlpPath: string; ytdlpVersion: string; ytdlpFound: boolean
@@ -41,10 +41,13 @@ interface Props {
 const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
 const THEME_OPTIONS = ['dark', 'light']
 const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
+const SETTINGS_TABS = ['download', 'media', 'network', 'deps', 'appearance', 'about'] as const
+const TAB_ICONS = {download: Download, media: SlidersHorizontal, network: Network, deps: Wrench, appearance: Palette, about: Info}
 
 function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave, onSaved, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
+    const [activeTab, setActiveTab] = useState<(typeof SETTINGS_TABS)[number]>('download')
     const settingsRef = useRef<Settings | null>(null)
     const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
     const [aboutInfo, setAboutInfo] = useState<AboutInfo | null>(null)
@@ -226,8 +229,8 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
     }) => {
         const visibleRows = (rows || []).filter(row => row.value)
         return (
-            <div className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
+            <div className="settings-dependency-row border-b border-border last:border-b-0">
+                <div className="flex items-start justify-between gap-3 px-4 py-4">
                     <div>
                         <div className="font-semibold text-sm">{title}</div>
                         <div className="text-xs text-muted-foreground">{t('settings.diagStatus')}</div>
@@ -237,20 +240,20 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                     </Badge>
                 </div>
                 {visibleRows.length > 0 && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-x-6 border-t border-border px-4 py-3 sm:grid-cols-2">
                         {visibleRows.map(row => (
-                            <div key={`${title}-${row.label}`} className="rounded-md border p-2 space-y-0.5">
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{row.label}</span>
-                                <span className="text-xs break-all">{row.value}</span>
+                            <div key={`${title}-${row.label}`} className="min-w-0 space-y-0.5 py-1">
+                                <span className="block text-[10px] font-medium text-muted-foreground">{row.label}</span>
+                                <span className="block break-all text-xs">{row.value}</span>
                             </div>
                         ))}
                     </div>
                 )}
-                {actions}
+                {actions && <div className="border-t border-border px-4 py-3">{actions}</div>}
                 {note && (
-                    <div className="rounded-md border p-2">
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('settings.diagOutput')}</span>
-                        <p className="text-xs mt-0.5 whitespace-pre-wrap break-words">{note}</p>
+                    <div className="border-t border-border bg-muted/20 px-4 py-3">
+                        <span className="block text-[10px] text-muted-foreground">{t('settings.diagOutput')}</span>
+                        <p className="mt-0.5 break-words whitespace-pre-wrap text-xs">{note}</p>
                     </div>
                 )}
                 {guide}
@@ -265,27 +268,32 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
             aria-labelledby="settings-page-title"
             aria-describedby="settings-page-description"
         >
-            <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-primary/10 bg-background px-4 py-3 sm:px-8">
+            <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-muted/20 px-4 py-3 sm:px-8">
                 <div className="flex min-w-0 items-center gap-3">
                     <Button ref={closeButtonRef} variant="ghost" size="sm" onClick={handleClose} className="shrink-0 gap-2" aria-label={t('action.close')}>
                         <ArrowLeft className="h-4 w-4" />
                         <span className="hidden sm:inline">{t('action.close')}</span>
                     </Button>
                     <div className="min-w-0">
-                        <h1 id="settings-page-title" className="truncate text-base font-bold tracking-tight">{t('settings.title')}</h1>
-                        <p id="settings-page-description" className="truncate text-xs text-muted-foreground">{t('settings.description')}</p>
+                        <p className="truncate text-[11px] font-medium text-muted-foreground">{t('settings.title')} <span className="px-1 text-border">/</span> {t(`settings.tab.${activeTab}` as any)}</p>
+                        <h1 id="settings-page-title" className="truncate text-base font-semibold tracking-tight">{t(`settings.tab.${activeTab}` as any)}</h1>
+                        <p id="settings-page-description" className="sr-only">{t('settings.description')}</p>
                     </div>
                 </div>
             </header>
 
-            <Tabs defaultValue="download" className="flex min-h-0 flex-1 flex-col">
-                <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5 sm:px-8 lg:flex-row lg:gap-8 lg:py-8">
-                    <TabsList className="flex h-auto w-full shrink-0 justify-start gap-1 overflow-x-auto rounded-xl border border-foreground/10 bg-card/45 p-1 lg:w-56 lg:flex-col lg:justify-start lg:overflow-visible">
-                        {(['download', 'media', 'network', 'deps', 'appearance', 'about'] as const).map(tab => (
-                            <TabsTrigger key={tab} value={tab} className="h-9 shrink-0 justify-start rounded-lg px-3 text-xs text-muted-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none lg:w-full">
-                                {t(`settings.tab.${tab}` as any)}
-                            </TabsTrigger>
-                        ))}
+            <Tabs defaultValue="download" onValueChange={value => setActiveTab(value as (typeof SETTINGS_TABS)[number])} className="flex min-h-0 flex-1 flex-col">
+                <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5 sm:px-8 md:flex-row md:gap-8 md:py-8">
+                    <TabsList className="flex h-auto w-full shrink-0 justify-start gap-0.5 overflow-x-auto rounded-lg border border-border bg-card p-1 md:w-56 md:flex-col md:justify-start md:overflow-visible">
+                        {SETTINGS_TABS.map(tab => {
+                            const Icon = TAB_ICONS[tab]
+                            return (
+                                <TabsTrigger key={tab} value={tab} className="h-9 shrink-0 justify-start gap-2 rounded-md px-3 text-xs text-muted-foreground data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-none md:w-full">
+                                    <Icon className="h-3.5 w-3.5 opacity-70" />
+                                    <span>{t(`settings.tab.${tab}` as any)}</span>
+                                </TabsTrigger>
+                            )
+                        })}
                     </TabsList>
 
                     <ScrollArea className="min-h-0 flex-1">

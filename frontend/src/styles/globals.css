@@ -51,8 +51,7 @@
 @layer components {
   .settings-form {
     overflow: hidden;
-    border: 1px solid hsl(var(--border));
-    border-radius: 0.75rem;
+    border-top: 1px solid hsl(var(--border));
     background: hsl(var(--card));
   }
 
@@ -61,10 +60,17 @@
     display: grid;
     grid-template-columns: minmax(10rem, 0.8fr) minmax(0, 1.4fr);
     align-items: center;
-    gap: 1.5rem;
-    min-height: 4.5rem;
+    gap: 2rem;
+    min-height: 4.75rem;
     padding: 1rem 1.25rem;
     border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .settings-form > .settings-row > label,
+  .settings-form > label.settings-row > span {
+    color: hsl(var(--foreground));
+    font-size: 0.8125rem;
+    font-weight: 600;
   }
 
   .settings-form > .settings-row:last-child,
