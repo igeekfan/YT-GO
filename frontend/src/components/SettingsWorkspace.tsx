@@ -290,11 +290,11 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
 
                     <ScrollArea className="min-h-0 flex-1">
                         <div className="w-full">
-                            <div className="settings-panel max-w-4xl space-y-6 rounded-2xl border border-foreground/10 bg-card/35 p-4 shadow-sm sm:p-6">
+                            <div className="settings-panel max-w-4xl">
                             {/* Download Tab */}
-                            <TabsContent value="download" className="mt-0 space-y-4">
+                            <TabsContent value="download" className="settings-form mt-0">
                                 {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
-                                    <div className="space-y-1.5">
+                                    <div className="settings-row space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.outputDir')}</Label>
                                         <div className="flex gap-2">
                                             <Input type="text" value={settings.outputDir} onChange={e => update('outputDir', e.target.value)}
@@ -306,22 +306,22 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         {backendMode === 'web' && <p className="text-xs text-muted-foreground">{t('settings.outputDirWebHint')}</p>}
                                     </div>
                                 )}
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.quality')}</Label>
                                     <SelectComp value={settings.quality} onValueChange={(v: string) => update('quality', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>{QUALITY_OPTIONS.map(q => <SelectItem key={q} value={q}>{t(`quality.${q}` as any)}</SelectItem>)}</SelectContent>
                                     </SelectComp>
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.rateLimit')}</Label>
                                     <Input type="text" value={settings.rateLimit} onChange={e => update('rateLimit', e.target.value)} placeholder={t('settings.rateLimitPlaceholder')} />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.maxConcurrent')}</Label>
                                     <Input type="number" value={settings.maxConcurrent} min={1} max={10} onChange={e => update('maxConcurrent', parseInt(e.target.value) || 1)} className="w-20" />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <div className="flex items-center gap-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.filenameTemplate')}</Label>
                                         <Tooltip>
@@ -347,7 +347,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         ))}
                                     </div>
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.mergeOutputFormat')}</Label>
                                     <SelectComp value={settings.mergeOutputFormat || '_auto'} onValueChange={(v: string) => update('mergeOutputFormat', v === '_auto' ? '' : v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -359,7 +359,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         </SelectContent>
                                     </SelectComp>
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.audioFormat')}</Label>
                                     <SelectComp value={settings.audioFormat || '_default'} onValueChange={(v: string) => update('audioFormat', v === '_default' ? '' : v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -376,7 +376,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                             </TabsContent>
 
                             {/* Media Tab */}
-                            <TabsContent value="media" className="mt-0 space-y-3">
+                            <TabsContent value="media" className="settings-form mt-0">
                                 {([
                                     { key: 'saveDescription', label: t('settings.saveDescription') },
                                     { key: 'saveThumbnail', label: t('settings.saveThumbnail') },
@@ -387,14 +387,14 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                     { key: 'embedChapters', label: t('settings.embedChapters') },
                                     { key: 'sponsorBlock', label: t('settings.sponsorBlock') },
                                 ] as const).map(opt => (
-                                    <label key={opt.key} className="flex items-center justify-between cursor-pointer">
+                                    <label key={opt.key} className="settings-row flex items-center justify-between cursor-pointer">
                                         <span className="text-sm cursor-pointer">{opt.label}</span>
                                         <Checkbox checked={!!settings[opt.key as keyof Settings]}
                                             onCheckedChange={(checked: boolean) => update(opt.key as keyof Settings, !!checked)} />
                                     </label>
                                 ))}
                                 {settings.writeSubtitles && (
-                                    <div className="space-y-1.5">
+                                    <div className="settings-row space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.subtitleLangs')}</Label>
                                         <Input type="text" value={settings.subtitleLangs || ''} onChange={e => update('subtitleLangs', e.target.value)} placeholder={t('settings.subtitleLangsPlaceholder')} />
                                     </div>
@@ -402,18 +402,18 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                             </TabsContent>
 
                             {/* Network Tab */}
-                            <TabsContent value="network" className="mt-0 space-y-4">
-                                <div className="space-y-1.5">
+                            <TabsContent value="network" className="settings-form mt-0">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.proxy')}</Label>
                                     <Input type="text" value={settings.proxy} onChange={e => update('proxy', e.target.value)} placeholder={t('settings.proxyPlaceholder')} />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.updateProxy')}</Label>
                                     <Input type="text" value={settings.updateProxy || ''} onChange={e => update('updateProxy', e.target.value)} placeholder={t('settings.updateProxyPlaceholder')} />
                                     <p className="text-xs text-muted-foreground">{t('settings.updateProxyHint')}</p>
                                 </div>
                                 {backendMode === 'desktop' && (
-                                    <div className="space-y-1.5">
+                                    <div className="settings-row space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.cookiesFrom')}</Label>
                                         <SelectComp value={settings.cookiesFrom || '_none'} onValueChange={(val: string) => {
                                             const v = val === '_none' ? '' : val
@@ -430,7 +430,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                 )}
                                 {(!settings.cookiesFrom && !settings.cookiesFile) && <Separator><span className="text-xs text-muted-foreground">{t('setup.or')}</span></Separator>}
                                 {!settings.cookiesFrom && (
-                                    <div className="space-y-1.5">
+                                    <div className="settings-row space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.cookiesFile')}</Label>
                                         <div className="flex gap-2">
                                             <Input type="text" value={settings.cookiesFile || ''} onChange={e => {
@@ -529,15 +529,15 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                             </TabsContent>
 
                             {/* Appearance Tab */}
-                            <TabsContent value="appearance" className="mt-0 space-y-4">
-                                <div className="space-y-1.5">
+                            <TabsContent value="appearance" className="settings-form mt-0">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.theme')}</Label>
                                     <SelectComp value={settings.theme || 'dark'} onValueChange={(v: string) => update('theme', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>{THEME_OPTIONS.map(th => <SelectItem key={th} value={th}>{t(`app.theme.${th}` as any)}</SelectItem>)}</SelectContent>
                                     </SelectComp>
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.language')}</Label>
                                     <SelectComp value={settings.language || lang} onValueChange={(v: string) => update('language', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -547,7 +547,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         </SelectContent>
                                     </SelectComp>
                                 </div>
-                                <label className="flex items-center justify-between cursor-pointer">
+                                <label className="settings-row flex items-center justify-between cursor-pointer">
                                     <span className="text-sm cursor-pointer">{t('settings.notifications')}</span>
                                     <Checkbox checked={!!settings.notifications} onCheckedChange={(checked: boolean) => update('notifications', !!checked)} />
                                 </label>
