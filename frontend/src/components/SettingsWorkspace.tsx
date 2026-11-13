@@ -289,7 +289,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
 
                     <ScrollArea className="min-h-0 flex-1">
                         <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 lg:py-8">
-                            <div className="max-w-4xl space-y-4">
+                            <div className="settings-panel max-w-4xl space-y-6 rounded-2xl border border-foreground/10 bg-card/35 p-4 shadow-sm sm:p-6">
                             {/* Download Tab */}
                             <TabsContent value="download" className="mt-0 space-y-4">
                                 {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
