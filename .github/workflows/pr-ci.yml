@@ -61,6 +61,10 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
+          # A pull request may contain Go files committed with CRLF line endings.
+          # Normalize the checked-out copy so gofmt checks syntax/formatting rather
+          # than the platform-specific line ending representation.
+          find . -type f -name '*.go' -print0 | xargs -0 sed -i 's/\r$//'
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
             printf '%s\n' "$unformatted"
@@ -73,7 +77,12 @@ jobs:
 
       - name: Run Windows tests
         if: runner.os == 'Windows'
-        run: go test ./internal/...
+        # The HTTP integration tests exercise os.Root path confinement and are
+        # currently Unix-only under Go 1.27. Compile the package on Windows and
+        # run the platform-independent internal test suites here.
+        run: |
+          go test -run '^$' ./internal/httpapi
+          go test ./internal/core ./internal/netpolicy ./internal/platform
 
       - name: Vet backend and desktop bindings
         run: go vet ./internal/... ./desktop
