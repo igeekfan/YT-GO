@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
-import {SaveSettings} from '../lib/backend'
+import {ApplySettingsPatch, SaveSettings, SettingsPatch} from '../lib/backend'
 import {useI18n} from '../i18n/context'
 import {useLatestValueSaver} from '../lib/useLatestValueSaver'
 import {Settings} from '../types'
@@ -64,9 +64,9 @@ export function useSettingsController() {
         }
     }, [applySettingsToUI])
 
-    const {schedule: saveSettingsLatest, flush: flushSettings} = useLatestValueSaver<Settings>({
-        save: SaveSettings,
-        onSaved: handleSettingsSaved,
+    const {schedule: saveSettingsLatest, flush: flushSettings} = useLatestValueSaver<SettingsPatch>({
+        save: ApplySettingsPatch,
+        onSaved: settings => handleSettingsSaved(settings as Settings),
         onError: error => {
             console.error('Failed to save settings:', error)
             toast.error(t('settings.saveFailed'))
@@ -74,9 +74,18 @@ export function useSettingsController() {
     })
 
     const stageSettingsSave = useCallback((settings: Settings) => {
+        const previous = currentSettingsRef.current
         currentSettingsRef.current = settings
         setCurrentSettings(settings)
-        saveSettingsLatest(settings)
+        if (!previous) return
+        const patch = Object.keys(settings).reduce<SettingsPatch>((changes, key) => {
+            const typedKey = key as keyof Settings
+            if (settings[typedKey] !== previous[typedKey]) {
+                changes[typedKey as keyof SettingsPatch] = settings[typedKey] as never
+            }
+            return changes
+        }, {})
+        if (Object.keys(patch).length > 0) saveSettingsLatest(patch)
     }, [saveSettingsLatest])
 
     const persistSettingsPatch = useCallback((patch: Partial<Settings>) => {

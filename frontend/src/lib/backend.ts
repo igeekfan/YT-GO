@@ -35,7 +35,7 @@ interface DownloadRequestPayload {
     }
 }
 
-interface SettingsPayload {
+export type SettingsPayload = {
     outputDir: string
     quality: string
     language: string
@@ -57,6 +57,8 @@ interface SettingsPayload {
     cookiesFrom: string
     cookiesFile: string
 }
+
+export type SettingsPatch = Partial<SettingsPayload>
 
 const RELEASE_PAGE_URL = 'https://github.com/igeekfan/YT-GO/releases'
 
@@ -235,6 +237,20 @@ export function SaveSettings(settings: SettingsPayload) {
                 body: JSON.stringify(settings),
             })
         }
+    )
+}
+
+export function ApplySettingsPatch(patch: SettingsPatch): Promise<SettingsPayload> {
+    return getDesktop<SettingsPayload>(
+        async () => {
+            const fn = (window as any)?.go?.desktop?.App?.ApplySettingsPatch
+            if (typeof fn !== 'function') throw new Error('ApplySettingsPatch is not available')
+            return await fn(patch)
+        },
+        () => apiFetch('/api/settings', {
+            method: 'PATCH',
+            body: JSON.stringify(patch),
+        })
     )
 }
 

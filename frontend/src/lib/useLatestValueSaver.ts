@@ -1,19 +1,19 @@
 import {useCallback, useEffect, useRef} from 'react'
 
-interface LatestValueSaverOptions<T> {
-    save: (value: T) => Promise<unknown>
-    onSaved: (value: T) => void
+interface LatestValueSaverOptions<TInput, TResult = TInput> {
+    save: (value: TInput) => Promise<TResult>
+    onSaved: (value: TResult) => void
     onError: (error: unknown) => void
     delay?: number
 }
 
 // Debounces bursts and serializes writes. If changes arrive while a request is
 // in flight, only the newest pending snapshot is persisted next.
-export function useLatestValueSaver<T>({save, onSaved, onError, delay = 250}: LatestValueSaverOptions<T>) {
+export function useLatestValueSaver<TInput, TResult = TInput>({save, onSaved, onError, delay = 250}: LatestValueSaverOptions<TInput, TResult>) {
     const saveRef = useRef(save)
     const onSavedRef = useRef(onSaved)
     const onErrorRef = useRef(onError)
-    const pendingRef = useRef<T | null>(null)
+    const pendingRef = useRef<TInput | null>(null)
     const activeFlushRef = useRef<Promise<void> | null>(null)
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -37,10 +37,10 @@ export function useLatestValueSaver<T>({save, onSaved, onError, delay = 250}: La
                 const value = pendingRef.current
                 pendingRef.current = null
                 try {
-                    await saveRef.current(value)
+                    const result = await saveRef.current(value)
                     // Do not publish an older successful snapshot while a
                     // newer value is already queued; it can regress parent UI.
-                    if (pendingRef.current === null) onSavedRef.current(value)
+                    if (pendingRef.current === null) onSavedRef.current(result)
                 } catch (error) {
                     onErrorRef.current(error)
                 }
@@ -56,7 +56,7 @@ export function useLatestValueSaver<T>({save, onSaved, onError, delay = 250}: La
         if (pendingRef.current !== null) await flush()
     }, [])
 
-    const schedule = useCallback((value: T) => {
+    const schedule = useCallback((value: TInput) => {
         pendingRef.current = value
         if (timerRef.current !== null) clearTimeout(timerRef.current)
         timerRef.current = setTimeout(() => { void flush() }, delay)
