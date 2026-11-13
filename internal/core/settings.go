@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ func (s *Service) GetSettings() Settings {
 		Language:          string(defaultLang()),
 		Theme:             "dark",
 		Proxy:             "",
+		UpdateProxy:       "",
 		RateLimit:         "",
 		MaxConcurrent:     3,
 		Notifications:     true,
@@ -31,41 +33,11 @@ func (s *Service) GetSettings() Settings {
 	if db == nil {
 		return defaults
 	}
-	var rec SettingsRecord
-	if err := db.First(&rec, 1).Error; err != nil {
+	var values []SettingValueRecord
+	if err := db.Find(&values).Error; err != nil {
 		return defaults
 	}
-	if rec.OutputDir != "" {
-		defaults.OutputDir = rec.OutputDir
-	}
-	if rec.Quality != "" {
-		defaults.Quality = rec.Quality
-	}
-	if rec.Language != "" {
-		defaults.Language = rec.Language
-	}
-	if rec.Theme != "" {
-		defaults.Theme = rec.Theme
-	}
-	defaults.Proxy = rec.Proxy
-	defaults.RateLimit = rec.RateLimit
-	if rec.MaxConcurrent > 0 {
-		defaults.MaxConcurrent = rec.MaxConcurrent
-	}
-	defaults.Notifications = rec.Notifications
-	defaults.SaveDescription = rec.SaveDescription
-	defaults.SaveThumbnail = rec.SaveThumbnail
-	defaults.WriteSubtitles = rec.WriteSubtitles
-	defaults.SubtitleLangs = rec.SubtitleLangs
-	defaults.EmbedSubtitles = rec.EmbedSubtitles
-	defaults.EmbedChapters = rec.EmbedChapters
-	defaults.SponsorBlock = rec.SponsorBlock
-	defaults.FilenameTemplate = rec.FilenameTemplate
-	defaults.MergeOutputFormat = rec.MergeOutputFormat
-	defaults.AudioFormat = rec.AudioFormat
-	defaults.CookiesFrom = rec.CookiesFrom
-	defaults.CookiesFile = rec.CookiesFile
-	return defaults
+	return applySettingValues(defaults, values)
 }
 
 func (s *Service) IsFirstRun() bool {
@@ -73,11 +45,11 @@ func (s *Service) IsFirstRun() bool {
 	if db == nil {
 		return true
 	}
-	var rec SettingsRecord
-	if err := db.First(&rec, 1).Error; err != nil {
+	var count int64
+	if err := db.Model(&SettingValueRecord{}).Count(&count).Error; err != nil {
 		return true
 	}
-	return false
+	return count == 0
 }
 
 func (s *Service) NeedsCookieConfig() bool {
@@ -86,45 +58,45 @@ func (s *Service) NeedsCookieConfig() bool {
 }
 
 func (s *Service) SaveSettings(settings Settings) error {
+	_, err := s.applySettingsFromRegistry(settings)
+	return err
+}
+
+func (s *Service) persistSettings(settings Settings) error {
 	if s.database() == nil {
 		return fmt.Errorf("database not initialized")
-	}
-	if err := ValidateSettings(settings); err != nil {
-		return err
-	}
-
-	rec := SettingsRecord{
-		ID:                1,
-		OutputDir:         settings.OutputDir,
-		Quality:           settings.Quality,
-		Language:          settings.Language,
-		Theme:             settings.Theme,
-		Proxy:             settings.Proxy,
-		RateLimit:         settings.RateLimit,
-		MaxConcurrent:     settings.MaxConcurrent,
-		Notifications:     settings.Notifications,
-		SaveDescription:   settings.SaveDescription,
-		SaveThumbnail:     settings.SaveThumbnail,
-		WriteSubtitles:    settings.WriteSubtitles,
-		SubtitleLangs:     settings.SubtitleLangs,
-		EmbedSubtitles:    settings.EmbedSubtitles,
-		EmbedChapters:     settings.EmbedChapters,
-		SponsorBlock:      settings.SponsorBlock,
-		FilenameTemplate:  settings.FilenameTemplate,
-		MergeOutputFormat: settings.MergeOutputFormat,
-		AudioFormat:       settings.AudioFormat,
-		CookiesFrom:       settings.CookiesFrom,
-		CookiesFile:       settings.CookiesFile,
 	}
 	if err := s.ensureRuntime(); err != nil {
 		return err
 	}
 	done := make(chan error, 1)
-	if err := s.submitPersistence(persistenceOperation{kind: persistenceSaveSettings, settings: rec, done: done}); err != nil {
+	if err := s.submitPersistence(persistenceOperation{kind: persistenceSaveSettings, settings: settings, done: done}); err != nil {
 		return err
 	}
 	s.limiter.SetLimit(settings.MaxConcurrent)
 	return nil
+}
+
+func applySettingValues(settings Settings, values []SettingValueRecord) Settings {
+	payload, err := json.Marshal(settings)
+	if err != nil {
+		return settings
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &object); err != nil {
+		return settings
+	}
+	for _, value := range values {
+		if _, ok := settingDefinition(value.Key); ok {
+			object[value.Key] = json.RawMessage(value.Value)
+		}
+	}
+	merged, err := json.Marshal(object)
+	if err != nil {
+		return settings
+	}
+	_ = json.Unmarshal(merged, &settings)
+	return settings
 }
 
 func (s *Service) ResetSettings() error {

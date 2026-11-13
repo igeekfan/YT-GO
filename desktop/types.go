@@ -86,6 +86,7 @@ type Settings struct {
 	Language          string `json:"language"`
 	Theme             string `json:"theme"`
 	Proxy             string `json:"proxy"`
+	UpdateProxy       string `json:"updateProxy"`
 	RateLimit         string `json:"rateLimit"`
 	MaxConcurrent     int    `json:"maxConcurrent"`
 	Notifications     bool   `json:"notifications"`

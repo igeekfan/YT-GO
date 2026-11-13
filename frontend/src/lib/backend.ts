@@ -41,6 +41,7 @@ export type SettingsPayload = {
     language: string
     theme: string
     proxy: string
+    updateProxy?: string
     rateLimit: string
     maxConcurrent: number
     notifications: boolean

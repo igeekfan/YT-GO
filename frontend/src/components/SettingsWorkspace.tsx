@@ -406,6 +406,11 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                     <Label className="text-xs text-muted-foreground">{t('settings.proxy')}</Label>
                                     <Input type="text" value={settings.proxy} onChange={e => update('proxy', e.target.value)} placeholder={t('settings.proxyPlaceholder')} />
                                 </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.updateProxy')}</Label>
+                                    <Input type="text" value={settings.updateProxy || ''} onChange={e => update('updateProxy', e.target.value)} placeholder={t('settings.updateProxyPlaceholder')} />
+                                    <p className="text-xs text-muted-foreground">{t('settings.updateProxyHint')}</p>
+                                </div>
                                 {backendMode === 'desktop' && (
                                     <div className="space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.cookiesFrom')}</Label>

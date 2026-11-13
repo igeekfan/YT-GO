@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
-import {ApplySettingsPatch, SaveSettings, SettingsPatch} from '../lib/backend'
+import {ApplySettingsPatch, SettingsPatch} from '../lib/backend'
 import {useI18n} from '../i18n/context'
 import {useLatestValueSaver} from '../lib/useLatestValueSaver'
 import {Settings} from '../types'
@@ -139,13 +139,14 @@ export function useSettingsController() {
     ) => {
         const settings: Settings = {
             outputDir: directory, quality: 'best', language, theme: nextTheme, proxy, rateLimit: '',
+            updateProxy: '',
             maxConcurrent: 3, notifications: true, saveDescription: false, saveThumbnail: false,
             writeSubtitles: false, subtitleLangs: '', embedSubtitles: false, embedChapters: false,
             sponsorBlock: false, filenameTemplate: '', mergeOutputFormat: '', audioFormat: '',
             cookiesFrom, cookiesFile,
         }
-        await SaveSettings(settings)
-        applySettingsToUI(settings)
+		const saved = await ApplySettingsPatch(settings)
+		applySettingsToUI(saved as Settings)
     }, [applySettingsToUI])
 
     return {

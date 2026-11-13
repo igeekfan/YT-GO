@@ -478,7 +478,7 @@ func newPersistenceTestServiceWithoutRuntime(t *testing.T) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&DownloadRecord{}, &SettingsRecord{}); err != nil {
+	if err := db.AutoMigrate(&DownloadRecord{}, &SettingValueRecord{}); err != nil {
 		t.Fatal(err)
 	}
 	service := NewService("test")
