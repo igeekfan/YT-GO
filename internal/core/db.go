@@ -50,6 +50,11 @@ type SettingsRecord struct {
 	CookiesFile       string
 }
 
+type SettingsMetadata struct {
+	ID            uint `gorm:"primaryKey"`
+	SchemaVersion int  `gorm:"not null"`
+}
+
 func openDB() (*gorm.DB, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
@@ -64,7 +69,11 @@ func openDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&DownloadRecord{}, &SettingsRecord{}); err != nil {
+	if err := db.AutoMigrate(&DownloadRecord{}, &SettingsRecord{}, &SettingsMetadata{}); err != nil {
+		return nil, err
+	}
+	metadata := SettingsMetadata{ID: 1, SchemaVersion: SettingsSchemaVersion}
+	if err := db.Where("id = ?", metadata.ID).FirstOrCreate(&metadata).Error; err != nil {
 		return nil, err
 	}
 	return db, nil

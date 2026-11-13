@@ -16,6 +16,50 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		writeJSON(w, http.StatusOK, s.service.GetSettings())
+	case http.MethodPatch:
+		var patch core.SettingsPatch
+		if err := decodeJSON(r, &patch); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		settings, err := core.MergeSettingsPatch(s.service.GetSettings(), patch)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		requestedOutputDir := settings.OutputDir
+		if s.fixedDir != "" {
+			requestedOutputDir = s.fixedDir
+		}
+		outputDir, err := s.downloads.ensureDir(requestedOutputDir)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		if err := validateFilenameTemplate(settings.FilenameTemplate); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		if err := s.urls.validateProxy(r.Context(), settings.Proxy); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		if strings.TrimSpace(settings.CookiesFrom) != "" {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("browser cookie import is not available in web mode"))
+			return
+		}
+		cookiesFile, err := validateCookieFile(s.service.GetDataDir(), settings.CookiesFile)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		settings.OutputDir = outputDir
+		settings.CookiesFile = cookiesFile
+		if err := s.service.SaveSettings(settings); err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, s.service.GetSettings())
 	case http.MethodPost:
 		var settings core.Settings
 		if err := decodeJSON(r, &settings); err != nil {
@@ -61,7 +105,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, settings)
 	default:
-		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost)
+		writeMethodNotAllowed(w, http.MethodGet, http.MethodPatch, http.MethodPost)
 	}
 }
 
