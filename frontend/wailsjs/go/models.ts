@@ -384,6 +384,7 @@ export namespace desktop {
 	    language: string;
 	    theme: string;
 	    proxy: string;
+	    updateProxy: string;
 	    rateLimit: string;
 	    maxConcurrent: number;
 	    notifications: boolean;
@@ -411,6 +412,7 @@ export namespace desktop {
 	        this.language = source["language"];
 	        this.theme = source["theme"];
 	        this.proxy = source["proxy"];
+	        this.updateProxy = source["updateProxy"];
 	        this.rateLimit = source["rateLimit"];
 	        this.maxConcurrent = source["maxConcurrent"];
 	        this.notifications = source["notifications"];

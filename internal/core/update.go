@@ -43,6 +43,25 @@ type githubReleaseAsset struct {
 
 func (s *Service) GetCurrentVersion() string { return s.appVersion }
 
+func (s *Service) updateHTTPClient(timeout time.Duration) (*http.Client, error) {
+	settings := s.GetSettings()
+	proxyValue := strings.TrimSpace(settings.UpdateProxy)
+	if proxyValue == "" {
+		proxyValue = strings.TrimSpace(settings.Proxy)
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if strings.EqualFold(proxyValue, "direct") {
+		transport.Proxy = nil
+	} else if proxyValue != "" {
+		proxyURL, err := url.Parse(proxyValue)
+		if err != nil {
+			return nil, fmt.Errorf("invalid update proxy URL: %w", err)
+		}
+		transport.Proxy = http.ProxyURL(proxyURL)
+	}
+	return &http.Client{Transport: transport, Timeout: timeout}, nil
+}
+
 func compareVersion(v1, v2 string) int {
 	parts1 := strings.Split(v1, ".")
 	parts2 := strings.Split(v2, ".")
@@ -65,7 +84,10 @@ func compareVersion(v1, v2 string) int {
 }
 
 func (s *Service) CheckForUpdate() (UpdateInfo, error) {
-	client := &http.Client{Timeout: 15 * time.Second}
+	client, err := s.updateHTTPClient(15 * time.Second)
+	if err != nil {
+		return UpdateInfo{}, err
+	}
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, githubLatestReleaseURL, nil)
 	if err != nil {
 		return UpdateInfo{}, fmt.Errorf("failed to create update request: %w", err)
@@ -192,14 +214,15 @@ func (s *Service) DownloadUpdate() (string, error) {
 		}
 	}()
 
-	client := &http.Client{
-		Timeout: 30 * time.Minute,
-		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
-			if !isAllowedUpdateURL(req.URL.String()) {
-				return fmt.Errorf("update redirect points to an untrusted host")
-			}
-			return nil
-		},
+	client, err := s.updateHTTPClient(30 * time.Minute)
+	if err != nil {
+		return "", err
+	}
+	client.CheckRedirect = func(req *http.Request, _ []*http.Request) error {
+		if !isAllowedUpdateURL(req.URL.String()) {
+			return fmt.Errorf("update redirect points to an untrusted host")
+		}
+		return nil
 	}
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, info.AssetURL, nil)
 	if err != nil {

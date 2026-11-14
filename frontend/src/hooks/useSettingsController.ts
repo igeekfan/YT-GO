@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
-import {SaveSettings} from '../lib/backend'
+import {ApplySettingsPatch, SettingsPatch} from '../lib/backend'
 import {useI18n} from '../i18n/context'
 import {useLatestValueSaver} from '../lib/useLatestValueSaver'
 import {Settings} from '../types'
@@ -30,6 +30,7 @@ export function useSettingsController() {
     const [currentSettings, setCurrentSettings] = useState<Settings | null>(null)
     const currentSettingsRef = useRef<Settings | null>(null)
     const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+    const [notifications, setNotifications] = useState<Array<{id: string; title: string; body: string}>>([])
     const [downloadOptions, setDownloadOptions] = useState<DownloadOptionState>(EMPTY_DOWNLOAD_OPTIONS)
 
     useEffect(() => {
@@ -46,7 +47,9 @@ export function useSettingsController() {
         if (settings.quality) setQuality(settings.quality)
         if (settings.theme) setTheme(settings.theme as Theme)
         if (settings.language) setLang(settings.language as 'zh-CN' | 'en-US')
-        setNotificationsEnabled(settings.notifications || false)
+        const completionNotificationsEnabled = settings.notifications || false
+        setNotificationsEnabled(completionNotificationsEnabled)
+        if (!completionNotificationsEnabled) setNotifications([])
         setDownloadOptions({
             saveThumbnail: settings.saveThumbnail || false,
             saveDescription: settings.saveDescription || false,
@@ -59,14 +62,11 @@ export function useSettingsController() {
 
     const handleSettingsSaved = useCallback((settings: Settings) => {
         applySettingsToUI(settings)
-        if (settings.notifications && 'Notification' in window && Notification.permission === 'default') {
-            void Notification.requestPermission()
-        }
     }, [applySettingsToUI])
 
-    const {schedule: saveSettingsLatest, flush: flushSettings} = useLatestValueSaver<Settings>({
-        save: SaveSettings,
-        onSaved: handleSettingsSaved,
+    const {schedule: saveSettingsLatest, flush: flushSettings} = useLatestValueSaver<SettingsPatch>({
+        save: ApplySettingsPatch,
+        onSaved: settings => handleSettingsSaved(settings as Settings),
         onError: error => {
             console.error('Failed to save settings:', error)
             toast.error(t('settings.saveFailed'))
@@ -74,9 +74,18 @@ export function useSettingsController() {
     })
 
     const stageSettingsSave = useCallback((settings: Settings) => {
+        const previous = currentSettingsRef.current
         currentSettingsRef.current = settings
         setCurrentSettings(settings)
-        saveSettingsLatest(settings)
+        if (!previous) return
+        const patch = Object.keys(settings).reduce<SettingsPatch>((changes, key) => {
+            const typedKey = key as keyof Settings
+            if (settings[typedKey] !== previous[typedKey]) {
+                changes[typedKey as keyof SettingsPatch] = settings[typedKey] as never
+            }
+            return changes
+        }, {})
+        if (Object.keys(patch).length > 0) saveSettingsLatest(patch)
     }, [saveSettingsLatest])
 
     const persistSettingsPatch = useCallback((patch: Partial<Settings>) => {
@@ -111,14 +120,14 @@ export function useSettingsController() {
     }, [stageSettingsSave])
 
     const sendNotification = useCallback((title: string, body: string) => {
-        if (!notificationsEnabled || !('Notification' in window)) return
-        if (Notification.permission === 'granted') new Notification(title, {body})
-        else if (Notification.permission !== 'denied') {
-            Notification.requestPermission().then(permission => {
-                if (permission === 'granted') new Notification(title, {body})
-            })
-        }
+        if (!notificationsEnabled) return
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+        setNotifications(current => [{id, title, body}, ...current].slice(0, 3))
     }, [notificationsEnabled])
+
+    const dismissNotification = useCallback((id: string) => {
+        setNotifications(current => current.filter(notification => notification.id !== id))
+    }, [])
 
     const saveSetupSettings = useCallback(async (
         directory: string,
@@ -130,13 +139,14 @@ export function useSettingsController() {
     ) => {
         const settings: Settings = {
             outputDir: directory, quality: 'best', language, theme: nextTheme, proxy, rateLimit: '',
+            updateProxy: '',
             maxConcurrent: 3, notifications: true, saveDescription: false, saveThumbnail: false,
             writeSubtitles: false, subtitleLangs: '', embedSubtitles: false, embedChapters: false,
             sponsorBlock: false, filenameTemplate: '', mergeOutputFormat: '', audioFormat: '',
             cookiesFrom, cookiesFile,
         }
-        await SaveSettings(settings)
-        applySettingsToUI(settings)
+		const saved = await ApplySettingsPatch(settings)
+		applySettingsToUI(saved as Settings)
     }, [applySettingsToUI])
 
     return {
@@ -158,6 +168,8 @@ export function useSettingsController() {
         handleQuickThemeToggle,
         setDirectoryAndSave,
         sendNotification,
+        notifications,
+        dismissNotification,
         saveSetupSettings,
     }
 }

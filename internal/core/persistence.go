@@ -1,9 +1,12 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+
+	"gorm.io/gorm"
 )
 
 const persistenceQueueCapacity = maxQueuedDownloads*3 + 32
@@ -22,7 +25,7 @@ type persistenceOperation struct {
 	kind     persistenceOperationKind
 	task     DownloadTask
 	ids      []string
-	settings SettingsRecord
+	settings Settings
 	done     chan error
 }
 
@@ -66,13 +69,42 @@ func (s *Service) applyPersistenceOperation(operation persistenceOperation) erro
 		}
 		return db.Delete(&DownloadRecord{}, operation.ids).Error
 	case persistenceSaveSettings:
-		record := operation.settings
-		return db.Save(&record).Error
+		return persistSettingValues(db, operation.settings)
 	case persistenceDeleteSettings:
-		return db.Where("id = ?", 1).Delete(&SettingsRecord{}).Error
+		return db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&SettingValueRecord{}).Error
 	default:
 		return fmt.Errorf("unknown persistence operation: %d", operation.kind)
 	}
+}
+
+func persistSettingValues(db *gorm.DB, settings Settings) error {
+	payload, err := json.Marshal(settings)
+	if err != nil {
+		return fmt.Errorf("marshal settings: %w", err)
+	}
+	var values map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &values); err != nil {
+		return fmt.Errorf("decode settings: %w", err)
+	}
+	rows := make([]SettingValueRecord, 0, len(settingDefinitions))
+	keys := make([]string, 0, len(settingDefinitions))
+	for _, definition := range settingDefinitions {
+		value, ok := values[definition.Key]
+		if !ok {
+			continue
+		}
+		rows = append(rows, SettingValueRecord{Key: definition.Key, Value: string(value)})
+		keys = append(keys, definition.Key)
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("key IN ?", keys).Delete(&SettingValueRecord{}).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+		return tx.Create(&rows).Error
+	})
 }
 
 func (s *Service) submitPersistence(operation persistenceOperation) error {

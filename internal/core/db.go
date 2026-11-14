@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -26,28 +27,16 @@ type DownloadRecord struct {
 	CreatedAt  string `gorm:"not null"`
 }
 
-type SettingsRecord struct {
-	ID                uint `gorm:"primaryKey"`
-	OutputDir         string
-	Quality           string
-	Language          string
-	Theme             string
-	Proxy             string
-	RateLimit         string
-	MaxConcurrent     int
-	Notifications     bool
-	SaveDescription   bool
-	SaveThumbnail     bool
-	WriteSubtitles    bool
-	SubtitleLangs     string
-	EmbedSubtitles    bool
-	EmbedChapters     bool
-	SponsorBlock      bool
-	FilenameTemplate  string
-	MergeOutputFormat string
-	AudioFormat       string
-	CookiesFrom       string
-	CookiesFile       string
+// SettingValueRecord stores one Registry-managed setting as JSON.
+type SettingValueRecord struct {
+	Key       string    `gorm:"primaryKey"`
+	Value     string    `gorm:"not null"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+}
+
+type SettingsMetadata struct {
+	ID            uint `gorm:"primaryKey"`
+	SchemaVersion int  `gorm:"not null"`
 }
 
 func openDB() (*gorm.DB, error) {
@@ -64,7 +53,11 @@ func openDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&DownloadRecord{}, &SettingsRecord{}); err != nil {
+	if err := db.AutoMigrate(&DownloadRecord{}, &SettingValueRecord{}, &SettingsMetadata{}); err != nil {
+		return nil, err
+	}
+	metadata := SettingsMetadata{ID: 1, SchemaVersion: SettingsSchemaVersion}
+	if err := db.Where("id = ?", metadata.ID).FirstOrCreate(&metadata).Error; err != nil {
 		return nil, err
 	}
 	return db, nil

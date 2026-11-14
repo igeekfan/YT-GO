@@ -13,6 +13,8 @@ export type SubtitleLang = desktop.SubtitleLang & {
 	selector?: string
 }
 export type PlaylistInfo = desktop.PlaylistInfo
-export type Settings = desktop.Settings
+export type Settings = desktop.Settings & {
+	updateProxy?: string
+}
 export type Format = desktop.Format
 export type FormatInfo = desktop.FormatInfo

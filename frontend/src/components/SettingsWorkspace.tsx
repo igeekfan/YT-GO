@@ -10,11 +10,10 @@ import {Label} from '@/components/ui/label'
 import {Checkbox} from '@/components/ui/checkbox'
 import {Select as SelectComp, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {Badge} from '@/components/ui/badge'
-import {Separator} from '@/components/ui/separator'
 import {ScrollArea} from '@/components/ui/scroll-area'
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {toast} from 'sonner'
-import {ArrowLeft, FolderOpen, RefreshCw, Upload, ExternalLink, Globe, Heart, Info} from 'lucide-react'
+import {ArrowLeft, FolderOpen, RefreshCw, Upload, ExternalLink, Globe, Heart, Info, Download, SlidersHorizontal, Network, Wrench, Palette} from 'lucide-react'
 
 interface DiagnosticInfo {
     ytdlpPath: string; ytdlpVersion: string; ytdlpFound: boolean
@@ -41,10 +40,13 @@ interface Props {
 const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
 const THEME_OPTIONS = ['dark', 'light']
 const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
+const SETTINGS_TABS = ['download', 'media', 'network', 'deps', 'appearance', 'about'] as const
+const TAB_ICONS = {download: Download, media: SlidersHorizontal, network: Network, deps: Wrench, appearance: Palette, about: Info}
 
 function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave, onSaved, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
+    const [activeTab, setActiveTab] = useState<(typeof SETTINGS_TABS)[number]>('download')
     const settingsRef = useRef<Settings | null>(null)
     const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
     const [aboutInfo, setAboutInfo] = useState<AboutInfo | null>(null)
@@ -226,8 +228,8 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
     }) => {
         const visibleRows = (rows || []).filter(row => row.value)
         return (
-            <div className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
+            <div className="settings-dependency-row border-b border-border last:border-b-0">
+                <div className="flex items-start justify-between gap-3 px-4 py-4">
                     <div>
                         <div className="font-semibold text-sm">{title}</div>
                         <div className="text-xs text-muted-foreground">{t('settings.diagStatus')}</div>
@@ -237,20 +239,20 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                     </Badge>
                 </div>
                 {visibleRows.length > 0 && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-x-6 border-t border-border px-4 py-3 sm:grid-cols-2">
                         {visibleRows.map(row => (
-                            <div key={`${title}-${row.label}`} className="rounded-md border p-2 space-y-0.5">
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{row.label}</span>
-                                <span className="text-xs break-all">{row.value}</span>
+                            <div key={`${title}-${row.label}`} className="min-w-0 space-y-0.5 py-1">
+                                <span className="block text-[10px] font-medium text-muted-foreground">{row.label}</span>
+                                <span className="block break-all text-xs">{row.value}</span>
                             </div>
                         ))}
                     </div>
                 )}
-                {actions}
+                {actions && <div className="border-t border-border px-4 py-3">{actions}</div>}
                 {note && (
-                    <div className="rounded-md border p-2">
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('settings.diagOutput')}</span>
-                        <p className="text-xs mt-0.5 whitespace-pre-wrap break-words">{note}</p>
+                    <div className="border-t border-border bg-muted/20 px-4 py-3">
+                        <span className="block text-[10px] text-muted-foreground">{t('settings.diagOutput')}</span>
+                        <p className="mt-0.5 break-words whitespace-pre-wrap text-xs">{note}</p>
                     </div>
                 )}
                 {guide}
@@ -265,35 +267,41 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
             aria-labelledby="settings-page-title"
             aria-describedby="settings-page-description"
         >
-            <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-primary/10 bg-background px-4 py-3 sm:px-8">
+            <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-muted/20 px-4 py-3 sm:px-8">
                 <div className="flex min-w-0 items-center gap-3">
                     <Button ref={closeButtonRef} variant="ghost" size="sm" onClick={handleClose} className="shrink-0 gap-2" aria-label={t('action.close')}>
                         <ArrowLeft className="h-4 w-4" />
                         <span className="hidden sm:inline">{t('action.close')}</span>
                     </Button>
                     <div className="min-w-0">
-                        <h1 id="settings-page-title" className="truncate text-base font-bold tracking-tight">{t('settings.title')}</h1>
-                        <p id="settings-page-description" className="truncate text-xs text-muted-foreground">{t('settings.description')}</p>
+                        <p className="truncate text-[11px] font-medium text-muted-foreground">{t('settings.title')} <span className="px-1 text-border">/</span> {t(`settings.tab.${activeTab}` as any)}</p>
+                        <h1 id="settings-page-title" className="truncate text-base font-semibold tracking-tight">{t(`settings.tab.${activeTab}` as any)}</h1>
+                        <p id="settings-page-description" className="sr-only">{t('settings.description')}</p>
                     </div>
                 </div>
             </header>
 
-            <Tabs defaultValue="download" className="flex min-h-0 flex-1 flex-col">
-                    <TabsList className="mx-auto flex h-auto w-full max-w-7xl justify-start overflow-x-auto rounded-none border-b bg-transparent p-0 px-4 sm:px-8">
-                        {(['download', 'media', 'network', 'deps', 'appearance', 'about'] as const).map(tab => (
-                            <TabsTrigger key={tab} value={tab} className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none px-3 py-2.5 text-xs">
-                                {t(`settings.tab.${tab}` as any)}
-                            </TabsTrigger>
-                        ))}
+            <Tabs defaultValue="download" onValueChange={value => setActiveTab(value as (typeof SETTINGS_TABS)[number])} className="flex min-h-0 flex-1 flex-col">
+                <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5 sm:px-8 md:flex-row md:gap-8 md:py-8">
+                    <TabsList className="flex h-auto w-full shrink-0 justify-start gap-0.5 overflow-x-auto border-b border-border bg-transparent p-0 pb-1 md:w-52 md:flex-col md:justify-start md:gap-0.5 md:overflow-visible md:border-b-0 md:border-r md:pb-0 md:pr-4">
+                        {SETTINGS_TABS.map(tab => {
+                            const Icon = TAB_ICONS[tab]
+                            return (
+                                <TabsTrigger key={tab} value={tab} className="h-9 shrink-0 justify-start gap-2 rounded-md px-3 text-xs text-muted-foreground data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-none md:w-full">
+                                    <Icon className="h-3.5 w-3.5 opacity-70" />
+                                    <span>{t(`settings.tab.${tab}` as any)}</span>
+                                </TabsTrigger>
+                            )
+                        })}
                     </TabsList>
 
                     <ScrollArea className="min-h-0 flex-1">
-                        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 lg:py-8">
-                            <div className="max-w-4xl space-y-4">
+                        <div className="w-full">
+                            <div className="settings-panel max-w-4xl">
                             {/* Download Tab */}
-                            <TabsContent value="download" className="mt-0 space-y-4">
+                            <TabsContent value="download" className="settings-form mt-0">
                                 {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
-                                    <div className="space-y-1.5">
+                                    <div className="settings-row space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.outputDir')}</Label>
                                         <div className="flex gap-2">
                                             <Input type="text" value={settings.outputDir} onChange={e => update('outputDir', e.target.value)}
@@ -305,22 +313,22 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         {backendMode === 'web' && <p className="text-xs text-muted-foreground">{t('settings.outputDirWebHint')}</p>}
                                     </div>
                                 )}
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.quality')}</Label>
                                     <SelectComp value={settings.quality} onValueChange={(v: string) => update('quality', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>{QUALITY_OPTIONS.map(q => <SelectItem key={q} value={q}>{t(`quality.${q}` as any)}</SelectItem>)}</SelectContent>
                                     </SelectComp>
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.rateLimit')}</Label>
                                     <Input type="text" value={settings.rateLimit} onChange={e => update('rateLimit', e.target.value)} placeholder={t('settings.rateLimitPlaceholder')} />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.maxConcurrent')}</Label>
                                     <Input type="number" value={settings.maxConcurrent} min={1} max={10} onChange={e => update('maxConcurrent', parseInt(e.target.value) || 1)} className="w-20" />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <div className="flex items-center gap-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.filenameTemplate')}</Label>
                                         <Tooltip>
@@ -346,7 +354,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         ))}
                                     </div>
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.mergeOutputFormat')}</Label>
                                     <SelectComp value={settings.mergeOutputFormat || '_auto'} onValueChange={(v: string) => update('mergeOutputFormat', v === '_auto' ? '' : v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -358,7 +366,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         </SelectContent>
                                     </SelectComp>
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.audioFormat')}</Label>
                                     <SelectComp value={settings.audioFormat || '_default'} onValueChange={(v: string) => update('audioFormat', v === '_default' ? '' : v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -375,7 +383,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                             </TabsContent>
 
                             {/* Media Tab */}
-                            <TabsContent value="media" className="mt-0 space-y-3">
+                            <TabsContent value="media" className="settings-form mt-0">
                                 {([
                                     { key: 'saveDescription', label: t('settings.saveDescription') },
                                     { key: 'saveThumbnail', label: t('settings.saveThumbnail') },
@@ -386,14 +394,14 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                     { key: 'embedChapters', label: t('settings.embedChapters') },
                                     { key: 'sponsorBlock', label: t('settings.sponsorBlock') },
                                 ] as const).map(opt => (
-                                    <label key={opt.key} className="flex items-center justify-between cursor-pointer">
+                                    <label key={opt.key} className="settings-row flex items-center justify-between cursor-pointer">
                                         <span className="text-sm cursor-pointer">{opt.label}</span>
                                         <Checkbox checked={!!settings[opt.key as keyof Settings]}
                                             onCheckedChange={(checked: boolean) => update(opt.key as keyof Settings, !!checked)} />
                                     </label>
                                 ))}
                                 {settings.writeSubtitles && (
-                                    <div className="space-y-1.5">
+                                    <div className="settings-row space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.subtitleLangs')}</Label>
                                         <Input type="text" value={settings.subtitleLangs || ''} onChange={e => update('subtitleLangs', e.target.value)} placeholder={t('settings.subtitleLangsPlaceholder')} />
                                     </div>
@@ -401,30 +409,18 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                             </TabsContent>
 
                             {/* Network Tab */}
-                            <TabsContent value="network" className="mt-0 space-y-4">
-                                <div className="space-y-1.5">
+                            <TabsContent value="network" className="settings-form mt-0">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.proxy')}</Label>
                                     <Input type="text" value={settings.proxy} onChange={e => update('proxy', e.target.value)} placeholder={t('settings.proxyPlaceholder')} />
                                 </div>
-                                {backendMode === 'desktop' && (
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs text-muted-foreground">{t('settings.cookiesFrom')}</Label>
-                                        <SelectComp value={settings.cookiesFrom || '_none'} onValueChange={(val: string) => {
-                                            const v = val === '_none' ? '' : val
-                                            const current = settingsRef.current
-                                            if (current) commitSettings({...current, cookiesFrom: v, cookiesFile: v ? '' : current.cookiesFile})
-                                        }}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="_none">{t('settings.cookiesFromNone')}</SelectItem>
-                                                {['chrome', 'firefox', 'edge', 'opera', 'brave', 'vivaldi', 'safari'].map(b => <SelectItem key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</SelectItem>)}
-                                            </SelectContent>
-                                        </SelectComp>
-                                    </div>
-                                )}
-                                {(!settings.cookiesFrom && !settings.cookiesFile) && <Separator><span className="text-xs text-muted-foreground">{t('setup.or')}</span></Separator>}
-                                {!settings.cookiesFrom && (
-                                    <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">{t('settings.updateProxy')}</Label>
+                                    <Input type="text" value={settings.updateProxy || ''} onChange={e => update('updateProxy', e.target.value)} placeholder={t('settings.updateProxyPlaceholder')} />
+                                    <p className="text-xs text-muted-foreground">{t('settings.updateProxyHint')}</p>
+                                </div>
+                                {/* Browser cookie import is temporarily hidden until the desktop integration is reliable. */}
+                                <div className="settings-row space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.cookiesFile')}</Label>
                                         <div className="flex gap-2">
                                             <Input type="text" value={settings.cookiesFile || ''} onChange={e => {
@@ -459,17 +455,19 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                                 {t('setup.getExtension')} <ExternalLink className="h-3 w-3 inline" />
                                             </a>
                                         )}
-                                    </div>
-                                )}
+                                </div>
                             </TabsContent>
 
                             {/* Deps Tab */}
-                            <TabsContent value="deps" className="mt-0 space-y-4">
-                                <Button variant="outline" size="sm" onClick={handleRefreshDeps} disabled={loadingDeps}>
-                                    <RefreshCw className={`h-4 w-4 mr-1 ${loadingDeps ? 'animate-spin' : ''}`} />
-                                    {loadingDeps ? t('dep.checking') : t('dep.refresh')}
-                                </Button>
-                                <div className="space-y-4">
+                            <TabsContent value="deps" className="settings-form mt-0">
+                                <div className="settings-toolbar flex items-center justify-between border-b border-border px-4 py-3">
+                                    <span className="text-xs text-muted-foreground">{t('settings.diagStatus')}</span>
+                                    <Button variant="outline" size="sm" onClick={handleRefreshDeps} disabled={loadingDeps}>
+                                        <RefreshCw className={`h-4 w-4 mr-1 ${loadingDeps ? 'animate-spin' : ''}`} />
+                                        {loadingDeps ? t('dep.checking') : t('dep.refresh')}
+                                    </Button>
+                                </div>
+                                <div className="settings-dependency-list">
                                     {renderDepCard({
                                         title: 'yt-dlp', status: !depStatus ? t('dep.checking') : depStatus.ytdlp.found ? `✓ ${t('dep.found')}` : `✗ ${t('dep.notFound')}`,
                                         tone: !depStatus ? 'loading' : depStatus.ytdlp.found ? 'ready' : 'missing',
@@ -495,7 +493,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         tone: !depStatus ? 'loading' : depStatus.ffmpeg.found ? 'ready' : 'missing',
                                         rows: [{label: t('settings.diagVersion'), value: depStatus?.ffmpeg.version}, {label: t('settings.diagPath'), value: depStatus?.ffmpeg.path}],
                                         guide: depStatus && !depStatus.ffmpeg.found ? (
-                                            <div className="rounded-md border border-dashed p-3 space-y-2">
+                                            <div className="border-t border-border bg-muted/20 px-4 py-3 space-y-2">
                                                 <div className="text-xs font-medium">{t('dep.ffmpegInstallGuide')}</div>
                                                 <code className="block text-xs bg-muted p-1.5 rounded">{t('dep.ffmpegWindows')}</code>
                                                 <code className="block text-xs bg-muted p-1.5 rounded">{t('dep.ffmpegMac')}</code>
@@ -512,7 +510,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                             </Button>
                                         ), note: denoUpdateResult,
                                         guide: depStatus && !depStatus.jsRuntime.found ? (
-                                            <div className="rounded-md border border-dashed p-3 space-y-2">
+                                            <div className="border-t border-border bg-muted/20 px-4 py-3 space-y-2">
                                                 <div className="text-xs font-medium">{t('dep.denoInstallGuide')}</div>
                                                 <code className="block text-xs bg-muted p-1.5 rounded">{t('dep.denoWindows')}</code>
                                                 <code className="block text-xs bg-muted p-1.5 rounded">{t('dep.denoMac')}</code>
@@ -523,15 +521,15 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                             </TabsContent>
 
                             {/* Appearance Tab */}
-                            <TabsContent value="appearance" className="mt-0 space-y-4">
-                                <div className="space-y-1.5">
+                            <TabsContent value="appearance" className="settings-form mt-0">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.theme')}</Label>
                                     <SelectComp value={settings.theme || 'dark'} onValueChange={(v: string) => update('theme', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>{THEME_OPTIONS.map(th => <SelectItem key={th} value={th}>{t(`app.theme.${th}` as any)}</SelectItem>)}</SelectContent>
                                     </SelectComp>
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="settings-row space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.language')}</Label>
                                     <SelectComp value={settings.language || lang} onValueChange={(v: string) => update('language', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -541,135 +539,89 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         </SelectContent>
                                     </SelectComp>
                                 </div>
-                                <label className="flex items-center justify-between cursor-pointer">
+                                <label className="settings-row flex items-center justify-between cursor-pointer">
                                     <span className="text-sm cursor-pointer">{t('settings.notifications')}</span>
                                     <Checkbox checked={!!settings.notifications} onCheckedChange={(checked: boolean) => update('notifications', !!checked)} />
                                 </label>
                             </TabsContent>
-
                             {/* About Tab */}
-                            <TabsContent value="about" className="mt-0">
-                                <div className="flex flex-col items-center py-8 px-2">
-                                    {/* Hero area with ambient glow */}
-                                    <div className="relative mb-6">
-                                        <div className="absolute inset-0 rounded-full blur-2xl bg-primary/15 scale-150 pointer-events-none" />
-                                        <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-red-600 via-red-500 to-red-700 shadow-lg shadow-red-500/20">
-                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="white" className="drop-shadow-xs ml-0.5">
-                                                <path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/>
+                            <TabsContent value="about" className="settings-form mt-0">
+                                <div className="settings-about">
+                                    <div className="settings-about-intro flex items-center gap-4 border-b border-border px-4 py-5 sm:px-5">
+                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                <path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z" />
                                             </svg>
                                         </div>
-                                    </div>
-
-                                    <div className="text-center space-y-1.5 mb-7">
-                                        <h2 className="text-2xl font-bold tracking-tight">YT-GO</h2>
-                                        {aboutInfo && (
-                                            <span className="inline-block text-xs font-medium text-primary bg-primary/10 px-2.5 py-0.5 rounded-full tracking-wide">
-                                                v{aboutInfo.appVersion}
-                                            </span>
-                                        )}
+                                        <div>
+                                            <h2 className="text-base font-semibold tracking-tight">YT-GO</h2>
+                                            <p className="text-xs text-muted-foreground">{t('about.openSource')}</p>
+                                        </div>
+                                        {aboutInfo && <span className="ml-auto text-xs font-medium text-primary">v{aboutInfo.appVersion}</span>}
                                     </div>
 
                                     {aboutInfo && (
-                                        <div className="w-full max-w-sm space-y-2.5">
-                                            {/* Info card */}
-                                            <div className="rounded-xl border bg-card/50 backdrop-blur-xs divide-y divide-border/50 overflow-hidden shadow-xs">
-                                                <div className="flex items-center gap-3 px-4 py-3 group">
-                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                                        <Globe className="h-4 w-4" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="text-[10px] uppercase tracking-widest font-medium text-muted-foreground">{t('settings.github')}</div>
-                                                        <a className="text-sm font-medium text-primary hover:underline break-all leading-snug" href={aboutInfo.githubUrl} target="_blank" rel="noopener noreferrer">
-                                                            {aboutInfo.githubRepo} <ExternalLink className="h-3 w-3 inline opacity-50 group-hover:opacity-100 transition-opacity" />
-                                                        </a>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-3 px-4 py-3">
-                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <rect x="2" y="3" width="20" height="14" rx="2"/>
-                                                            <line x1="8" y1="21" x2="16" y2="21"/>
-                                                            <line x1="12" y1="17" x2="12" y2="21"/>
-                                                        </svg>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="text-[10px] uppercase tracking-widest font-medium text-muted-foreground">{t('settings.systemVersion')}</div>
-                                                        <div className="text-sm font-medium leading-snug break-all">{aboutInfo.systemVersion}</div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-3 px-4 py-3">
-                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                                                            <polyline points="22,6 12,13 2,6"/>
-                                                        </svg>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="text-[10px] uppercase tracking-widest font-medium text-muted-foreground">{t('settings.authorEmail')}</div>
-                                                        <a className="text-sm font-medium text-primary hover:underline leading-snug" href={`mailto:${aboutInfo.authorEmail}`}>{aboutInfo.authorEmail}</a>
-                                                    </div>
-                                                </div>
+                                        <div className="settings-about-rows">
+                                            <div className="settings-about-row">
+                                                <span>{t('settings.github')}</span>
+                                                <a className="break-all text-sm text-primary hover:underline" href={aboutInfo.githubUrl} target="_blank" rel="noopener noreferrer">
+                                                    {aboutInfo.githubRepo} <ExternalLink className="inline h-3 w-3 opacity-60" />
+                                                </a>
                                             </div>
-
-                                            {/* Check update */}
-                                            <div className="flex flex-col items-center gap-2 pt-2">
-                                                <Button size="sm" onClick={handleCheckForUpdate} disabled={isCheckingUpdate}>
-                                                    <RefreshCw className={`h-4 w-4 mr-1 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-                                                    {isCheckingUpdate ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
-                                                </Button>
-                                                {updateInfo?.hasUpdate && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        disabled={isInstallingUpdate}
-                                                        onClick={updateInfo.canInstall === false ? handleOpenReleasePage : handleDownloadUpdate}
-                                                    >
-                                                        {isInstallingUpdate ? t('settings.appUpdateDownloading') : t('settings.appUpdateDownload')}
-                                                    </Button>
-                                                )}
-                                                {updateError && (
-                                                    <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive w-full">
-                                                        {updateError}
-                                                    </div>
-                                                )}
-                                                {updateInfo && (
-                                                    <div className="rounded-md border p-3 text-xs space-y-1 w-full">
-                                                        {updateInfo.hasUpdate ? (
-                                                            <>
-                                                                <div className="flex gap-2"><span className="text-muted-foreground">{t('settings.diagCurrent')}</span><span>v{updateInfo.currentVersion}</span></div>
-                                                                <div className="flex gap-2"><span className="text-muted-foreground">{t('settings.diagLatest')}</span><span className="text-green-500">v{updateInfo.latestVersion}</span></div>
-                                                            </>
-                                                        ) : (
-                                                            <span className="text-green-500">✓ {t('settings.appUpdateUpToDate')} (v{updateInfo.currentVersion})</span>
-                                                        )}
-                                                    </div>
-                                                )}
+                                            <div className="settings-about-row">
+                                                <span>{t('settings.systemVersion')}</span>
+                                                <span className="break-all text-sm">{aboutInfo.systemVersion}</span>
                                             </div>
-
-                                            {/* Reset */}
-                                            <div className="flex flex-col items-center gap-2 pt-2">
-                                                <Button variant="outline" size="sm" onClick={handleResetSettings} disabled={isResetting}>
-                                                    {isResetting ? t('settings.resetting') : t('settings.reset')}
-                                                </Button>
-                                            </div>
-
-                                            {/* Footer attribution */}
-                                            <div className="text-center text-xs text-muted-foreground space-y-1.5 pt-3">
-                                                <p className="flex items-center justify-center gap-1.5">
-                                                    <Heart className="h-3.5 w-3.5 text-primary fill-primary/30" />
-                                                    <span className="font-medium">{t('about.openSource')}</span>
-                                                </p>
-                                                <p className="opacity-70">{t('about.feedback')}</p>
+                                            <div className="settings-about-row">
+                                                <span>{t('settings.authorEmail')}</span>
+                                                <a className="break-all text-sm text-primary hover:underline" href={`mailto:${aboutInfo.authorEmail}`}>{aboutInfo.authorEmail}</a>
                                             </div>
                                         </div>
                                     )}
+
+                                    <div className="settings-about-row settings-about-action-row">
+                                        <span>{t('settings.appUpdateCheck')}</span>
+                                        <div className="flex flex-wrap justify-end gap-2">
+                                            <Button size="sm" onClick={handleCheckForUpdate} disabled={isCheckingUpdate}>
+                                                <RefreshCw className={`h-4 w-4 mr-1 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                                                {isCheckingUpdate ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
+                                            </Button>
+                                            {updateInfo?.hasUpdate && (
+                                                <Button size="sm" variant="outline" disabled={isInstallingUpdate} onClick={updateInfo.canInstall === false ? handleOpenReleasePage : handleDownloadUpdate}>
+                                                    {isInstallingUpdate ? t('settings.appUpdateDownloading') : t('settings.appUpdateDownload')}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {updateError && <div className="settings-about-message border-t border-destructive/20 bg-destructive/5 px-4 py-3 text-xs text-destructive">{updateError}</div>}
+                                    {updateInfo && (
+                                        <div className="settings-about-message border-t border-border bg-muted/20 px-4 py-3 text-xs">
+                                            {updateInfo.hasUpdate ? (
+                                                <div className="flex flex-wrap gap-x-5 gap-y-1">
+                                                    <span><span className="text-muted-foreground">{t('settings.diagCurrent')}</span> v{updateInfo.currentVersion}</span>
+                                                    <span><span className="text-muted-foreground">{t('settings.diagLatest')}</span> <span className="text-green-600 dark:text-green-400">v{updateInfo.latestVersion}</span></span>
+                                                </div>
+                                            ) : <span className="text-green-600 dark:text-green-400">✓ {t('settings.appUpdateUpToDate')} (v{updateInfo.currentVersion})</span>}
+                                        </div>
+                                    )}
+
+                                    <div className="settings-about-row settings-about-action-row border-t border-border">
+                                        <span>{t('settings.reset')}</span>
+                                        <Button variant="outline" size="sm" onClick={handleResetSettings} disabled={isResetting}>
+                                            {isResetting ? t('settings.resetting') : t('settings.reset')}
+                                        </Button>
+                                    </div>
+
+                                    <div className="border-t border-border px-4 py-4 text-xs text-muted-foreground sm:px-5">
+                                        <p className="flex items-center gap-1.5"><Heart className="h-3.5 w-3.5 text-primary" />{t('about.feedback')}</p>
+                                    </div>
                                 </div>
                             </TabsContent>
                             </div>
                         </div>
                     </ScrollArea>
+                </div>
                 </Tabs>
         </section>
         <DirBrowser open={showDirBrowser} initialPath={settings?.outputDir || ''} onSelect={dir => update('outputDir', dir)} onClose={() => setShowDirBrowser(false)} />

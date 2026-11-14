@@ -1,5 +1,7 @@
 package desktop
 
+import "encoding/json"
+
 import "YT-GO/internal/core"
 
 func toCoreSettings(in Settings) core.Settings {
@@ -104,6 +106,18 @@ func (a *App) GetSettings() Settings         { return fromCoreSettings(a.service
 func (a *App) IsFirstRun() bool              { return a.service.IsFirstRun() }
 func (a *App) NeedsCookieConfig() bool       { return a.service.NeedsCookieConfig() }
 func (a *App) SaveSettings(s Settings) error { return a.service.SaveSettings(toCoreSettings(s)) }
+func (a *App) ApplySettingsPatch(patch map[string]any) (Settings, error) {
+	rawPatch := make(core.SettingsPatch, len(patch))
+	for key, value := range patch {
+		raw, err := json.Marshal(value)
+		if err != nil {
+			return Settings{}, err
+		}
+		rawPatch[key] = raw
+	}
+	settings, err := a.service.ApplySettingsPatch(rawPatch)
+	return fromCoreSettings(settings), err
+}
 func (a *App) ResetSettings() error          { return a.service.ResetSettings() }
 func (a *App) GetDefaultDownloadDir() string { return a.service.GetDefaultDownloadDir() }
 func (a *App) SetLang(lang string)           { a.service.SetLang(lang) }

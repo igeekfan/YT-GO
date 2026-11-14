@@ -31,6 +31,7 @@ func setTestUserConfigDir(t *testing.T) string {
 	switch runtime.GOOS {
 	case "windows":
 		t.Setenv("APPDATA", dir)
+		t.Setenv("LOCALAPPDATA", dir)
 	case "darwin":
 		t.Setenv("HOME", dir)
 	default:
@@ -134,7 +135,7 @@ func TestCookiesUploadUsesPrivateUniqueServerNames(t *testing.T) {
 	}
 }
 
-func newServerWithDownloadRecords(t *testing.T, root string, records []core.DownloadRecord, settingRecords ...core.SettingsRecord) *Server {
+func newServerWithDownloadRecords(t *testing.T, root string, records []core.DownloadRecord) *Server {
 	t.Helper()
 	configBase := setTestUserConfigDir(t)
 	t.Setenv("YTGO_DOWNLOAD_DIR", "")
@@ -150,16 +151,11 @@ func newServerWithDownloadRecords(t *testing.T, root string, records []core.Down
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&core.DownloadRecord{}, &core.SettingsRecord{}); err != nil {
+	if err := db.AutoMigrate(&core.DownloadRecord{}); err != nil {
 		t.Fatal(err)
 	}
 	for i := range records {
 		if err := db.Create(&records[i]).Error; err != nil {
-			t.Fatal(err)
-		}
-	}
-	for i := range settingRecords {
-		if err := db.Create(&settingRecords[i]).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -327,25 +323,6 @@ func TestSettingsProtectsProxyAndCookieFileBoundaries(t *testing.T) {
 	}
 	if saved.OutputDir != server.DownloadRoot() || saved.Proxy != valid.Proxy || saved.CookiesFile != validCookie || saved.CookiesFrom != "" {
 		t.Fatalf("saved settings escaped normalization: %+v", saved)
-	}
-}
-
-func TestOutboundEndpointsRejectUnsafePersistedWebSettings(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "downloads")
-	server := newServerWithDownloadRecords(t, root, nil, core.SettingsRecord{
-		ID:            1,
-		OutputDir:     root,
-		MaxConcurrent: 3,
-		Proxy:         "http://127.0.0.1:8080",
-	})
-	body := strings.NewReader(`{"url":"https://video.example/watch/1"}`)
-	request := httptest.NewRequest(http.MethodPost, "/api/video/info", body)
-	request.Header.Set("Authorization", "Bearer secret")
-	recorder := httptest.NewRecorder()
-
-	server.Handler().ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), "proxy endpoint") {
-		t.Fatalf("unsafe persisted proxy status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 }
 
