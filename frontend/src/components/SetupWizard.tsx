@@ -145,23 +145,10 @@ export default function SetupWizard({onComplete}: {onComplete: (outputDir: strin
                         <div className="space-y-4">
                             <p className="text-sm text-muted-foreground">{t('setup.cookiesDesc')}</p>
 
-                            {backendMode === 'desktop' && (
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground">{t('settings.cookiesFrom')}</Label>
-                                    <Select value={cookiesFrom || '_none'} onValueChange={(v: string) => { const val = v === '_none' ? '' : v; setCookiesFrom(val); if (val) setCookiesFile('') }}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="_none">{t('settings.cookiesFromNone')}</SelectItem>
-                                            {['chrome', 'firefox', 'edge', 'opera', 'brave', 'vivaldi', 'safari'].map(b => <SelectItem key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                    <p className="text-xs text-muted-foreground">{t('settings.cookiesFromHint')}</p>
-                                </div>
-                            )}
+                            {/* Browser cookie import is temporarily hidden until the desktop integration is reliable. */}
+                            {!cookiesFile && <Separator><span className="text-xs text-muted-foreground">{t('setup.or')}</span></Separator>}
 
-                            {!cookiesFrom && !cookiesFile && <Separator><span className="text-xs text-muted-foreground">{t('setup.or')}</span></Separator>}
-
-                            {!cookiesFrom && (
+                            {
                                 <div className="space-y-1.5">
                                     <Label className="text-xs text-muted-foreground">{t('settings.cookiesFile')}</Label>
                                     <div className="flex gap-2">
@@ -185,7 +172,7 @@ export default function SetupWizard({onComplete}: {onComplete: (outputDir: strin
                                         </div>
                                     </details>
                                 </div>
-                            )}
+                            }
 
                             <Separator />
                             <div className="space-y-1.5">

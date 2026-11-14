@@ -10,7 +10,6 @@ import {Label} from '@/components/ui/label'
 import {Checkbox} from '@/components/ui/checkbox'
 import {Select as SelectComp, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {Badge} from '@/components/ui/badge'
-import {Separator} from '@/components/ui/separator'
 import {ScrollArea} from '@/components/ui/scroll-area'
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {toast} from 'sonner'
@@ -420,25 +419,8 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                     <Input type="text" value={settings.updateProxy || ''} onChange={e => update('updateProxy', e.target.value)} placeholder={t('settings.updateProxyPlaceholder')} />
                                     <p className="text-xs text-muted-foreground">{t('settings.updateProxyHint')}</p>
                                 </div>
-                                {backendMode === 'desktop' && (
-                                    <div className="settings-row space-y-1.5">
-                                        <Label className="text-xs text-muted-foreground">{t('settings.cookiesFrom')}</Label>
-                                        <SelectComp value={settings.cookiesFrom || '_none'} onValueChange={(val: string) => {
-                                            const v = val === '_none' ? '' : val
-                                            const current = settingsRef.current
-                                            if (current) commitSettings({...current, cookiesFrom: v, cookiesFile: v ? '' : current.cookiesFile})
-                                        }}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="_none">{t('settings.cookiesFromNone')}</SelectItem>
-                                                {['chrome', 'firefox', 'edge', 'opera', 'brave', 'vivaldi', 'safari'].map(b => <SelectItem key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</SelectItem>)}
-                                            </SelectContent>
-                                        </SelectComp>
-                                    </div>
-                                )}
-                                {(!settings.cookiesFrom && !settings.cookiesFile) && <Separator><span className="text-xs text-muted-foreground">{t('setup.or')}</span></Separator>}
-                                {!settings.cookiesFrom && (
-                                    <div className="settings-row space-y-1.5">
+                                {/* Browser cookie import is temporarily hidden until the desktop integration is reliable. */}
+                                <div className="settings-row space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.cookiesFile')}</Label>
                                         <div className="flex gap-2">
                                             <Input type="text" value={settings.cookiesFile || ''} onChange={e => {
@@ -473,8 +455,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                                 {t('setup.getExtension')} <ExternalLink className="h-3 w-3 inline" />
                                             </a>
                                         )}
-                                    </div>
-                                )}
+                                </div>
                             </TabsContent>
 
                             {/* Deps Tab */}
