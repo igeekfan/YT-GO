@@ -30,6 +30,7 @@ export function useSettingsController() {
     const [currentSettings, setCurrentSettings] = useState<Settings | null>(null)
     const currentSettingsRef = useRef<Settings | null>(null)
     const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+    const [notifications, setNotifications] = useState<Array<{id: string; title: string; body: string}>>([])
     const [downloadOptions, setDownloadOptions] = useState<DownloadOptionState>(EMPTY_DOWNLOAD_OPTIONS)
 
     useEffect(() => {
@@ -46,7 +47,9 @@ export function useSettingsController() {
         if (settings.quality) setQuality(settings.quality)
         if (settings.theme) setTheme(settings.theme as Theme)
         if (settings.language) setLang(settings.language as 'zh-CN' | 'en-US')
-        setNotificationsEnabled(settings.notifications || false)
+        const completionNotificationsEnabled = settings.notifications || false
+        setNotificationsEnabled(completionNotificationsEnabled)
+        if (!completionNotificationsEnabled) setNotifications([])
         setDownloadOptions({
             saveThumbnail: settings.saveThumbnail || false,
             saveDescription: settings.saveDescription || false,
@@ -59,9 +62,6 @@ export function useSettingsController() {
 
     const handleSettingsSaved = useCallback((settings: Settings) => {
         applySettingsToUI(settings)
-        if (settings.notifications && 'Notification' in window && Notification.permission === 'default') {
-            void Notification.requestPermission()
-        }
     }, [applySettingsToUI])
 
     const {schedule: saveSettingsLatest, flush: flushSettings} = useLatestValueSaver<SettingsPatch>({
@@ -120,14 +120,14 @@ export function useSettingsController() {
     }, [stageSettingsSave])
 
     const sendNotification = useCallback((title: string, body: string) => {
-        if (!notificationsEnabled || !('Notification' in window)) return
-        if (Notification.permission === 'granted') new Notification(title, {body})
-        else if (Notification.permission !== 'denied') {
-            Notification.requestPermission().then(permission => {
-                if (permission === 'granted') new Notification(title, {body})
-            })
-        }
+        if (!notificationsEnabled) return
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+        setNotifications(current => [{id, title, body}, ...current].slice(0, 3))
     }, [notificationsEnabled])
+
+    const dismissNotification = useCallback((id: string) => {
+        setNotifications(current => current.filter(notification => notification.id !== id))
+    }, [])
 
     const saveSetupSettings = useCallback(async (
         directory: string,
@@ -168,6 +168,8 @@ export function useSettingsController() {
         handleQuickThemeToggle,
         setDirectoryAndSave,
         sendNotification,
+        notifications,
+        dismissNotification,
         saveSetupSettings,
     }
 }

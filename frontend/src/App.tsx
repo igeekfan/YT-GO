@@ -8,6 +8,7 @@ import {useMediaDownload} from './hooks/useMediaDownload'
 import AuthBoundary from './components/app/AuthBoundary'
 import AppHeader from './components/app/AppHeader'
 import ConsolePanel from './components/app/ConsolePanel'
+import DownloadNotifications from './components/app/DownloadNotifications'
 import DownloadWorkspace from './components/download/DownloadWorkspace'
 import DownloadList from './components/DownloadList'
 
@@ -130,6 +131,8 @@ function App() {
                         <DownloadList downloads={downloadFeed.downloads} onUpdate={downloadFeed.setDownloads} />
                     </div>
                 </main>
+
+                <DownloadNotifications notifications={settings.notifications} onDismiss={settings.dismissNotification} />
 
                 {settingsLoaded && (
                     <Suspense fallback={null}>

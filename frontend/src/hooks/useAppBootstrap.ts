@@ -39,9 +39,6 @@ export function useAppBootstrap(authStatus: AuthStatus, applySettings: (settings
             if (settingsResult.status === 'fulfilled') {
                 const settings = settingsResult.value
                 applySettings(settings)
-                if (settings.notifications && 'Notification' in window && Notification.permission === 'default') {
-                    void Notification.requestPermission()
-                }
             }
 
             if (backendMode === 'desktop') {
