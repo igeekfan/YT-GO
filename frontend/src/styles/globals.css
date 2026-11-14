@@ -92,6 +92,34 @@
     font-weight: 500;
   }
 
+  .settings-dependency-list {
+    background: hsl(var(--card));
+  }
+
+  .settings-dependency-row:last-child {
+    border-bottom: 0;
+  }
+
+  .settings-about-row {
+    display: grid;
+    grid-template-columns: minmax(10rem, 0.8fr) minmax(0, 1.4fr);
+    align-items: center;
+    gap: 2rem;
+    min-height: 4.25rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .settings-about-row > :first-child {
+    color: hsl(var(--foreground));
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .settings-about-action-row > :last-child {
+    justify-self: end;
+  }
+
   @media (max-width: 640px) {
     .settings-form > .settings-row,
     .settings-form > label.settings-row {
@@ -103,6 +131,16 @@
     .settings-form > .settings-row > p {
       grid-column: auto;
       margin-top: 0;
+    }
+
+    .settings-about-row {
+      grid-template-columns: 1fr;
+      gap: 0.625rem;
+      padding: 0.875rem 1rem;
+    }
+
+    .settings-about-action-row > :last-child {
+      justify-self: start;
     }
   }
 }
