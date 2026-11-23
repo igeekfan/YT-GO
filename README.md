@@ -81,19 +81,31 @@ The macOS DMG is currently not notarized by Apple. If macOS says `YTGO.app` is d
 
 ## Dev
 
+Use Go 1.27, Node.js 22.12+ and the Wails 3 CLI. Windows uses WebView2 and macOS builds require the Xcode Command Line Tools. On Linux, install the development libraries in the Build section before compiling the CLI.
+
 ```bash
-wails dev
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+wails3 dev
 ```
 
 ## Build
 
 ```bash
 # Desktop app
-wails build
+wails3 build
+
+# Windows NSIS installer or macOS .app bundle
+wails3 package
 
 # Web server
+npm --prefix frontend ci
+npm --prefix frontend run build
 go build -tags web -o build/bin/yt-go-web .
 ```
+
+Desktop outputs go to `build/bin/`. Use `APP_VERSION` to override `VERSION` when building a release.
+
+On Linux, install a C compiler and the GTK development libraries. The default desktop build uses GTK 4 and WebKitGTK 6.0 (`libgtk-4-dev` and `libwebkitgtk-6.0-dev` on Ubuntu). For GTK 3 and WebKitGTK 4.1, install `libgtk-3-dev` and `libwebkit2gtk-4.1-dev`, add `-tags gtk3` to `go install`, and use `wails3 build -tags gtk3`. AppImage packaging on Ubuntu also uses `patchelf` and `dpkg-dev`. Windows packaging requires NSIS (`makensis` on `PATH`).
 
 ## Docker
 
@@ -147,7 +159,7 @@ The API rejects initial URLs that resolve to loopback, private, link-local, rese
 
 ## Stack
 
-- [Wails v2](https://wails.io) — Go + React desktop
+- [Wails v3](https://v3.wails.io) — Go + React desktop
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) — video downloading backend
 
 ## License

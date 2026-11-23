@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=YT-GO
+Comment=YouTube downloader powered by yt-dlp
+Exec=YT-GO
+Icon=YT-GO
+Terminal=false
+Type=Application
+Categories=Utility;
+StartupWMClass=YT-GO

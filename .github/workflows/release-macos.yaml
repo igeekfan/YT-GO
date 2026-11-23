@@ -9,7 +9,7 @@ on:
       tag:
         description: 'Version tag'
         required: true
-        default: '0.0.16'
+        default: '0.0.17'
 
 permissions:
   contents: write
@@ -33,6 +33,9 @@ jobs:
         run: |
           tag=$(echo ${{ matrix.platform }} | sed -e 's/\//_/g' -e 's/darwin/mac/g' -e 's/amd64/intel/g')
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "arch=${PLATFORM#darwin/}" >> "$GITHUB_OUTPUT"
+        env:
+          PLATFORM: ${{ matrix.platform }}
 
       - name: Normalise version tag
         id: normalise_version
@@ -51,30 +54,23 @@ jobs:
         with:
           go-version: '1.27'
 
-      - name: Install wails
+      - name: Install Wails 3
         shell: bash
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Build frontend assets
+      - name: Build macOS application bundle
         shell: bash
-        run: |
-          npm install -g npm@9
-          jq '.info.productVersion = "${{ steps.normalise_version.outputs.version }}"' wails.json > tmp.json
-          mv tmp.json wails.json
-          cd frontend
-          jq '.version = "${{ steps.normalise_version.outputs.version }}"' package.json > tmp.json
-          mv tmp.json package.json
-          npm install
-
-      - name: Build wails app for macOS
-        shell: bash
-        run: |
-          CGO_ENABLED=1 wails build -platform ${{ matrix.platform }}
+        env:
+          APP_VERSION: ${{ steps.normalise_version.outputs.version }}
+          TARGET_ARCH: ${{ steps.normalise_platform.outputs.arch }}
+        run: wails3 package GOARCH="$TARGET_ARCH"
 
       - name: Checkout create-dmg
         uses: actions/checkout@v4
@@ -87,12 +83,13 @@ jobs:
         shell: bash
         working-directory: ./build
         run: |
-          mv bin/YT-GO.app "bin/YTGO.app"
+          mkdir -p bin/dmg
+          mv bin/YT-GO.app bin/dmg/YTGO.app
           chmod +x dmg/fix-app dmg/fix-app_zh
           ./create-dmg/create-dmg \
             --no-internet-enable \
             --volname "YTGO" \
-            --volicon "bin/YTGO.app/Contents/Resources/iconfile.icns" \
+            --volicon "bin/dmg/YTGO.app/Contents/Resources/icons.icns" \
             --window-pos 400 400 \
             --window-size 660 450 \
             --icon-size 80 \
@@ -102,7 +99,7 @@ jobs:
             --add-file "Repair" "dmg/fix-app" 230 290 \
             --add-file "损坏修复" "dmg/fix-app_zh" 430 290 \
             "bin/YTGO-${{ steps.normalise_platform.outputs.tag }}.dmg" \
-            "bin"
+            "bin/dmg"
 
       - name: Rename dmg
         working-directory: ./build/bin

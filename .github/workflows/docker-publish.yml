@@ -9,7 +9,7 @@ on:
       tag:
         description: Version tag
         required: true
-        default: 0.0.16
+        default: 0.0.17
 
 env:
   REGISTRY: ghcr.io

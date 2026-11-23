@@ -9,7 +9,7 @@ on:
       tag:
         description: 'Version tag'
         required: true
-        default: '0.0.16'
+        default: '0.0.17'
 
 permissions:
   contents: write
@@ -58,37 +58,30 @@ jobs:
         with:
           go-version: '1.27'
 
-      - name: Install chocolatey
+      - name: Install NSIS
         uses: crazy-max/ghaction-chocolatey@v3
         with:
-          args: install nsis jq
+          args: install nsis
 
-      - name: Install wails
+      - name: Install Wails 3
         shell: bash
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Build frontend assets
+      - name: Build Windows executable and NSIS installer
         shell: bash
+        env:
+          APP_VERSION: ${{ steps.normalise_version.outputs.version }}
+          TARGET_ARCH: ${{ steps.normalise_platform_name.outputs.pname }}
         run: |
-          npm install -g npm@9
-          jq '.info.productVersion = "${{ steps.normalise_version.outputs.version }}"' wails.json > tmp.json
-          mv tmp.json wails.json
-          cd frontend
-          jq '.version = "${{ steps.normalise_version.outputs.version }}"' package.json > tmp.json
-          mv tmp.json package.json
-          npm install
-
-      - name: Build Windows portable app
-        shell: bash
-        run: |
-          CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
-          -ldflags "-s -w" -trimpath \
-          -webview2 embed
+          export PATH="/c/Program Files (x86)/NSIS:$PATH"
+          wails3 package GOARCH="$TARGET_ARCH"
 
       - name: Compress portable binary
         working-directory: ./build/bin
@@ -100,15 +93,6 @@ jobs:
           tag_name: v${{ steps.normalise_version.outputs.version }}
           files: ./build/bin/YTGO_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Windows NSIS installer
-        shell: bash
-        run: |
-          export PATH="/c/Program Files (x86)/NSIS:$PATH"
-          which makensis && echo "makensis found" || echo "makensis NOT found"
-          CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
-          -ldflags "-s -w" -trimpath \
-          -nsis -webview2 embed
 
       - name: Rename installer
         working-directory: ./build/bin

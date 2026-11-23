@@ -41,17 +41,17 @@ type DownloadRequest struct {
 }
 
 type DownloadOptions struct {
-	SaveDescription   *bool  `json:"saveDescription"`
-	SaveThumbnail     *bool  `json:"saveThumbnail"`
-	EmbedChapters     *bool  `json:"embedChapters"`
-	WriteSubtitles    *bool  `json:"writeSubtitles"`
-	WriteManualSubs   *bool  `json:"writeManualSubs"`
-	WriteAutoSubs     *bool  `json:"writeAutoSubs"`
-	SubtitleLangs     string `json:"subtitleLangs"`
-	AutoSubtitleLangs string `json:"autoSubtitleLangs"`
-	EmbedSubtitles    *bool  `json:"embedSubtitles"`
-	SponsorBlock      *bool  `json:"sponsorBlock"`
-	FilenameTemplate  string `json:"filenameTemplate"`
+	SaveDescription   *bool  `json:"saveDescription,omitempty"`
+	SaveThumbnail     *bool  `json:"saveThumbnail,omitempty"`
+	EmbedChapters     *bool  `json:"embedChapters,omitempty"`
+	WriteSubtitles    *bool  `json:"writeSubtitles,omitempty"`
+	WriteManualSubs   *bool  `json:"writeManualSubs,omitempty"`
+	WriteAutoSubs     *bool  `json:"writeAutoSubs,omitempty"`
+	SubtitleLangs     string `json:"subtitleLangs,omitempty"`
+	AutoSubtitleLangs string `json:"autoSubtitleLangs,omitempty"`
+	EmbedSubtitles    *bool  `json:"embedSubtitles,omitempty"`
+	SponsorBlock      *bool  `json:"sponsorBlock,omitempty"`
+	FilenameTemplate  string `json:"filenameTemplate,omitempty"`
 }
 
 type DownloadTask struct {

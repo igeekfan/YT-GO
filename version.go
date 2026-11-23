@@ -2,27 +2,17 @@ package main
 
 import (
 	_ "embed"
-	"encoding/json"
+	"strings"
 )
 
-//go:embed wails.json
-var wailsJSON string
-
-var WailsInfo struct {
-	Info struct {
-		ProductVersion string `json:"productVersion"`
-	} `json:"info"`
-}
+//go:embed VERSION
+var defaultVersion string
 
 var version = ""
-
-func init() {
-	_ = json.Unmarshal([]byte(wailsJSON), &WailsInfo)
-}
 
 func currentAppVersion() string {
 	if version != "" {
 		return version
 	}
-	return WailsInfo.Info.ProductVersion
+	return strings.TrimSpace(defaultVersion)
 }

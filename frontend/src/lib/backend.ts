@@ -1,79 +1,32 @@
-import * as DesktopApp from '../../wailsjs/go/desktop/App'
 import {apiFetch, apiFetchBlob, apiURL, getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken, onUnauthorized, notifyUnauthorizedIfCurrent} from './api_client'
 import type {WebConfig} from './api_client'
+import {backendMode} from './backend_mode'
+import type {DownloadOptions, DownloadRequest, DownloadTask, FormatInfo, PlaylistInfo, Settings, VideoInfo} from '../types'
+import type * as DesktopModels from '../../bindings/YT-GO/desktop/models'
 
 // Re-export for consumers that import from backend.ts
-export {getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken, onUnauthorized}
+export {backendMode, getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken, onUnauthorized}
 export type {WebConfig}
 
-// Lightweight interface types for API calls (avoids Wails model class requirements)
-interface DownloadRequestPayload {
-    url: string
-    outputDir: string
-    quality: string
-    videoInfo?: {
-        url: string
-        id?: string
-        title?: string
-        thumbnail?: string
-        duration?: number
-        uploader?: string
-        platform?: string
-    }
-    options?: {
-        saveDescription?: boolean
-        saveThumbnail?: boolean
-        embedChapters?: boolean
-        writeSubtitles?: boolean
-        writeManualSubs?: boolean
-        writeAutoSubs?: boolean
-        subtitleLangs?: string
-        autoSubtitleLangs?: string
-        embedSubtitles?: boolean
-        sponsorBlock?: boolean
-        filenameTemplate?: string
-    }
+type DownloadRequestPayload = Omit<DownloadRequest, 'videoInfo' | 'options'> & {
+    videoInfo?: Pick<VideoInfo, 'url'> & Partial<Omit<VideoInfo, 'url'>>
+    options?: DownloadOptions
 }
 
-export type SettingsPayload = {
-    outputDir: string
-    quality: string
-    language: string
-    theme: string
-    proxy: string
-    updateProxy?: string
-    rateLimit: string
-    maxConcurrent: number
-    notifications: boolean
-    saveDescription: boolean
-    saveThumbnail: boolean
-    writeSubtitles: boolean
-    subtitleLangs: string
-    embedSubtitles: boolean
-    embedChapters: boolean
-    sponsorBlock: boolean
-    filenameTemplate: string
-    mergeOutputFormat: string
-    audioFormat: string
-    cookiesFrom: string
-    cookiesFile: string
-}
+export type SettingsPayload = Settings
 
 export type SettingsPatch = Partial<SettingsPayload>
 
 const RELEASE_PAGE_URL = 'https://github.com/igeekfan/YT-GO/releases'
 
-export const backendMode: 'desktop' | 'web' =
-    typeof window !== 'undefined' && typeof (window as any).go?.desktop?.App !== 'undefined'
-        ? 'desktop'
-        : 'web'
+type DesktopApp = typeof import('../../bindings/YT-GO/desktop/app')
 
-function getDesktop<T>(call: () => Promise<T>, fallback: () => Promise<T>) {
-    return backendMode === 'desktop' ? call() : fallback()
+function getDesktop<T>(call: (app: DesktopApp) => Promise<T>, fallback: () => Promise<T>) {
+    return backendMode === 'desktop' ? import('../../bindings/YT-GO/desktop/app').then(call) : fallback()
 }
 
 export function CheckYtDlp() {
-    return getDesktop(() => DesktopApp.CheckYtDlp(), () => apiFetch('/api/ytdlp/status'))
+    return getDesktop(app => app.CheckYtDlp(), () => apiFetch<DesktopModels.YtDlpStatus>('/api/ytdlp/status'))
 }
 
 // Uses a protected endpoint in web mode, so a successful response proves that
@@ -85,14 +38,14 @@ export async function VerifyAuthToken() {
 
 export function CheckYtDlpVersion() {
     return getDesktop(
-        () => DesktopApp.CheckYtDlpVersion(),
-        () => apiFetch('/api/ytdlp/version-check')
+        app => app.CheckYtDlpVersion(),
+        () => apiFetch<DesktopModels.YtDlpVersionCheck>('/api/ytdlp/version-check')
     )
 }
 
 export function UpdateYtDlp() {
     return getDesktop(
-        () => DesktopApp.UpdateYtDlp(),
+        app => app.UpdateYtDlp(),
         async () => {
             const result = await apiFetch<{output: string}>('/api/ytdlp/update', {method: 'POST'})
             return result.output || ''
@@ -102,7 +55,7 @@ export function UpdateYtDlp() {
 
 export function InstallYtDlp() {
     return getDesktop(
-        () => DesktopApp.InstallYtDlp(),
+        app => app.InstallYtDlp(),
         async () => {
             const result = await apiFetch<{output: string}>('/api/ytdlp/install', {method: 'POST'})
             return result.output || ''
@@ -112,13 +65,7 @@ export function InstallYtDlp() {
 
 export function UpdateDeno() {
     return getDesktop(
-        async () => {
-            const fn = (window as any)?.go?.desktop?.App?.UpdateDeno
-            if (typeof fn !== 'function') {
-                throw new Error('UpdateDeno is not available')
-            }
-            return await fn()
-        },
+        app => app.UpdateDeno(),
         async () => {
             const result = await apiFetch<{output: string}>('/api/diagnostics/deno/update', {method: 'POST'})
             return result.output || ''
@@ -128,32 +75,32 @@ export function UpdateDeno() {
 
 export function GetVideoInfo(url: string) {
     return getDesktop(
-        () => DesktopApp.GetVideoInfo(url),
-        () => apiFetch('/api/video/info', {method: 'POST', body: JSON.stringify({url})})
-    )
+        app => app.GetVideoInfo(url),
+        () => apiFetch<DesktopModels.VideoInfo>('/api/video/info', {method: 'POST', body: JSON.stringify({url})})
+    ).then(normalizeVideoInfo)
 }
 
-export function GetPlaylistInfo(url: string) {
-    return getDesktop(
-        () => DesktopApp.GetPlaylistInfo(url),
-        () => apiFetch('/api/video/playlist', {method: 'POST', body: JSON.stringify({url})})
-    )
+function normalizeVideoInfo(info: DesktopModels.VideoInfo): VideoInfo {
+    return {...info, subtitles: info.subtitles ?? []}
 }
 
-export function GetFormats(url: string) {
+export function GetPlaylistInfo(url: string): Promise<PlaylistInfo> {
     return getDesktop(
-        () => DesktopApp.GetFormats(url),
-        () => apiFetch('/api/video/formats', {method: 'POST', body: JSON.stringify({url})})
-    )
+        app => app.GetPlaylistInfo(url),
+        () => apiFetch<DesktopModels.PlaylistInfo>('/api/video/playlist', {method: 'POST', body: JSON.stringify({url})})
+    ).then(info => ({...info, videos: (info.videos ?? []).map(normalizeVideoInfo)}))
+}
+
+export function GetFormats(url: string): Promise<FormatInfo> {
+    return getDesktop(
+        app => app.GetFormats(url),
+        () => apiFetch<DesktopModels.FormatInfo>('/api/video/formats', {method: 'POST', body: JSON.stringify({url})})
+    ).then(info => ({...info, formats: info.formats ?? []}))
 }
 
 // SelectFolder: desktop uses native dialog, web uses text input (server-side path)
 export function SelectFolder() {
-    if (backendMode === 'desktop') {
-        return DesktopApp.SelectFolder()
-    }
-    // Web mode: return empty string, UI should show text input instead of dialog
-    return Promise.resolve('')
+    return getDesktop(app => app.SelectFolder(), () => Promise.resolve(''))
 }
 
 // BrowseDir: list subdirectories on the server (web mode only)
@@ -173,11 +120,7 @@ export function BrowseDir(path: string) {
 
 // SelectCookiesFile: desktop uses native dialog, web uploads file to server
 export function SelectCookiesFile() {
-    if (backendMode === 'desktop') {
-        return DesktopApp.SelectCookiesFile()
-    }
-    // Web mode: return empty string, UI should show upload input instead
-    return Promise.resolve('')
+    return getDesktop(app => app.SelectCookiesFile(), () => Promise.resolve(''))
 }
 
 // UploadCookiesFile: upload a cookies file to the server (web mode)
@@ -206,9 +149,20 @@ export function UploadCookiesFile(file: File) {
 
 export function StartDownload(request: DownloadRequestPayload) {
     return getDesktop(
-        // Wails binding expects the Wails model class; cast is safe because
-        // the shape is structurally identical and Wails only reads fields.
-        () => DesktopApp.StartDownload(request as any),
+        app => app.StartDownload({
+            ...request,
+            videoInfo: request.videoInfo ? {
+                id: '',
+                title: '',
+                thumbnail: '',
+                duration: 0,
+                uploader: '',
+                platform: '',
+                subtitles: null,
+                ...request.videoInfo,
+            } : null,
+            options: request.options ?? null,
+        }),
         async () => {
             const result = await apiFetch<{id: string}>('/api/downloads', {
                 method: 'POST',
@@ -220,18 +174,19 @@ export function StartDownload(request: DownloadRequestPayload) {
 }
 
 export function GetDownloads() {
-    return getDesktop(() => DesktopApp.GetDownloads(), () => apiFetch('/api/downloads'))
+    return getDesktop(
+        async app => (await app.GetDownloads() ?? []).filter(task => task !== null),
+        () => apiFetch<DownloadTask[]>('/api/downloads'),
+    )
 }
 
 export function GetSettings() {
-    return getDesktop(() => DesktopApp.GetSettings(), () => apiFetch('/api/settings'))
+    return getDesktop<Settings>(app => app.GetSettings(), () => apiFetch<Settings>('/api/settings'))
 }
 
 export function SaveSettings(settings: SettingsPayload) {
     return getDesktop(
-        // Wails binding expects the Wails model class; cast is safe because
-        // the shape is structurally identical and Wails only reads fields.
-        () => DesktopApp.SaveSettings(settings as any),
+        app => app.SaveSettings({...settings, updateProxy: settings.updateProxy ?? ''}),
         async () => {
             await apiFetch('/api/settings', {
                 method: 'POST',
@@ -243,12 +198,8 @@ export function SaveSettings(settings: SettingsPayload) {
 
 export function ApplySettingsPatch(patch: SettingsPatch): Promise<SettingsPayload> {
     return getDesktop<SettingsPayload>(
-        async () => {
-            const fn = (window as any)?.go?.desktop?.App?.ApplySettingsPatch
-            if (typeof fn !== 'function') throw new Error('ApplySettingsPatch is not available')
-            return await fn(patch)
-        },
-        () => apiFetch('/api/settings', {
+        app => app.ApplySettingsPatch(patch),
+        () => apiFetch<SettingsPayload>('/api/settings', {
             method: 'PATCH',
             body: JSON.stringify(patch),
         })
@@ -257,7 +208,7 @@ export function ApplySettingsPatch(patch: SettingsPatch): Promise<SettingsPayloa
 
 export function IsFirstRun() {
     return getDesktop(
-        () => DesktopApp.IsFirstRun(),
+        app => app.IsFirstRun(),
         async () => {
             const result = await apiFetch<{firstRun: boolean}>('/api/settings/first-run')
             return result.firstRun
@@ -267,7 +218,7 @@ export function IsFirstRun() {
 
 export function NeedsCookieConfig() {
     return getDesktop(
-        () => DesktopApp.NeedsCookieConfig(),
+        app => app.NeedsCookieConfig(),
         async () => {
             const result = await apiFetch<{needsCookieConfig: boolean}>('/api/settings/needs-cookie')
             return result.needsCookieConfig
@@ -277,7 +228,7 @@ export function NeedsCookieConfig() {
 
 export function ResetSettings() {
     return getDesktop(
-        () => DesktopApp.ResetSettings(),
+        app => app.ResetSettings(),
         async () => {
             await apiFetch('/api/settings/reset', {method: 'POST'})
         }
@@ -286,7 +237,7 @@ export function ResetSettings() {
 
 export function GetCurrentVersion() {
     return getDesktop(
-        () => DesktopApp.GetCurrentVersion(),
+        app => app.GetCurrentVersion(),
         async () => {
             const result = await apiFetch<{version: string}>('/api/version')
             return result.version
@@ -296,24 +247,18 @@ export function GetCurrentVersion() {
 
 export function GetAboutInfo() {
     return getDesktop(
-        async () => {
-            const fn = (window as any)?.go?.desktop?.App?.GetAboutInfo
-            if (typeof fn !== 'function') {
-                throw new Error('GetAboutInfo is not available')
-            }
-            return await fn()
-        },
-        () => apiFetch('/api/about')
+        app => app.GetAboutInfo(),
+        () => apiFetch<DesktopModels.AboutInfo>('/api/about')
     )
 }
 
 export function CheckForUpdate() {
-    return getDesktop(() => DesktopApp.CheckForUpdate(), () => apiFetch('/api/update'))
+    return getDesktop(app => app.CheckForUpdate(), () => apiFetch<DesktopModels.UpdateInfo>('/api/update'))
 }
 
 export function OpenReleasePage() {
     return getDesktop(
-        () => DesktopApp.OpenReleasePage(),
+        app => app.OpenReleasePage(),
         async () => {
             window.open(RELEASE_PAGE_URL, '_blank', 'noopener,noreferrer')
         }
@@ -321,32 +266,25 @@ export function OpenReleasePage() {
 }
 
 export function DownloadAndInstallUpdate() {
-    if (backendMode === 'desktop') {
-        const fn = (window as any)?.go?.desktop?.App?.DownloadAndInstallUpdate
-        if (typeof fn !== 'function') {
-            throw new Error('DownloadAndInstallUpdate is not available')
-        }
-        return fn() as Promise<void>
-    }
     // A web server cannot replace its own running process. Open the release
     // page so the user can download the package and restart the service.
-    return OpenReleasePage()
+    return getDesktop(app => app.DownloadAndInstallUpdate(), OpenReleasePage)
 }
 
 export function GetDiagnosticInfo() {
-    return getDesktop(() => DesktopApp.GetDiagnosticInfo(), () => apiFetch('/api/diagnostics'))
+    return getDesktop(app => app.GetDiagnosticInfo(), () => apiFetch<DesktopModels.DiagnosticInfo>('/api/diagnostics'))
 }
 
 export function GetDepStatus() {
     return getDesktop(
-        () => DesktopApp.GetDepStatus(),
-        () => apiFetch('/api/diagnostics/deps')
+        app => app.GetDepStatus(),
+        () => apiFetch<DesktopModels.DepStatus>('/api/diagnostics/deps')
     )
 }
 
 export function SetLang(lang: string) {
     return getDesktop(
-        () => DesktopApp.SetLang(lang),
+        app => app.SetLang(lang),
         async () => {
             await apiFetch('/api/lang', {
                 method: 'POST',
@@ -358,7 +296,7 @@ export function SetLang(lang: string) {
 
 export function ClearCompleted() {
     return getDesktop(
-        () => DesktopApp.ClearCompleted(),
+        app => app.ClearCompleted(),
         async () => {
             await apiFetch('/api/downloads', {method: 'DELETE'})
         }
@@ -367,20 +305,12 @@ export function ClearCompleted() {
 
 // OpenFile: desktop opens locally, web provides download link
 export function OpenFile(path: string) {
-    if (backendMode === 'desktop') {
-        return DesktopApp.OpenFile(path)
-    }
-    // Web mode: no-op, UI should use downloadFileURL() instead
-    return Promise.resolve(undefined)
+    return getDesktop(app => app.OpenFile(path), () => Promise.resolve())
 }
 
 // OpenFolder: desktop opens locally, web no-op
 export function OpenFolder(path: string) {
-    if (backendMode === 'desktop') {
-        return DesktopApp.OpenFolder(path)
-    }
-    // Web mode: no-op
-    return Promise.resolve(undefined)
+    return getDesktop(app => app.OpenFolder(path), () => Promise.resolve())
 }
 
 // getDownloadFileURL returns a URL for downloading a completed file in web mode.
@@ -421,7 +351,7 @@ export async function DownloadFile(taskID: string) {
 
 export function CancelDownload(id: string) {
     return getDesktop(
-        () => DesktopApp.CancelDownload(id),
+        app => app.CancelDownload(id),
         async () => {
             await apiFetch(`/api/downloads/${encodeURIComponent(id)}/cancel`, {method: 'POST'})
         }
@@ -430,13 +360,7 @@ export function CancelDownload(id: string) {
 
 export function RemoveDownload(id: string) {
     return getDesktop(
-        async () => {
-            const fn = (window as any)?.go?.desktop?.App?.RemoveDownload
-            if (typeof fn !== 'function') {
-                throw new Error('RemoveDownload is not available')
-            }
-            await fn(id)
-        },
+        app => app.RemoveDownload(id),
         async () => {
             await apiFetch(`/api/downloads/${encodeURIComponent(id)}`, {method: 'DELETE'})
         }

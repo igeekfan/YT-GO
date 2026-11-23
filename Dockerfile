@@ -18,7 +18,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY internal/ ./internal/
-COPY main_web.go version.go wails.json ./
+COPY main_web.go version.go VERSION ./
 ARG APP_VERSION=0.0.0
 RUN CGO_ENABLED=0 GOOS=linux GOFLAGS="-mod=mod" go build -tags web -ldflags "-s -w -X main.version=${APP_VERSION}" -o /app/yt-go-server .
 

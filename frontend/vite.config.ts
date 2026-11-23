@@ -13,7 +13,7 @@ export default defineConfig({
   },
   server: {
     // Only enable API proxy when VITE_API_TARGET is set (web mode dev).
-    // In `wails dev` mode, Wails handles the Go backend directly — no proxy needed.
+    // In `wails3 dev` mode, Wails handles the Go backend directly.
     proxy: process.env.VITE_API_TARGET ? {
       '/api': {
         target: process.env.VITE_API_TARGET,

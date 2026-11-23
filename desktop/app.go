@@ -7,65 +7,46 @@ import (
 
 	"YT-GO/internal/core"
 
-	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type App struct {
-	ctx     context.Context
+	app     *application.App
+	window  application.Window
 	service *core.Service
 }
 
-func NewApp(appVersion string) *App {
-	return &App{service: core.NewService(appVersion)}
+func NewApp(app *application.App, window application.Window, appVersion string) *App {
+	return &App{app: app, window: window, service: core.NewService(appVersion)}
 }
 
-func OnStartup(app *App) func(context.Context) {
-	return app.startup
-}
-
-func OnShutdown(app *App) func(context.Context) {
-	return app.shutdown
-}
-
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
+// ServiceStartup starts the shared service and connects its events to Wails.
+func (a *App) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
 	a.service.SetHooks(core.Hooks{
 		AppLog: func(msg string) {
 			fmt.Println(msg)
-			wailsRuntime.EventsEmit(a.ctx, "app:log", msg)
+			a.app.Event.Emit("app:log", msg)
 		},
 		DownloadUpdate: func(task *core.DownloadTask) {
 			if task == nil {
 				return
 			}
-			copy := fromCoreDownloadTask(*task)
-			wailsRuntime.EventsEmit(a.ctx, "download:update", &copy)
+			a.app.Event.Emit("download:update", fromCoreDownloadTask(*task))
 		},
 		DownloadRemove: func(taskID string) {
-			wailsRuntime.EventsEmit(a.ctx, "download:remove", taskID)
+			a.app.Event.Emit("download:remove", taskID)
 		},
 		DownloadLog: func(taskID string, line string) {
 			fmt.Printf("[%s] %s\n", taskID, line)
-			wailsRuntime.EventsEmit(a.ctx, "download:log", map[string]string{"taskId": taskID, "line": line})
+			a.app.Event.Emit("download:log", map[string]string{"taskId": taskID, "line": line})
 		},
 	})
-	if err := a.service.Startup(); err != nil {
-		a.emitLog("service startup failed: %v", err)
-	}
+	return a.service.Startup()
 }
 
-func (a *App) shutdown(context.Context) {
+// ServiceShutdown stops downloads and flushes persisted state before exit.
+func (a *App) ServiceShutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	if err := a.service.Shutdown(ctx); err != nil {
-		fmt.Printf("service shutdown failed: %v\n", err)
-	}
-}
-
-func (a *App) emitLog(format string, args ...interface{}) {
-	msg := fmt.Sprintf(format, args...)
-	fmt.Println(msg)
-	if a.ctx != nil {
-		wailsRuntime.EventsEmit(a.ctx, "app:log", msg)
-	}
+	return a.service.Shutdown(ctx)
 }

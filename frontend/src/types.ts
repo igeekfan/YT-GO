@@ -1,20 +1,10 @@
-﻿import {desktop} from '../wailsjs/go/models'
+import type * as desktop from '../bindings/YT-GO/desktop/models'
 
-export type YtDlpStatus = desktop.YtDlpStatus
-export type VideoInfo = desktop.VideoInfo
-export type DownloadRequest = desktop.DownloadRequest
-export type DownloadTask = desktop.DownloadTask
-export type DownloadOptions = desktop.DownloadOptions & {
-	writeManualSubs?: boolean
-	writeAutoSubs?: boolean
-	autoSubtitleLangs?: string
-}
-export type SubtitleLang = desktop.SubtitleLang & {
-	selector?: string
-}
-export type PlaylistInfo = desktop.PlaylistInfo
-export type Settings = desktop.Settings & {
-	updateProxy?: string
-}
-export type Format = desktop.Format
-export type FormatInfo = desktop.FormatInfo
+export type {
+    DownloadOptions, DownloadRequest, DownloadTask, Format, SubtitleLang, YtDlpStatus,
+} from '../bindings/YT-GO/desktop/models'
+
+export type VideoInfo = Omit<desktop.VideoInfo, 'subtitles'> & {subtitles: desktop.SubtitleLang[]}
+export type PlaylistInfo = Omit<desktop.PlaylistInfo, 'videos'> & {videos: desktop.VideoInfo[]}
+export type FormatInfo = Omit<desktop.FormatInfo, 'formats'> & {formats: desktop.Format[]}
+export type Settings = Omit<desktop.Settings, 'updateProxy'> & {updateProxy?: string}

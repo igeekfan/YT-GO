@@ -62,6 +62,9 @@ dlldata.c
 BenchmarkDotNet.Artifacts/
 
 build/bin/
+/build/.wails/
+.task/
+/desktop/ytgo_windows_*.syso
 
 # .NET Core
 project.lock.json

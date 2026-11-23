@@ -81,19 +81,31 @@ brew install yt-dlp
 
 ## 开发
 
+使用 Go 1.27、Node.js 22.12 或更高版本和 Wails 3 CLI。Windows 运行需要 WebView2，macOS 构建需要 Xcode Command Line Tools。Linux 上请先安装构建一节列出的开发库，再编译 CLI。
+
 ```bash
-wails dev
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+wails3 dev
 ```
 
 ## 构建
 
 ```bash
 # 桌面应用
-wails build
+wails3 build
+
+# Windows NSIS 安装包或 macOS .app
+wails3 package
 
 # Web 服务器
+npm --prefix frontend ci
+npm --prefix frontend run build
 go build -tags web -o build/bin/yt-go-web .
 ```
+
+桌面构建产物位于 `build/bin/`。发布构建可用 `APP_VERSION` 覆盖 `VERSION` 中的版本号。
+
+Linux 构建需要 C 编译器和 GTK 开发库。默认使用 GTK 4 和 WebKitGTK 6.0，在 Ubuntu 上对应 `libgtk-4-dev` 和 `libwebkitgtk-6.0-dev`。使用 GTK 3 和 WebKitGTK 4.1 时，安装 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`，给 `go install` 加上 `-tags gtk3`，再运行 `wails3 build -tags gtk3`。在 Ubuntu 上打包 AppImage 还需要 `patchelf` 和 `dpkg-dev`。打包 Windows 安装程序需要把 NSIS 的 `makensis` 加入 `PATH`。
 
 ## Docker
 
@@ -147,7 +159,7 @@ API 会拒绝初始解析结果为回环、私网、链路本地、保留地址�
 
 ## 技术栈
 
-- [Wails v2](https://wails.io) — Go + React 桌面
+- [Wails v3](https://v3.wails.io) — Go + React 桌面
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) — 视频下载后端
 
 ## 许可证

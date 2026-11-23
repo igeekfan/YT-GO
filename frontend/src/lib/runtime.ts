@@ -1,7 +1,7 @@
-import {EventsOn as DesktopEventsOn} from '../../wailsjs/runtime/runtime'
 import {apiFetch, getAuthToken, onAuthTokenChange} from './api_client'
+import {backendMode} from './backend_mode'
 
-const isDesktop = typeof window !== 'undefined' && typeof (window as any).go?.desktop?.App !== 'undefined'
+const isDesktop = backendMode === 'desktop'
 const eventSourceBase = `${(import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')}/api/events`
 const RECONNECT_DELAY_MS = 1000
 
@@ -120,7 +120,15 @@ onAuthTokenChange(token => {
 
 export function EventsOn<T = unknown>(eventName: string, callback: (data: T) => void) {
     if (isDesktop) {
-        return DesktopEventsOn(eventName, callback)
+        let disposed = false
+        let unsubscribe: (() => void) | undefined
+        void import('@wailsio/runtime').then(({Events}) => {
+            if (!disposed) unsubscribe = Events.On(eventName, event => callback(event.data as T))
+        })
+        return () => {
+            disposed = true
+            unsubscribe?.()
+        }
     }
 
     const listeners = webListeners.get(eventName) || new Set<Listener>()

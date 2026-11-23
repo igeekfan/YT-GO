@@ -4,40 +4,46 @@ package main
 
 import (
 	"embed"
+	"log"
 
 	"YT-GO/desktop"
 	"YT-GO/internal/platform"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed build/appicon.png
+var icon []byte
+
 func main() {
 	platform.EnableUTF8Console()
-	app := desktop.NewApp(currentAppVersion())
-
-	err := wails.Run(&options.App{
-		Title:     "YT-GO",
-		Width:     960,
-		Height:    700,
-		MinWidth:  720,
-		MinHeight: 520,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
+	app := application.New(application.Options{
+		Name: "YT-GO",
+		Icon: icon,
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(assets),
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        desktop.OnStartup(app),
-		OnShutdown:       desktop.OnShutdown(app),
-		Bind: []interface{}{
-			app,
+		Mac: application.MacOptions{
+			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
+		Linux: application.LinuxOptions{ProgramName: "YT-GO"},
 	})
 
-	if err != nil {
-		println("Error:", err.Error())
+	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:            "YT-GO",
+		Width:            960,
+		Height:           700,
+		MinWidth:         720,
+		MinHeight:        520,
+		BackgroundColour: application.NewRGB(27, 38, 54),
+		URL:              "/",
+	})
+	app.RegisterService(application.NewService(desktop.NewApp(app, window, currentAppVersion())))
+
+	if err := app.Run(); err != nil {
+		log.Fatal(err)
 	}
 }

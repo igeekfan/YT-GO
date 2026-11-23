@@ -10,15 +10,18 @@ import (
 
 	"YT-GO/internal/platform"
 
-	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 const releasePageURL = "https://github.com/igeekfan/YT-GO/releases"
 
 func (a *App) SelectFolder() string {
-	dir, err := wailsRuntime.OpenDirectoryDialog(a.ctx, wailsRuntime.OpenDialogOptions{
-		Title: "Select Download Directory",
-	})
+	dir, err := a.app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:                "Select Download Directory",
+		CanChooseDirectories: true,
+		CanCreateDirectories: true,
+		Window:               a.window,
+	}).PromptForSingleSelection()
 	if err != nil {
 		return ""
 	}
@@ -26,13 +29,15 @@ func (a *App) SelectFolder() string {
 }
 
 func (a *App) SelectCookiesFile() string {
-	file, err := wailsRuntime.OpenFileDialog(a.ctx, wailsRuntime.OpenDialogOptions{
-		Title: "Select Cookies File",
-		Filters: []wailsRuntime.FileFilter{
+	file, err := a.app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:          "Select Cookies File",
+		CanChooseFiles: true,
+		Window:         a.window,
+		Filters: []application.FileFilter{
 			{DisplayName: "Text Files (*.txt)", Pattern: "*.txt"},
 			{DisplayName: "All Files (*.*)", Pattern: "*.*"},
 		},
-	})
+	}).PromptForSingleSelection()
 	if err != nil {
 		return ""
 	}
@@ -133,10 +138,10 @@ func (a *App) downloadAndInstallUpdate() error {
 		_ = os.Remove(updatePath)
 		return fmt.Errorf("failed to open downloaded update: %w", err)
 	}
-	if runtime.GOOS == "windows" && a.ctx != nil {
+	if runtime.GOOS == "windows" {
 		go func() {
 			time.Sleep(750 * time.Millisecond)
-			wailsRuntime.Quit(a.ctx)
+			a.window.Close()
 		}()
 	}
 	return nil

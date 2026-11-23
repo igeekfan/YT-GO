@@ -1,4 +1,4 @@
-name: Release Linux App
+name: Release Linux App (WebKitGTK 4.1)
 run-name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
 on:
@@ -9,7 +9,7 @@ on:
       tag:
         description: 'Version tag'
         required: true
-        default: '0.0.16'
+        default: '0.0.17'
 
 permissions:
   contents: write
@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   release:
-    name: Release Linux App
+    name: Release Linux App (WebKitGTK 4.1)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -66,10 +66,6 @@ jobs:
         with:
           go-version: '1.27'
 
-      - name: Install wails
-        shell: bash
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
-
       - name: Prepare Ubuntu package sources
         shell: bash
         run: |
@@ -100,7 +96,11 @@ jobs:
             -o Acquire::http::Timeout=30 \
             -o Acquire::https::Timeout=30 \
             install --no-install-recommends -y \
-            libgtk-3-dev libwebkit2gtk-4.1-dev libfuse-dev libfuse2
+            libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: Install Wails 3 for GTK3
+        shell: bash
+        run: go install -tags gtk3 github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -109,24 +109,11 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Build frontend assets
+      - name: Build Linux executable with GTK3
         shell: bash
-        run: |
-          npm install -g npm@9
-          jq '.info.productVersion = "${{ steps.normalise_version.outputs.version }}"' wails.json > tmp.json
-          mv tmp.json wails.json
-          cd frontend
-          jq '.version = "${{ steps.normalise_version.outputs.version }}"' package.json > tmp.json
-          mv tmp.json package.json
-          npm ci --no-audit --fund=false
-
-      - name: Build wails app for Linux
-        shell: bash
-        run: |
-          CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
-          -ldflags "-X main.version=v${{ steps.normalise_version.outputs.version }} -X main.gaMeasurementID=${{ secrets.GA_MEASUREMENT_ID }} -X main.gaSecretKey=${{ secrets.LINUX_GA_SECRET }}" \
-          -tags webkit2_41 \
-          -o YT-GO
+        env:
+          APP_VERSION: ${{ steps.normalise_version.outputs.version }}
+        run: wails3 build -tags gtk3
 
       - name: Create deb package structure
         shell: bash
@@ -143,21 +130,13 @@ jobs:
           Architecture: amd64
           Maintainer: igeekfan <igeekfan@foxmail.com>
           Depends: libwebkit2gtk-4.1-0
-          Description: YTGO - Youtube Downloader
+          Description: YT-GO video downloader
            A cross-platform YouTube downloader powered by yt-dlp.
           EOF
           cp build/bin/YT-GO "$build_dir/usr/local/bin/"
           cp build/appicon.png "$build_dir/usr/share/icons/hicolor/512x512/apps/YT-GO.png"
-          cat > "$build_dir/usr/share/applications/YT-GO.desktop" << EOF
-          [Desktop Entry]
-          Name=YT-GO
-          Comment=Youtube Downloader
-          Exec=/usr/local/bin/YT-GO
-          Icon=YT-GO
-          Terminal=false
-          Type=Application
-          Categories=Utility;
-          EOF
+          sed 's#^Exec=YT-GO$#Exec=/usr/local/bin/YT-GO#' build/linux/YT-GO.desktop \
+            > "$build_dir/usr/share/applications/YT-GO.desktop"
 
       - name: Package up deb file
         shell: bash
@@ -170,7 +149,7 @@ jobs:
         run: mv "YT-GO_${{ steps.normalise_version.outputs.version }}_amd64.deb" "YT-GO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}_webkit2_41.deb"
 
       - name: Upload release asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.normalise_version.outputs.version }}
           files: |

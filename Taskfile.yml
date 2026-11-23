@@ -1,0 +1,149 @@
+version: '3'
+
+vars:
+  BIN_DIR: build/bin
+  ASSETS_DIR: build/.wails
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+
+tasks:
+  bindings:
+    desc: Generate TypeScript bindings for the desktop service
+    cmds:
+      - wails3 generate bindings -ts -i -noevents {{if .EXTRA_TAGS}}-f "-tags {{.EXTRA_TAGS}}"{{end}}
+
+  frontend:install:
+    dir: frontend
+    sources:
+      - package.json
+      - package-lock.json
+    generates:
+      - node_modules/.package-lock.json
+    cmds:
+      - npm ci --ignore-scripts --no-audit --no-fund
+
+  frontend:build:
+    deps: [frontend:install]
+    dir: frontend
+    cmds:
+      - npm run build
+
+  common:dev:frontend:
+    dir: frontend
+    cmds:
+      - npm run dev -- --host 127.0.0.1 --port {{.VITE_PORT}} --strictPort
+
+  build:
+    desc: Build the desktop executable
+    cmds:
+      - task: bindings
+      - task: frontend:build
+      - task: '{{if eq (.GOOS | default OS) "windows"}}windows:build{{else}}build:go{{end}}'
+
+  build:go:
+    internal: true
+    vars:
+      TARGET_OS: '{{.GOOS | default OS}}'
+      BUILD_TAGS: '{{if ne .DEV "true"}}production{{if .EXTRA_TAGS}},{{end}}{{end}}{{.EXTRA_TAGS | default ""}}'
+      VERSION:
+        sh: node -p "process.env.APP_VERSION || require('node:fs').readFileSync('VERSION', 'utf8').trim()"
+    env:
+      GOOS: '{{.TARGET_OS}}'
+      GOARCH: '{{.ARCH | default .GOARCH | default ARCH}}'
+      CGO_ENABLED: '{{if eq .TARGET_OS "windows"}}0{{else}}1{{end}}'
+      YTGO_BUILD_VERSION: '{{.VERSION}}'
+    cmds:
+      - >-
+        go build -tags "{{.BUILD_TAGS}}"
+        {{if ne .DEV "true"}}-trimpath{{end}}
+        -ldflags "-X main.version=$YTGO_BUILD_VERSION{{if ne .DEV "true"}} -s -w{{if eq .TARGET_OS "windows"}} -H windowsgui{{end}}{{end}}"
+        -o "{{.BIN_DIR}}/YT-GO{{if eq .TARGET_OS "windows"}}.exe{{end}}" .
+
+  build:metadata:
+    internal: true
+    vars:
+      VERSION:
+        sh: node -p "process.env.APP_VERSION || require('node:fs').readFileSync('VERSION', 'utf8').trim()"
+    env:
+      YTGO_BUILD_VERSION: '{{.VERSION}}'
+    cmds:
+      - >-
+        wails3 generate build-assets -silent -dir "{{.ASSETS_DIR}}" -name YT-GO -binaryname YT-GO
+        -productname YT-GO -productidentifier com.wails.YT-GO -productcompany igeekfan
+        -productdescription "A cross-platform YouTube downloader powered by yt-dlp"
+        -productcomments "A cross-platform YouTube downloader powered by yt-dlp"
+        -productcopyright "Copyright © 2026 igeekfan" -productversion "$YTGO_BUILD_VERSION"
+
+  windows:build:
+    internal: true
+    deps: [build:metadata]
+    vars:
+      TARGET_ARCH: '{{.ARCH | default .GOARCH | default ARCH}}'
+    cmds:
+      - node -e "require('node:fs').copyFileSync('build/windows/icon.ico', '{{.ASSETS_DIR}}/windows/icon.ico')"
+      - >-
+        wails3 generate syso -arch {{.TARGET_ARCH}} -icon "{{.ASSETS_DIR}}/windows/icon.ico"
+        -manifest "{{.ASSETS_DIR}}/windows/wails.exe.manifest" -info "{{.ASSETS_DIR}}/windows/info.json"
+        -out "desktop/ytgo_windows_{{.TARGET_ARCH}}.syso"
+      - task: build:go
+
+  run:
+    desc: Run the built desktop application
+    cmds:
+      - task: '{{if eq OS "darwin"}}darwin:run{{else}}run:binary{{end}}'
+
+  run:binary:
+    internal: true
+    cmds:
+      - '"./{{.BIN_DIR}}/YT-GO{{exeExt}}"'
+
+  darwin:run:
+    internal: true
+    cmds:
+      - task: darwin:package
+      - '"./{{.BIN_DIR}}/YT-GO.app/Contents/MacOS/YT-GO"'
+
+  package:
+    desc: Package the desktop application for the target platform
+    cmds:
+      - task: build
+      - task: '{{.GOOS | default OS}}:package'
+
+  windows:package:
+    internal: true
+    dir: '{{.ASSETS_DIR}}/windows/nsis'
+    vars:
+      TARGET_ARCH: '{{.ARCH | default .GOARCH | default ARCH}}'
+      EXE_PATH: '{{.ROOT_DIR}}/{{.BIN_DIR}}/YT-GO.exe'
+    cmds:
+      - wails3 generate webview2bootstrapper -dir .
+      - >-
+        makensis -DARG_WAILS_{{upper .TARGET_ARCH}}_BINARY="{{if eq OS "windows"}}{{replace "/" "\\" .EXE_PATH}}{{else}}{{.EXE_PATH}}{{end}}" project.nsi
+
+  darwin:package:
+    internal: true
+    deps: [build:metadata]
+    vars:
+      CONTENTS: '{{.BIN_DIR}}/YT-GO.app/Contents'
+    cmds:
+      - >-
+        wails3 generate icons -input build/appicon.png
+        -macfilename "{{.ASSETS_DIR}}/darwin/icons.icns" -windowsfilename "{{.ASSETS_DIR}}/windows/icon.ico"
+      - mkdir -p "{{.CONTENTS}}/MacOS" "{{.CONTENTS}}/Resources"
+      - cp "{{.BIN_DIR}}/YT-GO" "{{.CONTENTS}}/MacOS/YT-GO"
+      - cp "{{.ASSETS_DIR}}/darwin/icons.icns" "{{.CONTENTS}}/Resources/"
+      - cp "{{.ASSETS_DIR}}/darwin/Info{{if eq .DEV "true"}}.dev{{end}}.plist" "{{.CONTENTS}}/Info.plist"
+      - plutil -remove CFBundleIconName "{{.CONTENTS}}/Info.plist"
+      - xattr -cr "{{.BIN_DIR}}/YT-GO.app"
+      - codesign --force --deep --sign - "{{.BIN_DIR}}/YT-GO.app"
+      - codesign --verify --deep --strict "{{.BIN_DIR}}/YT-GO.app"
+
+  linux:package:
+    internal: true
+    platforms: [linux]
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    cmds:
+      - cp build/appicon.png "{{.BIN_DIR}}/YT-GO.png"
+      - >-
+        wails3 generate appimage -binary "{{.BIN_DIR}}/YT-GO" -icon "{{.BIN_DIR}}/YT-GO.png"
+        -desktopfile build/linux/YT-GO.desktop -builddir "{{.BIN_DIR}}/appimage" -outputdir "{{.BIN_DIR}}"
