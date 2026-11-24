@@ -3,7 +3,7 @@ import {useAuthStatus} from './hooks/useAuthStatus'
 import {useSettingsController} from './hooks/useSettingsController'
 import {useAppBootstrap} from './hooks/useAppBootstrap'
 import {useDownloadFeed} from './hooks/useDownloadFeed'
-import {useUpdateDialog} from './hooks/useUpdateDialog'
+import {useAppUpdate} from './hooks/useAppUpdate'
 import {useMediaDownload} from './hooks/useMediaDownload'
 import AuthBoundary from './components/app/AuthBoundary'
 import AppHeader from './components/app/AppHeader'
@@ -14,7 +14,6 @@ import DownloadList from './components/DownloadList'
 
 const SettingsWorkspace = lazy(() => import('./components/SettingsWorkspace'))
 const SetupWizard = lazy(() => import('./components/SetupWizard'))
-const UpdateDialog = lazy(() => import('./components/UpdateDialog'))
 const DirBrowser = lazy(() => import('./components/DirBrowser'))
 
 function App() {
@@ -22,7 +21,8 @@ function App() {
     const auth = useAuthStatus()
     const bootstrap = useAppBootstrap(auth.status, settings.applySettingsToUI)
     const downloadFeed = useDownloadFeed(auth.status, settings.sendNotification)
-    const updateDialog = useUpdateDialog(auth.status)
+    const appUpdate = useAppUpdate(auth.status)
+    const updateVersion = appUpdate.info?.hasUpdate ? appUpdate.info.latestVersion : undefined
     const media = useMediaDownload({
         quality: settings.quality,
         outputDir: settings.outputDir,
@@ -77,8 +77,6 @@ function App() {
         setDirBrowserLoaded(true)
         setShowDirBrowser(true)
     }, [])
-    const showUpdateDialog = updateDialog.open || updateDialog.loading || updateDialog.installing || Boolean(updateDialog.error)
-
     return (
         <AuthBoundary status={auth.status} onRetry={auth.retry} onAuthenticated={auth.markAuthenticated}>
             <div className="min-h-screen bg-background">
@@ -87,6 +85,7 @@ function App() {
                     isUpdatingYtDlp={bootstrap.isUpdatingYtDlp}
                     language={settings.lang}
                     theme={settings.theme}
+                    updateVersion={updateVersion}
                     onUpdateYtDlp={bootstrap.updateYtDlp}
                     onToggleLanguage={settings.handleQuickLanguageToggle}
                     onToggleTheme={settings.handleQuickThemeToggle}
@@ -94,22 +93,6 @@ function App() {
                 />
 
                 <main className="mx-auto max-w-3xl px-4 py-5 flex flex-col gap-4">
-                    {showUpdateDialog && (
-                        <Suspense fallback={null}>
-                            <UpdateDialog
-                                open={updateDialog.open}
-                                updateInfo={updateDialog.info}
-                                loading={updateDialog.loading}
-                                installing={updateDialog.installing}
-                                error={updateDialog.error}
-                                onClose={updateDialog.close}
-                                onOpenReleasePage={updateDialog.openReleasePage}
-                                onDownloadUpdate={updateDialog.downloadUpdate}
-                                onCheckUpdate={updateDialog.check}
-                            />
-                        </Suspense>
-                    )}
-
                     <DownloadWorkspace
                         ytdlp={bootstrap.ytdlp}
                         installingYtDlp={bootstrap.isInstallingYtDlp}
@@ -139,6 +122,7 @@ function App() {
                         <SettingsWorkspace
                             open={showSettings}
                             initialSettings={settings.currentSettings}
+                            appUpdate={appUpdate}
                             onClose={closeSettings}
                             onSave={settings.stageSettingsSave}
                             onFlushSave={settings.flushSettings}

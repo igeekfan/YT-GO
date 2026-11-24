@@ -1,7 +1,8 @@
 import {useState, useEffect, useRef, useCallback, type ReactNode} from 'react'
 import {Settings} from '../types'
 import {useI18n} from '../i18n/context'
-import {GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, CheckForUpdate, DownloadAndInstallUpdate, OpenReleasePage, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
+import {GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
+import type {AppUpdate} from '../hooks/useAppUpdate'
 import DirBrowser from './DirBrowser'
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
 import {Button} from '@/components/ui/button'
@@ -29,6 +30,7 @@ interface DepStatus { ytdlp: DepItem; ffmpeg: DepItem; jsRuntime: DepItem; jsRun
 interface Props {
     open: boolean
     initialSettings: Settings | null
+    appUpdate: AppUpdate
     onClose: () => void
     onSave: (settings: Settings) => void
     onFlushSave: () => Promise<void>
@@ -43,7 +45,7 @@ const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
 const SETTINGS_TABS = ['download', 'media', 'network', 'deps', 'appearance', 'about'] as const
 const TAB_ICONS = {download: Download, media: SlidersHorizontal, network: Network, deps: Wrench, appearance: Palette, about: Info}
 
-function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave, onSaved, onThemePreview, onLanguagePreview}: Props) {
+function SettingsWorkspace({open, initialSettings, appUpdate, onClose, onSave, onFlushSave, onSaved, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
     const [activeTab, setActiveTab] = useState<(typeof SETTINGS_TABS)[number]>('download')
@@ -58,49 +60,31 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
     const [isResetting, setIsResetting] = useState(false)
     const [isCheckingYtDlpVersion, setIsCheckingYtDlpVersion] = useState(false)
     const [ytdlpVersionCheck, setYtdlpVersionCheck] = useState<{currentVersion: string; latestVersion: string; isLatest: boolean} | null>(null)
-    const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
-    const [isInstallingUpdate, setIsInstallingUpdate] = useState(false)
-    const [updateError, setUpdateError] = useState<string | null>(null)
     const [depStatus, setDepStatus] = useState<DepStatus | null>(null)
     const [loadingDeps, setLoadingDeps] = useState(false)
     const [showDirBrowser, setShowDirBrowser] = useState(false)
     const wasOpenRef = useRef(false)
     const closeButtonRef = useRef<HTMLButtonElement>(null)
     const hasFocusedOpenRef = useRef(false)
-    const [updateInfo, setUpdateInfo] = useState<{
-        hasUpdate: boolean; currentVersion: string; latestVersion: string
-        releaseName: string; releaseBody: string; htmlUrl: string; publishedAt: string; canInstall?: boolean
-    } | null>(null)
+    const updateBusy = appUpdate.checking || appUpdate.installing
+    const updateAvailable = appUpdate.info?.hasUpdate
+        ? t('settings.appUpdateAvailable', {version: appUpdate.info.latestVersion})
+        : null
+    const updateError = appUpdate.error && (
+        appUpdate.error.message || t(appUpdate.error.action === 'check' ? 'settings.appUpdateCheckError' : 'settings.appUpdateError')
+    )
+    const updateStatus = appUpdate.installerStarted
+        ? t('settings.appUpdateStarted')
+        : updateAvailable || (appUpdate.info && t('settings.appUpdateUpToDate'))
+    const updateAction = appUpdate.canInstall
+        ? t(appUpdate.installing ? 'settings.appUpdateDownloading' : 'settings.appUpdateDownload')
+        : t('settings.appUpdateOpenRelease')
 
     const handleCheckYtDlpVersion = async () => {
         setIsCheckingYtDlpVersion(true); setYtdlpVersionCheck(null)
         try { const result = await CheckYtDlpVersion(); setYtdlpVersionCheck(result as any) }
         catch (e) { console.error('Failed to check yt-dlp version:', e) }
         finally { setIsCheckingYtDlpVersion(false) }
-    }
-
-    const handleCheckForUpdate = async () => {
-        setIsCheckingUpdate(true)
-        setUpdateError(null)
-        try { const info = await CheckForUpdate(); setUpdateInfo(info) }
-        catch (e: any) { setUpdateInfo(null); setUpdateError(e?.message || t('settings.appUpdateError')) }
-        finally { setIsCheckingUpdate(false) }
-    }
-
-    const handleOpenReleasePage = async () => {
-        try { await OpenReleasePage() } catch (e) { console.error('Failed to open release page:', e) }
-    }
-
-    const handleDownloadUpdate = async () => {
-        setIsInstallingUpdate(true)
-        try {
-            await DownloadAndInstallUpdate()
-            toast.success(t('settings.appUpdateStarted'))
-        } catch (e: any) {
-            toast.error(e?.message || t('settings.appUpdateError'))
-        } finally {
-            setIsInstallingUpdate(false)
-        }
     }
 
     const handleRefreshDeps = useCallback(async () => {
@@ -117,7 +101,7 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
         wasOpenRef.current = open
         if (openedNow) {
             settingsRef.current = initialSettings
-            setSettings(initialSettings); setDiagnostic(null); setUpdateInfo(null); setUpdateError(null)
+            setSettings(initialSettings); setDiagnostic(null)
             setYtdlpVersionCheck(null)
             if (!aboutInfo) void GetAboutInfo().then(setAboutInfo).catch(console.error)
             if (!depStatus) void handleRefreshDeps()
@@ -290,6 +274,12 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                 <TabsTrigger key={tab} value={tab} className="h-9 shrink-0 justify-start gap-2 rounded-md px-3 text-xs text-muted-foreground data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-none md:w-full">
                                     <Icon className="h-3.5 w-3.5 opacity-70" />
                                     <span>{t(`settings.tab.${tab}` as any)}</span>
+                                    {tab === 'about' && updateAvailable && (
+                                        <>
+                                            <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+                                            <span className="sr-only">{updateAvailable}</span>
+                                        </>
+                                    )}
                                 </TabsTrigger>
                             )
                         })}
@@ -560,6 +550,26 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                         {aboutInfo && <span className="ml-auto text-xs font-medium text-primary">v{aboutInfo.appVersion}</span>}
                                     </div>
 
+                                    <div className="settings-about-row settings-about-action-row">
+                                        <div className="min-w-0">
+                                            <h3 className="font-semibold">{t('settings.appUpdate')}</h3>
+                                            <p role="status" className={updateError ? 'break-words text-xs font-normal text-destructive' : 'text-xs font-normal text-muted-foreground'}>
+                                                {updateError || updateStatus}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button size="sm" variant="outline" onClick={() => void appUpdate.check()} disabled={updateBusy}>
+                                                <RefreshCw aria-hidden="true" className={`mr-1.5 size-3.5 ${appUpdate.checking ? 'motion-safe:animate-spin' : ''}`} />
+                                                {appUpdate.checking ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
+                                            </Button>
+                                            {updateAvailable && (
+                                                <Button size="sm" onClick={() => void appUpdate.install()} disabled={updateBusy}>
+                                                    {updateAction}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     {aboutInfo && (
                                         <div className="settings-about-rows">
                                             <div className="settings-about-row">
@@ -580,33 +590,6 @@ function SettingsWorkspace({open, initialSettings, onClose, onSave, onFlushSave,
                                     )}
 
                                     <div className="settings-about-row settings-about-action-row">
-                                        <span>{t('settings.appUpdateCheck')}</span>
-                                        <div className="flex flex-wrap justify-end gap-2">
-                                            <Button size="sm" onClick={handleCheckForUpdate} disabled={isCheckingUpdate}>
-                                                <RefreshCw className={`h-4 w-4 mr-1 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-                                                {isCheckingUpdate ? t('settings.appUpdateChecking') : t('settings.appUpdateCheck')}
-                                            </Button>
-                                            {updateInfo?.hasUpdate && (
-                                                <Button size="sm" variant="outline" disabled={isInstallingUpdate} onClick={updateInfo.canInstall === false ? handleOpenReleasePage : handleDownloadUpdate}>
-                                                    {isInstallingUpdate ? t('settings.appUpdateDownloading') : t('settings.appUpdateDownload')}
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {updateError && <div className="settings-about-message border-t border-destructive/20 bg-destructive/5 px-4 py-3 text-xs text-destructive">{updateError}</div>}
-                                    {updateInfo && (
-                                        <div className="settings-about-message border-t border-border bg-muted/20 px-4 py-3 text-xs">
-                                            {updateInfo.hasUpdate ? (
-                                                <div className="flex flex-wrap gap-x-5 gap-y-1">
-                                                    <span><span className="text-muted-foreground">{t('settings.diagCurrent')}</span> v{updateInfo.currentVersion}</span>
-                                                    <span><span className="text-muted-foreground">{t('settings.diagLatest')}</span> <span className="text-green-600 dark:text-green-400">v{updateInfo.latestVersion}</span></span>
-                                                </div>
-                                            ) : <span className="text-green-600 dark:text-green-400">✓ {t('settings.appUpdateUpToDate')} (v{updateInfo.currentVersion})</span>}
-                                        </div>
-                                    )}
-
-                                    <div className="settings-about-row settings-about-action-row border-t border-border">
                                         <span>{t('settings.reset')}</span>
                                         <Button variant="outline" size="sm" onClick={handleResetSettings} disabled={isResetting}>
                                             {isResetting ? t('settings.resetting') : t('settings.reset')}

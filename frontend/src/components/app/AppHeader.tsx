@@ -11,6 +11,7 @@ interface Props {
     isUpdatingYtDlp: boolean
     language: 'zh-CN' | 'en-US'
     theme: Theme
+    updateVersion?: string
     onUpdateYtDlp: () => void
     onToggleLanguage: () => void
     onToggleTheme: () => void
@@ -22,12 +23,15 @@ export default function AppHeader({
     isUpdatingYtDlp,
     language,
     theme,
+    updateVersion,
     onUpdateYtDlp,
     onToggleLanguage,
     onToggleTheme,
     onOpenSettings,
 }: Props) {
     const {t} = useI18n()
+    const updateLabel = updateVersion ? t('settings.appUpdateAvailable', {version: updateVersion}) : undefined
+    const settingsLabel = updateLabel ? `${t('settings.title')} · ${updateLabel}` : t('settings.title')
 
     return (
         <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-primary/15 bg-background/85 backdrop-blur-xl px-4 relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-primary/25 after:to-transparent">
@@ -70,11 +74,12 @@ export default function AppHeader({
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onOpenSettings} aria-label={t('settings.title')}>
-                            <Settings className="h-3.5 w-3.5" />
+                        <Button variant="ghost" size="icon" className="relative h-7 w-7" onClick={onOpenSettings} aria-label={settingsLabel}>
+                            <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+                            {updateLabel && <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-primary" aria-hidden="true" />}
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent>{t('settings.title')}</TooltipContent>
+                    <TooltipContent>{settingsLabel}</TooltipContent>
                 </Tooltip>
             </div>
         </header>
