@@ -101,6 +101,11 @@ var translations = map[Lang]map[string]string{
 		"wechat.thumbnail_failed":   "[WechatChannels] 缩略图保存失败: %s",
 		"wechat.description_saved":  "[WechatChannels] 描述文件已保存: %s",
 		"wechat.description_failed": "[WechatChannels] 描述文件保存失败: %s",
+
+		"update.in_progress":             "应用更新正在进行中。",
+		"update.open_failed":             "无法启动更新安装程序",
+		"update.elevation_cancelled":     "已取消管理员授权，可重新尝试更新。",
+		"update.windows_executable_name": "应用内更新需要程序文件名为 YT-GO.exe。",
 	},
 	LangEnUS: {
 		// errhint.go — cookie source description
@@ -160,6 +165,11 @@ var translations = map[Lang]map[string]string{
 		"wechat.thumbnail_failed":   "[WechatChannels] Failed to save thumbnail: %s",
 		"wechat.description_saved":  "[WechatChannels] Description saved: %s",
 		"wechat.description_failed": "[WechatChannels] Failed to save description: %s",
+
+		"update.in_progress":             "An application update is already in progress.",
+		"update.open_failed":             "Could not start the update installer",
+		"update.elevation_cancelled":     "Administrator approval was cancelled. You can try the update again.",
+		"update.windows_executable_name": "In-app updates require the program file to be named YT-GO.exe.",
 	},
 }
 

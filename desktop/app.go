@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"YT-GO/internal/core"
@@ -11,9 +12,10 @@ import (
 )
 
 type App struct {
-	app     *application.App
-	window  application.Window
-	service *core.Service
+	app              *application.App
+	window           application.Window
+	service          *core.Service
+	installingUpdate atomic.Bool
 }
 
 func NewApp(app *application.App, window application.Window, appVersion string) *App {

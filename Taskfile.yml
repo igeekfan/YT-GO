@@ -115,9 +115,10 @@ tasks:
       TARGET_ARCH: '{{.ARCH | default .GOARCH | default ARCH}}'
       EXE_PATH: '{{.ROOT_DIR}}/{{.BIN_DIR}}/YT-GO.exe'
     cmds:
+      - node -e "require('node:fs').copyFileSync(process.argv[1], 'project.nsi')" "{{.ROOT_DIR}}/build/windows/installer/project.nsi"
       - wails3 generate webview2bootstrapper -dir .
       - >-
-        makensis -DARG_WAILS_{{upper .TARGET_ARCH}}_BINARY="{{if eq OS "windows"}}{{replace "/" "\\" .EXE_PATH}}{{else}}{{.EXE_PATH}}{{end}}" project.nsi
+        makensis -INPUTCHARSET UTF8 -DARG_WAILS_{{upper .TARGET_ARCH}}_BINARY="{{if eq OS "windows"}}{{replace "/" "\\" .EXE_PATH}}{{else}}{{.EXE_PATH}}{{end}}" project.nsi
 
   darwin:package:
     internal: true

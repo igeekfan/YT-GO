@@ -1,14 +1,14 @@
 package desktop
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"time"
 
-	"YT-GO/internal/platform"
+	"YT-GO/internal/core"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -108,41 +108,32 @@ func (a *App) OpenReleasePage() error {
 	return cmd.Start()
 }
 
-func (a *App) downloadAndInstallUpdate() error {
+func (a *App) downloadAndInstallUpdate() (err error) {
+	if !a.installingUpdate.CompareAndSwap(false, true) {
+		return errors.New(a.updateText("update.in_progress"))
+	}
+	defer func() {
+		if err != nil || runtime.GOOS != "windows" {
+			a.installingUpdate.Store(false)
+		}
+	}()
+
 	updatePath, err := a.service.DownloadUpdate()
 	if err != nil {
 		return err
 	}
-
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command(updatePath)
-	case "darwin":
-		cmd = exec.Command("open", updatePath)
-	case "linux":
-		if filepath.Ext(updatePath) == ".AppImage" {
-			if err := os.Chmod(updatePath, 0o755); err != nil {
-				return fmt.Errorf("failed to prepare downloaded update: %w", err)
-			}
-			cmd = exec.Command(updatePath)
-		} else {
-			cmd = exec.Command("xdg-open", updatePath)
-		}
-	default:
+	if err := a.launchDownloadedUpdate(updatePath); err != nil {
 		_ = os.Remove(updatePath)
-		return fmt.Errorf("automatic installation is not supported on %s", runtime.GOOS)
-	}
-	platform.HideCmdWindow(cmd)
-	if err := cmd.Start(); err != nil {
-		_ = os.Remove(updatePath)
-		return fmt.Errorf("failed to open downloaded update: %w", err)
+		return err
 	}
 	if runtime.GOOS == "windows" {
-		go func() {
-			time.Sleep(750 * time.Millisecond)
-			a.window.Close()
-		}()
+		go a.window.Close()
 	}
 	return nil
+}
+
+func (a *App) updateText(key string) string {
+	translator := core.NewI18n()
+	translator.SetLang(core.Lang(a.service.GetLang()))
+	return translator.T(key)
 }
