@@ -9,6 +9,10 @@ on:
         description: 'Version tag'
         required: true
         default: '0.0.18'
+      use_intel_runner:
+        description: 'Build both packages on Intel runners'
+        type: boolean
+        default: false
 
 run-name: ${{ github.event.release.tag_name || inputs.tag }}
 
@@ -18,8 +22,9 @@ permissions:
 jobs:
   release:
     name: Release macOS App
-    runs-on: ${{ matrix.platform == 'darwin/amd64' && 'macos-15-intel' || 'macos-15' }}
+    runs-on: ${{ (inputs.use_intel_runner || matrix.platform == 'darwin/amd64') && 'macos-15-intel' || 'macos-15' }}
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - darwin/amd64
@@ -80,7 +85,13 @@ jobs:
         env:
           APP_VERSION: ${{ steps.tag.outputs.version }}
           TARGET_ARCH: ${{ steps.normalise_platform.outputs.arch }}
-        run: wails3 package GOARCH="$TARGET_ARCH"
+        run: |
+          wails3 package GOARCH="$TARGET_ARCH"
+          expected_arch=x86_64
+          if [[ "$TARGET_ARCH" == "arm64" ]]; then
+            expected_arch=arm64
+          fi
+          test "$(lipo -archs build/bin/YT-GO.app/Contents/MacOS/YT-GO)" = "$expected_arch"
 
       - name: Checkout create-dmg
         uses: actions/checkout@v4
@@ -115,7 +126,16 @@ jobs:
         working-directory: ./build/bin
         run: mv "YTGO-${{ steps.normalise_platform.outputs.tag }}.dmg" "YTGO_${{ steps.tag.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg"
 
-      - name: Upload release asset (DMG Package)
+      - name: Retain DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YTGO_${{ steps.tag.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}
+          path: ./build/bin/YTGO_${{ steps.tag.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Upload DMG to the release
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
