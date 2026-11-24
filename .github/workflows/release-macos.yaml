@@ -1,5 +1,4 @@
 name: Release macOS App
-run-name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
 
 on:
   release:
@@ -11,21 +10,44 @@ on:
         required: true
         default: '0.0.18'
 
+run-name: ${{ github.event.release.tag_name || inputs.tag }}
+
 permissions:
   contents: write
 
 jobs:
   release:
     name: Release macOS App
-    runs-on: macos-latest
+    runs-on: ${{ matrix.platform == 'darwin/amd64' && 'macos-15-intel' || 'macos-15' }}
     strategy:
       matrix:
         platform:
           - darwin/amd64
           - darwin/arm64
     steps:
+      - name: Select release tag
+        id: tag
+        shell: bash
+        env:
+          MANUAL_VERSION: ${{ inputs.tag }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag="v${MANUAL_VERSION#v}"
+          fi
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Expected a release version such as 0.0.18"
+            exit 1
+          fi
+          echo "ref=refs/tags/$tag" >> "$GITHUB_OUTPUT"
+          echo "name=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout source code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.ref }}
 
       - name: Normalise platform tag
         id: normalise_platform
@@ -36,18 +58,6 @@ jobs:
           echo "arch=${PLATFORM#darwin/}" >> "$GITHUB_OUTPUT"
         env:
           PLATFORM: ${{ matrix.platform }}
-
-      - name: Normalise version tag
-        id: normalise_version
-        shell: bash
-        run: |
-          if [ "${{ github.event.release.tag_name }}" == "" ]; then
-            version=$(echo ${{ github.event.inputs.tag }} | sed -e 's/v//g')
-            echo "version=$version" >> "$GITHUB_OUTPUT"
-          else
-            version=$(echo ${{ github.event.release.tag_name }} | sed -e 's/v//g')
-            echo "version=$version" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -68,7 +78,7 @@ jobs:
       - name: Build macOS application bundle
         shell: bash
         env:
-          APP_VERSION: ${{ steps.normalise_version.outputs.version }}
+          APP_VERSION: ${{ steps.tag.outputs.version }}
           TARGET_ARCH: ${{ steps.normalise_platform.outputs.arch }}
         run: wails3 package GOARCH="$TARGET_ARCH"
 
@@ -103,11 +113,11 @@ jobs:
 
       - name: Rename dmg
         working-directory: ./build/bin
-        run: mv "YTGO-${{ steps.normalise_platform.outputs.tag }}.dmg" "YTGO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg"
+        run: mv "YTGO-${{ steps.normalise_platform.outputs.tag }}.dmg" "YTGO_${{ steps.tag.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg"
 
       - name: Upload release asset (DMG Package)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.normalise_version.outputs.version }}
-          files: ./build/bin/YTGO_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg
+          tag_name: ${{ steps.tag.outputs.name }}
+          files: ./build/bin/YTGO_${{ steps.tag.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg
           token: ${{ secrets.GITHUB_TOKEN }}
