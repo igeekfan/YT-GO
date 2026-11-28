@@ -63,14 +63,21 @@ func toCoreDownloadOptions(in *DownloadOptions) *core.DownloadOptions {
 	if in == nil {
 		return nil
 	}
-	return &core.DownloadOptions{SaveDescription: in.SaveDescription, SaveThumbnail: in.SaveThumbnail, EmbedChapters: in.EmbedChapters, WriteSubtitles: in.WriteSubtitles, WriteManualSubs: in.WriteManualSubs, WriteAutoSubs: in.WriteAutoSubs, SubtitleLangs: in.SubtitleLangs, AutoSubtitleLangs: in.AutoSubtitleLangs, EmbedSubtitles: in.EmbedSubtitles, SponsorBlock: in.SponsorBlock, FilenameTemplate: in.FilenameTemplate}
+	options := core.DownloadOptions(*in)
+	return &options
 }
 
 func toCoreDownloadRequest(in DownloadRequest) core.DownloadRequest {
 	return core.DownloadRequest{URL: in.URL, OutputDir: in.OutputDir, Quality: in.Quality, VideoInfo: toCoreVideoInfo(in.VideoInfo), Options: toCoreDownloadOptions(in.Options)}
 }
 
-func fromCoreDownloadTask(in core.DownloadTask) DownloadTask { return DownloadTask(in) }
+func fromCoreDownloadTask(in core.DownloadTask) DownloadTask {
+	return DownloadTask{
+		ID: in.ID, URL: in.URL, Title: in.Title, Thumbnail: in.Thumbnail, Quality: in.Quality,
+		Status: in.Status, Progress: in.Progress, Speed: in.Speed, ETA: in.ETA, Size: in.Size,
+		OutputPath: in.OutputPath, OutputDir: in.OutputDir, Error: in.Error, CreatedAt: in.CreatedAt,
+	}
+}
 
 func fromCoreDownloadTasks(in []*core.DownloadTask) []*DownloadTask {
 	out := make([]*DownloadTask, 0, len(in))
@@ -137,6 +144,27 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	info, err := a.service.GetPlaylistInfo(url)
 	return fromCorePlaylistInfo(info), err
 }
+func (a *App) ScanYouTubeCollection(url string) (IncrementalPlaylistScan, error) {
+	scan, err := a.service.ScanYouTubeCollection(url)
+	if err != nil {
+		return IncrementalPlaylistScan{}, err
+	}
+	videos := make([]YouTubePlaylistVideo, 0, len(scan.NewVideos))
+	for _, video := range scan.NewVideos {
+		videos = append(videos, YouTubePlaylistVideo(video))
+	}
+	return IncrementalPlaylistScan{NewVideos: videos, NewCount: scan.NewCount, Skipped: scan.Skipped, Unavailable: scan.Unavailable}, nil
+}
+func (a *App) QueueNewYouTubeVideos(req IncrementalDownloadRequest) (IncrementalDownloadResult, error) {
+	videos := make([]core.YouTubePlaylistVideo, 0, len(req.Videos))
+	for _, video := range req.Videos {
+		videos = append(videos, core.YouTubePlaylistVideo(video))
+	}
+	result, err := a.service.QueueNewYouTubeVideos(core.IncrementalDownloadRequest{
+		Videos: videos, OutputDir: req.OutputDir, Quality: req.Quality, Options: toCoreDownloadOptions(req.Options),
+	})
+	return IncrementalDownloadResult(result), err
+}
 func (a *App) GetFormats(url string) (FormatInfo, error) {
 	info, err := a.service.GetFormats(url)
 	return fromCoreFormatInfo(info), err
@@ -144,6 +172,20 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 func (a *App) StartDownload(req DownloadRequest) (string, error) {
 	return a.service.StartDownload(toCoreDownloadRequest(req))
 }
+
+func (a *App) ReviewDownloadURLs(input string) []DownloadURLReview {
+	review := core.ReviewDownloadURLs(input, nil)
+	result := make([]DownloadURLReview, 0, len(review))
+	for _, entry := range review {
+		result = append(result, DownloadURLReview(entry))
+	}
+	return result
+}
+
+func (a *App) RetryDownload(taskID string) (string, error) {
+	return a.service.RetryDownload(taskID, nil)
+}
+
 func (a *App) CancelDownload(taskID string) error { return a.service.CancelDownload(taskID) }
 func (a *App) RemoveDownload(taskID string) error { return a.service.RemoveDownload(taskID) }
 func (a *App) GetDownloads() []*DownloadTask      { return fromCoreDownloadTasks(a.service.GetDownloads()) }

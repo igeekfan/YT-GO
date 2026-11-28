@@ -22,19 +22,25 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		settings, err := core.MergeSettingsPatch(s.service.GetSettings(), patch)
+		s.settingsMu.Lock()
+		defer s.settingsMu.Unlock()
+		current := s.service.GetSettings()
+		settings, err := core.MergeSettingsPatch(current, patch)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		requestedOutputDir := settings.OutputDir
-		if s.fixedDir != "" {
-			requestedOutputDir = s.fixedDir
-		}
-		outputDir, err := s.downloads.ensureDir(requestedOutputDir)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
+		if _, changed := patch["outputDir"]; changed || s.fixedDir != "" {
+			requestedOutputDir := settings.OutputDir
+			if s.fixedDir != "" {
+				requestedOutputDir = s.fixedDir
+			}
+			outputDir, err := s.downloads.ensureDir(requestedOutputDir)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+			settings.OutputDir = outputDir
 		}
 		if err := validateFilenameTemplate(settings.FilenameTemplate); err != nil {
 			writeError(w, http.StatusBadRequest, err)
@@ -53,8 +59,13 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		settings.OutputDir = outputDir
 		settings.CookiesFile = cookiesFile
+		if _, changed := patch["downloadProfiles"]; changed {
+			if err := s.normalizeProfileDirectories(&settings, current.DownloadProfiles); err != nil {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+		}
 		if err := s.service.SaveSettings(settings); err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
@@ -66,6 +77,8 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
+		s.settingsMu.Lock()
+		defer s.settingsMu.Unlock()
 		// Validate settings fields.
 		if settings.MaxConcurrent < 1 || settings.MaxConcurrent > 10 {
 			writeError(w, http.StatusBadRequest, fmt.Errorf("maxConcurrent must be between 1 and 10"))
@@ -99,14 +112,43 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		settings.OutputDir = outputDir
 		settings.CookiesFile = cookiesFile
+		if err := core.ValidateSettings(settings); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		if err := s.normalizeProfileDirectories(&settings, s.service.GetSettings().DownloadProfiles); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
 		if err := s.service.SaveSettings(settings); err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, settings)
+		writeJSON(w, http.StatusOK, s.service.GetSettings())
 	default:
 		writeMethodNotAllowed(w, http.MethodGet, http.MethodPatch, http.MethodPost)
 	}
+}
+
+func (s *Server) normalizeProfileDirectories(settings *core.Settings, previous core.DownloadProfiles) error {
+	if s.fixedDir != "" {
+		return nil
+	}
+	directories := make(map[string]string, len(previous.Items))
+	for _, profile := range previous.Items {
+		directories[profile.ID] = profile.OutputDir
+	}
+	for index, profile := range settings.DownloadProfiles.Items {
+		if profile.OutputDir == "" || profile.OutputDir == directories[profile.ID] {
+			continue
+		}
+		outputDir, err := s.downloads.ensureDir(profile.OutputDir)
+		if err != nil {
+			return err
+		}
+		settings.DownloadProfiles.Items[index].OutputDir = outputDir
+	}
+	return nil
 }
 
 func (s *Server) validateStoredWebSettings(ctx context.Context) (core.Settings, error) {
@@ -144,6 +186,8 @@ func (s *Server) handleResetSettings(w http.ResponseWriter, r *http.Request) {
 		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
 	if err := s.service.ResetSettings(); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

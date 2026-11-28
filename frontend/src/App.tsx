@@ -5,6 +5,7 @@ import {useAppBootstrap} from './hooks/useAppBootstrap'
 import {useDownloadFeed} from './hooks/useDownloadFeed'
 import {useAppUpdate} from './hooks/useAppUpdate'
 import {useMediaDownload} from './hooks/useMediaDownload'
+import {getWebConfig} from './lib/backend'
 import AuthBoundary from './components/app/AuthBoundary'
 import AppHeader from './components/app/AppHeader'
 import ConsolePanel from './components/app/ConsolePanel'
@@ -24,10 +25,9 @@ function App() {
     const appUpdate = useAppUpdate(auth.status)
     const updateVersion = appUpdate.info?.hasUpdate ? appUpdate.info.latestVersion : undefined
     const media = useMediaDownload({
-        quality: settings.quality,
-        outputDir: settings.outputDir,
-        setOutputDir: settings.setOutputDir,
-        downloadOptions: settings.downloadOptions,
+        settings: settings.currentSettings,
+        profile: settings.selectedDownloadProfile,
+        hasFixedDir: getWebConfig()?.hasFixedDir ?? false,
     })
     const [showSettings, setShowSettings] = useState(false)
     const [settingsLoaded, setSettingsLoaded] = useState(false)
@@ -127,6 +127,9 @@ function App() {
                             onSave={settings.stageSettingsSave}
                             onFlushSave={settings.flushSettings}
                             onSaved={settings.handleSettingsSaved}
+                            downloadProfiles={settings.downloadProfiles}
+                            savingDownloadProfiles={settings.savingDownloadProfiles}
+                            onSaveDownloadProfiles={settings.saveDownloadProfiles}
                             onThemePreview={settings.setTheme}
                             onLanguagePreview={settings.setLang}
                         />
@@ -148,8 +151,8 @@ function App() {
                     <Suspense fallback={null}>
                         <DirBrowser
                             open={showDirBrowser}
-                            initialPath={settings.outputDir}
-                            onSelect={settings.setDirectoryAndSave}
+                            initialPath={media.outputDir}
+                            onSelect={directory => media.setTaskOption('outputDir', directory)}
                             onClose={() => setShowDirBrowser(false)}
                         />
                     </Suspense>

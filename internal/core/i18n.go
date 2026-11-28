@@ -44,6 +44,11 @@ func langFromLocale(locale string) Lang {
 // translations holds all backend user-facing strings keyed by language.
 var translations = map[Lang]map[string]string{
 	LangZhCN: {
+		"download.url_required":      "请输入下载链接。",
+		"download.url_invalid":       "请输入包含主机名的 HTTP 或 HTTPS 下载链接。",
+		"download.retry_active":      "此任务正在排队或下载。",
+		"download.retry_credentials": "请重新粘贴包含访问凭据的原始链接。",
+
 		// errhint.go — cookie source description
 		"hint.cookies.browser":     "当前使用浏览器 Cookies: %s。",
 		"hint.cookies.file":        "当前使用 cookies 文件: %s。",
@@ -70,6 +75,17 @@ var translations = map[Lang]map[string]string{
 		// jsruntime.go — ensureYouTubeJSRuntime
 		"runtime.youtube.need_js": "当前链接属于 YouTube，yt-dlp 需要可用的 JS runtime 才能完成签名/JS challenge 求解。%s%s请升级到 Deno >= %d.0.0（推荐）或 Node.js >= %d.0.0，并在安装后完全重启应用再重试。",
 		"runtime.missing_generic": "当前缺少可用的 JS runtime。",
+
+		"playlist.ytdlpNotFound":            "找不到 yt-dlp。",
+		"playlist.probeFailed":              "无法获取播放列表",
+		"incremental.unsupportedCollection": "请输入支持的 YouTube 播放列表或频道链接。",
+		"incremental.invalidCollection":     "无法读取此 YouTube 播放列表或频道。",
+		"incremental.ledgerUnavailable":     "无法读取已下载的 YouTube 视频记录",
+		"incremental.outputDirRequired":     "请选择下载目录。",
+		"incremental.invalidVideo":          "扫描结果包含无效的 YouTube 视频 ID。",
+		"incremental.outputMissing":         "下载结束时未找到已完成的文件。",
+		"incremental.ledgerSaveFailed":      "下载已完成，但无法保存此 YouTube 视频的下载记录。",
+
 		// douyin.go — errors
 		"douyin.platform":               "抖音",
 		"douyin.video_title":            "抖音视频_%s",
@@ -102,12 +118,29 @@ var translations = map[Lang]map[string]string{
 		"wechat.description_saved":  "[WechatChannels] 描述文件已保存: %s",
 		"wechat.description_failed": "[WechatChannels] 描述文件保存失败: %s",
 
+		"profile.invalid_id":             "下载方案 ID %q 无效或重复。",
+		"profile.invalid_name":           "请输入 1 至 80 个字符的方案名称。",
+		"profile.duplicate_name":         "已存在名为 %q 的下载方案。",
+		"profile.invalid_quality":        "下载方案 %q 的画质 %q 无效。",
+		"profile.invalid_directory":      "下载方案 %q 的保存目录无效。",
+		"profile.invalid_filename":       "下载方案 %q 的文件名模板不得包含路径或控制字符，且不得超过 512 字节。",
+		"profile.invalid_subtitle_langs": "下载方案 %q 的字幕语言不得包含控制字符，且不得超过 512 字节。",
+		"profile.missing_selection":      "所选下载方案不存在。",
+		"download.invalid_container":     "不支持视频容器 %q。",
+		"download.invalid_audio_format":  "不支持音频格式 %q。",
+		"download.single_link":           "请输入一个有效的 HTTP 或 HTTPS 链接。",
+
 		"update.in_progress":             "应用更新正在进行中。",
 		"update.open_failed":             "无法启动更新安装程序",
 		"update.elevation_cancelled":     "已取消管理员授权，可重新尝试更新。",
 		"update.windows_executable_name": "应用内更新需要程序文件名为 YT-GO.exe。",
 	},
 	LangEnUS: {
+		"download.url_required":      "Enter a download URL.",
+		"download.url_invalid":       "Enter an HTTP or HTTPS download URL with a host.",
+		"download.retry_active":      "This task is already queued or downloading.",
+		"download.retry_credentials": "Paste the original URL with its access credentials again.",
+
 		// errhint.go — cookie source description
 		"hint.cookies.browser":     "Currently using browser cookies: %s.",
 		"hint.cookies.file":        "Currently using cookies file: %s.",
@@ -134,6 +167,17 @@ var translations = map[Lang]map[string]string{
 		// jsruntime.go — ensureYouTubeJSRuntime
 		"runtime.youtube.need_js": "The URL belongs to YouTube, which requires a usable JS runtime for signature/JS challenge solving. %s%sPlease upgrade to Deno >= %d.0.0 (recommended) or Node.js >= %d.0.0, and fully restart the app after installation before retrying.",
 		"runtime.missing_generic": "No usable JS runtime available.",
+
+		"playlist.ytdlpNotFound":            "yt-dlp was not found.",
+		"playlist.probeFailed":              "Could not load the playlist",
+		"incremental.unsupportedCollection": "Enter a supported YouTube playlist or channel URL.",
+		"incremental.invalidCollection":     "Could not read this YouTube playlist or channel.",
+		"incremental.ledgerUnavailable":     "Could not read the record of downloaded YouTube videos",
+		"incremental.outputDirRequired":     "Choose a download folder.",
+		"incremental.invalidVideo":          "The scan contains an invalid YouTube video ID.",
+		"incremental.outputMissing":         "The download ended without a completed file.",
+		"incremental.ledgerSaveFailed":      "The download finished, but its YouTube download record could not be saved.",
+
 		// douyin.go — errors
 		"douyin.platform":               "Douyin",
 		"douyin.video_title":            "Douyin Video_%s",
@@ -165,6 +209,18 @@ var translations = map[Lang]map[string]string{
 		"wechat.thumbnail_failed":   "[WechatChannels] Failed to save thumbnail: %s",
 		"wechat.description_saved":  "[WechatChannels] Description saved: %s",
 		"wechat.description_failed": "[WechatChannels] Failed to save description: %s",
+
+		"profile.invalid_id":             "Download profile ID %q is invalid or already used.",
+		"profile.invalid_name":           "Enter a profile name of 1 to 80 characters.",
+		"profile.duplicate_name":         "A download profile named %q already exists.",
+		"profile.invalid_quality":        "Download profile %q has an invalid quality %q.",
+		"profile.invalid_directory":      "Download profile %q has an invalid download directory.",
+		"profile.invalid_filename":       "Use a filename template of up to 512 bytes without a path or control characters in profile %q.",
+		"profile.invalid_subtitle_langs": "Use up to 512 bytes and avoid control characters in the subtitle languages for profile %q.",
+		"profile.missing_selection":      "The selected download profile does not exist.",
+		"download.invalid_container":     "Video container %q is unsupported.",
+		"download.invalid_audio_format":  "Audio format %q is unsupported.",
+		"download.single_link":           "Enter one valid HTTP or HTTPS link.",
 
 		"update.in_progress":             "An application update is already in progress.",
 		"update.open_failed":             "Could not start the update installer",

@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const persistenceQueueCapacity = maxQueuedDownloads*3 + 32
@@ -22,11 +23,12 @@ const (
 )
 
 type persistenceOperation struct {
-	kind     persistenceOperationKind
-	task     DownloadTask
-	ids      []string
-	settings Settings
-	done     chan error
+	kind            persistenceOperationKind
+	task            DownloadTask
+	ids             []string
+	settings        Settings
+	youtubeVideoIDs []string
+	done            chan error
 }
 
 func (s *Service) startPersistenceWriterLocked() {
@@ -53,7 +55,7 @@ func (s *Service) applyPersistenceOperation(operation persistenceOperation) erro
 	}
 	db := s.database()
 	if db == nil {
-		if operation.kind == persistenceSaveSettings || operation.kind == persistenceDeleteSettings {
+		if operation.kind == persistenceSaveSettings || operation.kind == persistenceDeleteSettings || len(operation.youtubeVideoIDs) != 0 {
 			return errors.New("database not initialized")
 		}
 		return nil
@@ -62,7 +64,19 @@ func (s *Service) applyPersistenceOperation(operation persistenceOperation) erro
 	switch operation.kind {
 	case persistenceSaveTask:
 		record := taskToRecord(&operation.task)
-		return db.Save(&record).Error
+		if len(operation.youtubeVideoIDs) == 0 {
+			return db.Save(&record).Error
+		}
+		downloads := make([]youtubeDownload, 0, len(operation.youtubeVideoIDs))
+		for _, id := range operation.youtubeVideoIDs {
+			downloads = append(downloads, youtubeDownload{VideoID: id})
+		}
+		return db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(&record).Error; err != nil {
+				return err
+			}
+			return tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&downloads, youtubeLedgerBatchSize).Error
+		})
 	case persistenceDeleteTasks:
 		if len(operation.ids) == 0 {
 			return nil

@@ -316,39 +316,10 @@ func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 			Videos:   []VideoInfo{info},
 		}, nil
 	}
-	ytdlpPath := s.resolveYtDlp()
-	if ytdlpPath == "" {
-		return PlaylistInfo{}, fmt.Errorf("yt-dlp not found")
-	}
-	settings := s.GetSettings()
-	if err := ensureYouTubeJSRuntime(s.i18n, videoURL, settings); err != nil {
-		s.emitLog("[GetPlaylistInfo] preflight failed: %v", err)
+	result, err := s.probePlaylist(videoURL)
+	if err != nil {
 		return PlaylistInfo{}, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-
-	cmd := s.newYtdlpCommand().SetExecutable(ytdlpPath).
-		IgnoreConfig().FlatPlaylist().DumpSingleJSON().NoWarnings()
-	if settings.Proxy != "" {
-		cmd.Proxy(settings.Proxy)
-	}
-	applyCookiesArgs(cmd, settings)
-	s.applyMediaCommand(cmd)
-
-	s.emitLog("[GetPlaylistInfo] fetching playlist for URL: %s", videoURL)
-	s.logCmd("GetPlaylistInfo", cmd, ctx, videoURL)
-
-	result, err := cmd.Run(ctx, videoURL)
-	if err != nil {
-		errMsg := normalizeYtDlpError(s.i18n, toUTF8([]byte(result.Stderr)), settings)
-		s.emitLog("[GetPlaylistInfo] failed: err=%s, output=%s", toUTF8([]byte(err.Error())), errMsg)
-		if errMsg != "" {
-			return PlaylistInfo{}, fmt.Errorf("%s", errMsg)
-		}
-		return PlaylistInfo{}, fmt.Errorf("failed to get playlist info: %w", err)
-	}
-
 	infoList, parseErr := result.GetExtractedInfo()
 	if parseErr != nil || len(infoList) == 0 {
 		s.emitLog("[GetPlaylistInfo] JSON parse failed: %v", parseErr)
@@ -379,14 +350,68 @@ func (s *Service) GetPlaylistInfo(rawInput string) (PlaylistInfo, error) {
 			}
 		}
 	}
-	for _, entry := range raw.Entries {
-		info := extractVideoInfoFromExtracted(entry, "")
-		if info.URL != "" || info.ID != "" {
-			playlistResult.Videos = append(playlistResult.Videos, info)
+	isYouTubeCollection := youtubeCollectionURL(videoURL) != ""
+	var appendEntries func([]*ytdlp.ExtractedInfo)
+	appendEntries = func(entries []*ytdlp.ExtractedInfo) {
+		for _, entry := range entries {
+			if entry == nil {
+				continue
+			}
+			if isYouTubeCollection && entry.Entries != nil {
+				appendEntries(entry.Entries)
+				continue
+			}
+			info := extractVideoInfoFromExtracted(entry, "")
+			if isYouTubeCollection && info.URL == "" && entry.URL != nil && youtubeVideoID(*entry.URL) != "" {
+				info.URL = *entry.URL
+			}
+			if info.URL != "" || info.ID != "" {
+				playlistResult.Videos = append(playlistResult.Videos, info)
+			}
 		}
 	}
+	appendEntries(raw.Entries)
 	playlistResult.Count = len(playlistResult.Videos)
 	return playlistResult, nil
+}
+
+func (s *Service) probePlaylist(videoURL string) (*ytdlp.Result, error) {
+	ytdlpPath := s.resolveYtDlp()
+	if ytdlpPath == "" {
+		return nil, fmt.Errorf("%s", s.i18n.T("playlist.ytdlpNotFound"))
+	}
+	settings := s.GetSettings()
+	if err := ensureYouTubeJSRuntime(s.i18n, videoURL, settings); err != nil {
+		s.emitLog("[GetPlaylistInfo] preflight failed: %v", err)
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	cmd := s.newYtdlpCommand().SetExecutable(ytdlpPath).
+		IgnoreConfig().FlatPlaylist().DumpSingleJSON().NoWarnings()
+	if settings.Proxy != "" {
+		cmd.Proxy(settings.Proxy)
+	}
+	applyCookiesArgs(cmd, settings)
+	s.applyMediaCommand(cmd)
+
+	s.emitLog("[GetPlaylistInfo] fetching playlist for URL: %s", videoURL)
+	s.logCmd("GetPlaylistInfo", cmd, ctx, videoURL)
+
+	result, err := cmd.Run(ctx, videoURL)
+	if err != nil {
+		var errMsg string
+		if result != nil {
+			errMsg = normalizeYtDlpError(s.i18n, toUTF8([]byte(result.Stderr)), settings)
+		}
+		s.emitLog("[GetPlaylistInfo] failed: err=%s, output=%s", toUTF8([]byte(err.Error())), errMsg)
+		if errMsg != "" {
+			return nil, fmt.Errorf("%s", errMsg)
+		}
+		return nil, fmt.Errorf("%s: %w", s.i18n.T("playlist.probeFailed"), err)
+	}
+	return result, nil
 }
 
 func (s *Service) GetFormats(rawInput string) (FormatInfo, error) {

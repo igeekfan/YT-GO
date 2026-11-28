@@ -31,6 +31,7 @@ type Service struct {
 	wechatCache     map[string]wechatChannelsCacheEntry
 	dbMu            sync.RWMutex
 	db              *gorm.DB
+	settingsMu      sync.Mutex
 	appVersion      string
 	hooks           Hooks
 	downloadDir     string // from YTGO_DOWNLOAD_DIR env

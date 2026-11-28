@@ -1,9 +1,11 @@
 import {useState, useEffect, useRef, useCallback, type ReactNode} from 'react'
-import {Settings} from '../types'
+import type {DownloadProfiles, Settings} from '../types'
 import {useI18n} from '../i18n/context'
+import {DOWNLOAD_QUALITIES} from '../lib/downloadProfiles'
 import {GetSettings, SelectFolder, SelectCookiesFile, GetDiagnosticInfo, UpdateYtDlp, UpdateDeno, ResetSettings, GetAboutInfo, GetDepStatus, CheckYtDlpVersion, backendMode, UploadCookiesFile, getWebConfig} from '../lib/backend'
 import type {AppUpdate} from '../hooks/useAppUpdate'
 import DirBrowser from './DirBrowser'
+import DownloadProfilesSettings from './DownloadProfilesSettings'
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
@@ -35,17 +37,19 @@ interface Props {
     onSave: (settings: Settings) => void
     onFlushSave: () => Promise<void>
     onSaved: (settings: Settings) => void
+    downloadProfiles: DownloadProfiles
+    savingDownloadProfiles: boolean
+    onSaveDownloadProfiles: (profiles: DownloadProfiles) => Promise<void>
     onThemePreview: (theme: 'dark' | 'light') => void
     onLanguagePreview: (lang: 'zh-CN' | 'en-US') => void
 }
 
-const QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'audio']
 const THEME_OPTIONS = ['dark', 'light']
 const LANGUAGE_OPTIONS = ['zh-CN', 'en-US']
 const SETTINGS_TABS = ['download', 'media', 'network', 'deps', 'appearance', 'about'] as const
 const TAB_ICONS = {download: Download, media: SlidersHorizontal, network: Network, deps: Wrench, appearance: Palette, about: Info}
 
-function SettingsWorkspace({open, initialSettings, appUpdate, onClose, onSave, onFlushSave, onSaved, onThemePreview, onLanguagePreview}: Props) {
+function SettingsWorkspace({open, initialSettings, appUpdate, onClose, onSave, onFlushSave, onSaved, downloadProfiles, savingDownloadProfiles, onSaveDownloadProfiles, onThemePreview, onLanguagePreview}: Props) {
     const {t, lang} = useI18n()
     const [settings, setSettings] = useState<Settings | null>(null)
     const [activeTab, setActiveTab] = useState<(typeof SETTINGS_TABS)[number]>('download')
@@ -290,6 +294,9 @@ function SettingsWorkspace({open, initialSettings, appUpdate, onClose, onSave, o
                             <div className="settings-panel max-w-4xl">
                             {/* Download Tab */}
                             <TabsContent value="download" className="settings-form mt-0">
+                                <DownloadProfilesSettings profiles={downloadProfiles} settings={settings}
+                                    hasFixedDir={getWebConfig()?.hasFixedDir ?? false}
+                                    saving={savingDownloadProfiles} onSave={onSaveDownloadProfiles} />
                                 {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
                                     <div className="settings-row space-y-1.5">
                                         <Label className="text-xs text-muted-foreground">{t('settings.outputDir')}</Label>
@@ -307,7 +314,7 @@ function SettingsWorkspace({open, initialSettings, appUpdate, onClose, onSave, o
                                     <Label className="text-xs text-muted-foreground">{t('settings.quality')}</Label>
                                     <SelectComp value={settings.quality} onValueChange={(v: string) => update('quality', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>{QUALITY_OPTIONS.map(q => <SelectItem key={q} value={q}>{t(`quality.${q}` as any)}</SelectItem>)}</SelectContent>
+                                        <SelectContent>{DOWNLOAD_QUALITIES.map(q => <SelectItem key={q} value={q}>{t(`quality.${q}`)}</SelectItem>)}</SelectContent>
                                     </SelectComp>
                                 </div>
                                 <div className="settings-row space-y-1.5">
@@ -591,7 +598,7 @@ function SettingsWorkspace({open, initialSettings, appUpdate, onClose, onSave, o
 
                                     <div className="settings-about-row settings-about-action-row">
                                         <span>{t('settings.reset')}</span>
-                                        <Button variant="outline" size="sm" onClick={handleResetSettings} disabled={isResetting}>
+                                        <Button variant="outline" size="sm" onClick={handleResetSettings} disabled={isResetting || savingDownloadProfiles}>
                                             {isResetting ? t('settings.resetting') : t('settings.reset')}
                                         </Button>
                                     </div>

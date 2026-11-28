@@ -105,6 +105,10 @@ export function OpenReleasePage(): $CancellablePromise<void> {
     return $Call.ByID(860552507);
 }
 
+export function QueueNewYouTubeVideos(req: $models.IncrementalDownloadRequest): $CancellablePromise<$models.IncrementalDownloadResult> {
+    return $Call.ByID(1038993225, req);
+}
+
 export function RemoveDownload(taskID: string): $CancellablePromise<void> {
     return $Call.ByID(3564010679, taskID);
 }
@@ -113,8 +117,20 @@ export function ResetSettings(): $CancellablePromise<void> {
     return $Call.ByID(3616125275);
 }
 
+export function RetryDownload(taskID: string): $CancellablePromise<string> {
+    return $Call.ByID(2942088203, taskID);
+}
+
+export function ReviewDownloadURLs(input: string): $CancellablePromise<$models.DownloadURLReview[] | null> {
+    return $Call.ByID(2436529045, input);
+}
+
 export function SaveSettings(s: $models.Settings): $CancellablePromise<void> {
     return $Call.ByID(1843965199, s);
+}
+
+export function ScanYouTubeCollection(url: string): $CancellablePromise<$models.IncrementalPlaylistScan> {
+    return $Call.ByID(2815934707, url);
 }
 
 export function SelectCookiesFile(): $CancellablePromise<string> {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"YT-GO/internal/core"
 )
@@ -19,6 +20,7 @@ type Server struct {
 	fixedDir   string
 	corsOrigin string // allowed CORS origin, empty means same-origin only
 	authToken  string // bearer token for web auth, empty means no auth
+	settingsMu sync.Mutex
 }
 
 type serverOptions struct {
@@ -143,7 +145,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/video/info", s.handleVideoInfo)
 	s.mux.HandleFunc("/api/video/formats", s.handleFormats)
 	s.mux.HandleFunc("/api/video/playlist", s.handlePlaylist)
+	s.mux.HandleFunc("/api/video/playlist/scan", s.handleIncrementalPlaylistScan)
+	s.mux.HandleFunc("/api/video/playlist/queue", s.handleIncrementalPlaylistQueue)
 	s.mux.HandleFunc("/api/downloads", s.handleDownloads)
+	s.mux.HandleFunc("/api/downloads/review", s.handleDownloadReview)
 	s.mux.HandleFunc("/api/downloads/", s.handleDownloadAction)
 }
 

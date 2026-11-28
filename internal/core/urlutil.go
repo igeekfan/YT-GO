@@ -1,9 +1,11 @@
 package core
 
 import (
+	"errors"
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // shareTextURLRe matches a URL inside a noisy share-text snippet.
@@ -21,6 +23,17 @@ func extractURLFromText(input string) string {
 		return trimmed
 	}
 	return strings.TrimRight(m, ".,;:!?)]}，。；：！？、）】》」』")
+}
+
+// ValidateSingleDownloadURL requires a standalone HTTP or HTTPS link for quick downloads.
+func (s *Service) ValidateSingleDownloadURL(rawURL string) error {
+	value := strings.TrimSpace(rawURL)
+	parsed, err := url.Parse(value)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+		parsed.Hostname() == "" || parsed.User != nil || strings.ContainsFunc(value, unicode.IsSpace) || strings.Contains(value, `\`) {
+		return errors.New(s.i18n.T("download.single_link"))
+	}
+	return nil
 }
 
 // isYouTubeURL checks if the given URL points to YouTube.

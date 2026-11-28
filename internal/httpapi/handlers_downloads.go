@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"fmt"
 	"mime"
 	"net/http"
@@ -20,36 +21,7 @@ func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		settings, err := s.validateStoredWebSettings(r.Context())
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		validatedURL, err := s.urls.validate(r.Context(), req.URL)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		requestedOutputDir := req.OutputDir
-		if s.fixedDir != "" {
-			requestedOutputDir = s.fixedDir
-		}
-		outputDir, err := s.downloads.ensureDir(requestedOutputDir)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		effectiveTemplate := settings.FilenameTemplate
-		if req.Options != nil && strings.TrimSpace(req.Options.FilenameTemplate) != "" {
-			effectiveTemplate = req.Options.FilenameTemplate
-		}
-		if err := validateFilenameTemplate(effectiveTemplate); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		req.URL = validatedURL
-		req.OutputDir = outputDir
-		id, err := s.service.StartDownload(req)
+		id, err := s.service.StartDownloadValidated(req, s.downloadValidator(r.Context()))
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
@@ -61,6 +33,51 @@ func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost, http.MethodDelete)
 	}
+}
+
+func (s *Server) handleDownloadReview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w, http.MethodPost)
+		return
+	}
+	var req struct {
+		Input string `json:"input"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	results := core.ReviewDownloadURLs(req.Input, func(rawURL string) (string, error) {
+		return s.urls.validate(r.Context(), rawURL)
+	})
+	writeJSON(w, http.StatusOK, results)
+}
+
+func (s *Server) downloadValidator(ctx context.Context) core.DownloadValidator {
+	return func(rawURL, outputDir, filenameTemplate string) (string, string, error) {
+		if _, err := s.validateStoredWebSettings(ctx); err != nil {
+			return "", "", err
+		}
+		validatedURL, err := s.urls.validate(ctx, rawURL)
+		if err != nil {
+			return "", "", err
+		}
+		outputDir, err = s.validateDownloadDestination(outputDir, filenameTemplate)
+		if err != nil {
+			return "", "", err
+		}
+		return validatedURL, outputDir, nil
+	}
+}
+
+func (s *Server) validateDownloadDestination(outputDir, filenameTemplate string) (string, error) {
+	if err := validateFilenameTemplate(filenameTemplate); err != nil {
+		return "", err
+	}
+	if s.fixedDir != "" {
+		outputDir = s.fixedDir
+	}
+	return s.downloads.ensureDir(outputDir)
 }
 
 func (s *Server) handleDownloadAction(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +102,17 @@ func (s *Server) handleDownloadAction(w http.ResponseWriter, r *http.Request) {
 	taskID := parts[0]
 	action := parts[1]
 	switch action {
+	case "retry":
+		if r.Method != http.MethodPost {
+			writeMethodNotAllowed(w, http.MethodPost)
+			return
+		}
+		id, err := s.service.RetryDownload(taskID, s.downloadValidator(r.Context()))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusAccepted, map[string]string{"id": id})
 	case "cancel":
 		if r.Method != http.MethodPost {
 			writeMethodNotAllowed(w, http.MethodPost)

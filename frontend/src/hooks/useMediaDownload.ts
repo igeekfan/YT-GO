@@ -1,23 +1,37 @@
-import {Dispatch, SetStateAction, useCallback, useRef, useState} from 'react'
-import {GetFormats, GetPlaylistInfo, GetVideoInfo, SelectFolder, StartDownload} from '../lib/backend'
+import {useCallback, useRef, useState} from 'react'
+import {toast} from 'sonner'
+import {
+    GetFormats, GetPlaylistInfo, GetVideoInfo,
+    QueueNewYouTubeVideos, ScanYouTubeCollection, SelectFolder, StartDownload,
+} from '../lib/backend'
 import {useI18n} from '../i18n/context'
 import {
     buildDownloadOptions,
     formatOptionLabel,
     FormatMode,
+    getDownloadDefaults,
+    isSingleDownloadLink,
     parseResolutionHeight,
     resolveDownloadQuality,
     sortFormats,
 } from '../lib/downloadComposer'
-import {FormatInfo, PlaylistInfo, VideoInfo} from '../types'
-import {DownloadOptionState} from './useSettingsController'
-import {toast} from 'sonner'
+import {getYouTubeCollectionKind} from '../lib/youtubeCollection'
+import type {
+    DownloadProfile, FormatInfo, IncrementalDownloadResult, IncrementalPlaylistScan, PlaylistInfo, Settings, VideoInfo,
+} from '../types'
 
 interface MediaDownloadOptions {
-    quality: string
-    outputDir: string
-    setOutputDir: Dispatch<SetStateAction<string>>
-    downloadOptions: DownloadOptionState
+    settings: Settings | null
+    profile: DownloadProfile | undefined
+    hasFixedDir: boolean
+}
+
+type DownloadDefaults = ReturnType<typeof getDownloadDefaults>
+type TaskOverrides = Partial<Omit<DownloadDefaults, 'options'>> & {options?: Partial<DownloadDefaults['options']>}
+
+interface IncrementalReview {
+    scan: IncrementalPlaylistScan
+    result?: IncrementalDownloadResult
 }
 
 function shouldTryPlaylistFallback(error: unknown): boolean {
@@ -34,7 +48,7 @@ function shouldTryPlaylistFallback(error: unknown): boolean {
     return !nonFallbackSignals.some(signal => message.includes(signal))
 }
 
-export function useMediaDownload({quality, outputDir, setOutputDir, downloadOptions}: MediaDownloadOptions) {
+export function useMediaDownload({settings, profile, hasFixedDir}: MediaDownloadOptions) {
     const {t} = useI18n()
     const [url, setUrl] = useState('')
     const [resolvedUrl, setResolvedUrl] = useState('')
@@ -50,15 +64,24 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
     const [selectedPlaylistItems, setSelectedPlaylistItems] = useState<Set<number>>(new Set())
     const [isGettingInfo, setIsGettingInfo] = useState(false)
     const [isStarting, setIsStarting] = useState(false)
-    const [filenameTemplate, setFilenameTemplate] = useState('')
+    const [isScanningCollection, setIsScanningCollection] = useState(false)
+    const [incrementalReview, setIncrementalReview] = useState<IncrementalReview | null>(null)
+    const [taskOverrides, setTaskOverrides] = useState<TaskOverrides>({})
     const [selectedSubtitleLangs, setSelectedSubtitleLangs] = useState<Set<string>>(new Set())
     const [subtitleSearch, setSubtitleSearch] = useState('')
     const infoRequestRef = useRef(0)
+    const startingRef = useRef(false)
+    const defaults = getDownloadDefaults(settings, profile)
+    const task = {...defaults, ...taskOverrides, options: {...defaults.options, ...taskOverrides.options}}
+    const outputDir = (hasFixedDir ? settings?.outputDir : task.outputDir)?.trim() || ''
+    const canQuickDownload = isSingleDownloadLink(url.trim())
 
     const resetResolvedMedia = useCallback(() => {
         setResolvedUrl('')
         setIsGettingInfo(false)
         setIsGettingFormats(false)
+        setIsScanningCollection(false)
+        setIncrementalReview(null)
         setVideoInfo(null)
         setPlaylistInfo(null)
         setFormatInfo(null)
@@ -75,12 +98,14 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
     const handleURLChange = useCallback((nextUrl: string) => {
         infoRequestRef.current++
         setUrl(nextUrl)
+        setTaskOverrides({})
         resetResolvedMedia()
     }, [resetResolvedMedia])
 
     const clearCurrentInput = useCallback(() => {
         infoRequestRef.current++
         setUrl('')
+        setTaskOverrides({})
         resetResolvedMedia()
     }, [resetResolvedMedia])
 
@@ -96,6 +121,8 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
     const hasAvailableSubtitles = (videoInfo?.subtitles?.length || 0) > 0
     const isWechatChannelsVideo = videoInfo?.platform === 'WeChat Channels'
     const collectionKind = playlistInfo?.kind === 'channel' ? 'channel' : 'playlist'
+    const youtubeCollectionKind = getYouTubeCollectionKind(url)
+    const canScanCollection = youtubeCollectionKind !== null
 
     const getFormatOptionLabel = (format: FormatInfo['formats'][number]) => {
         if (format.formatId === 'wechat:origin') return t('format.wechatOriginal')
@@ -127,9 +154,25 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
         const requestedUrl = url.trim()
         if (!requestedUrl) return
         const requestId = ++infoRequestRef.current
+        const isCollection = youtubeCollectionKind === 'playlist' || youtubeCollectionKind === 'channel'
         resetResolvedMedia()
         setIsGettingInfo(true)
+
+        const loadPlaylist = async () => {
+            const playlist = await GetPlaylistInfo(requestedUrl)
+            if (requestId !== infoRequestRef.current) return true
+            if (!playlist?.count) return false
+            setPlaylistInfo(playlist)
+            setResolvedUrl(requestedUrl)
+            setSelectedPlaylistItems(new Set(playlist.videos.map((_, index) => index)))
+            return true
+        }
+
         try {
+            if (isCollection) {
+                if (!await loadPlaylist()) toast.error(t('playlist.getFail'))
+                return
+            }
             const info = await GetVideoInfo(requestedUrl)
             if (requestId !== infoRequestRef.current) return
             setVideoInfo(info); setFormatExpanded(true)
@@ -144,18 +187,12 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
             }
         } catch (error: any) {
             if (requestId !== infoRequestRef.current) return
-            if (!shouldTryPlaylistFallback(error)) {
+            if (isCollection || !shouldTryPlaylistFallback(error)) {
                 toast.error(t('toast.getInfoFail') + (error?.message ? `: ${error.message}` : ''))
                 return
             }
             try {
-                const playlist = await GetPlaylistInfo(requestedUrl)
-                if (requestId !== infoRequestRef.current) return
-                if (playlist && playlist.count > 0) {
-                    setPlaylistInfo(playlist)
-                    setResolvedUrl(requestedUrl)
-                    setSelectedPlaylistItems(new Set(playlist.videos.map((_, index) => index)))
-                } else {
+                if (!await loadPlaylist()) {
                     toast.error(t('toast.getInfoFail') + (error?.message ? `: ${error.message}` : ''))
                 }
             } catch {
@@ -187,16 +224,25 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
         }
     }
 
-    const buildRequestOptions = () => buildDownloadOptions({
-        videoInfo,
+    const setTaskOption = <Key extends keyof TaskOverrides>(key: Key, value: TaskOverrides[Key]) => {
+        setTaskOverrides(current => ({...current, [key]: value}))
+    }
+
+    const setDownloadOption = (key: keyof DownloadDefaults['options'], value: boolean) => {
+        setTaskOverrides(current => ({...current, options: {...current.options, [key]: value}}))
+    }
+
+    const buildRequestOptions = (singleItem?: boolean, info = videoInfo) => buildDownloadOptions({
+        videoInfo: info,
         selectedSubtitleLangs,
-        saveThumbnail: downloadOptions.saveThumbnail,
-        saveDescription: downloadOptions.saveDescription,
-        embedChapters: downloadOptions.embedChapters,
-        writeSubtitles: downloadOptions.writeSubtitles,
-        embedSubtitles: downloadOptions.embedSubtitles,
-        sponsorBlock: downloadOptions.sponsorBlock,
-        filenameTemplate,
+        subtitleLangs: task.subtitleLangs.trim() || (taskOverrides.subtitleLangs === undefined ? '' : 'all,-live_chat'),
+        options: {
+            ...task.options,
+            filenameTemplate: task.filenameTemplate.trim() || defaults.filenameTemplate.trim() || undefined,
+            videoContainer: task.videoContainer,
+            audioFormat: task.audioFormat,
+            singleItem,
+        },
     })
 
     const resolveQuality = () => resolveDownloadQuality({
@@ -205,31 +251,82 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
         selectedVideoFormat,
         selectedAudioFormat,
         formatInfo,
-        quality,
+        quality: task.quality,
     })
 
-    const download = async () => {
-        if (!url.trim()) return
-        if (url.trim() !== resolvedUrl) { toast.error(t('url.getInfo')); return }
-        if (!outputDir) { toast.error(t('download.noDir')); return }
+    const scanCollection = async () => {
+        if (!canScanCollection || isScanningCollection || isGettingInfo || isStarting) return
+        const requestId = infoRequestRef.current
+        setIsScanningCollection(true)
+        setIncrementalReview(null)
+        try {
+            const scan = await ScanYouTubeCollection(url.trim())
+            if (requestId === infoRequestRef.current) setIncrementalReview({scan})
+        } catch (error: unknown) {
+            if (requestId === infoRequestRef.current) {
+                toast.error(t('incremental.scanFailed') + (error instanceof Error ? `: ${error.message}` : ''))
+            }
+        } finally {
+            if (requestId === infoRequestRef.current) setIsScanningCollection(false)
+        }
+    }
+
+    const queueNewVideos = async () => {
+        if (!incrementalReview || incrementalReview.result || incrementalReview.scan.newVideos.length === 0 || startingRef.current) return
+        if (!outputDir && !hasFixedDir) {
+            toast.error(t('download.noDir'))
+            return
+        }
+        const {scan} = incrementalReview
+        const requestId = infoRequestRef.current
+        startingRef.current = true
+        setIsStarting(true)
+        try {
+            const result = await QueueNewYouTubeVideos({
+                videos: scan.newVideos, outputDir, quality: task.quality, options: buildRequestOptions(undefined, null),
+            })
+            if (requestId === infoRequestRef.current) {
+                setIncrementalReview({scan, result})
+                if (result.queued > 0) resetTaskOptions()
+            }
+        } catch (error: unknown) {
+            if (requestId === infoRequestRef.current) {
+                toast.error(t('toast.downloadStartFail') + (error instanceof Error ? `: ${error.message}` : ''))
+            }
+        } finally {
+            startingRef.current = false
+            setIsStarting(false)
+        }
+    }
+
+    const startSingleDownload = async (quick: boolean) => {
+        const requestedUrl = url.trim()
+        const requestId = infoRequestRef.current
+        if (!requestedUrl || startingRef.current) return
+        if (quick && !canQuickDownload) { toast.error(t('download.invalidLink')); return }
+        if (!quick && requestedUrl !== resolvedUrl) { toast.error(t('url.getInfo')); return }
+        if (!outputDir && !hasFixedDir) { toast.error(t('download.noDir')); return }
         if (formatMode === 'combine' && !hasSeparateTrackFormats) {
             toast.error(t('format.combineUnavailable')); return
         }
+        startingRef.current = true
         setIsStarting(true)
         try {
             await StartDownload({
-                url: url.trim(), outputDir, quality: resolveQuality(),
+                url: requestedUrl, outputDir, quality: resolveQuality(),
                 videoInfo: videoInfo ? {
                     url: videoInfo.url, id: videoInfo.id, title: videoInfo.title,
                     thumbnail: videoInfo.thumbnail, duration: videoInfo.duration,
                     uploader: videoInfo.uploader, platform: videoInfo.platform,
                 } : undefined,
-                options: buildRequestOptions(),
+                options: buildRequestOptions(quick || undefined),
             })
+            if (requestId === infoRequestRef.current) resetTaskOptions()
             toast.success(t('toast.downloadQueued'))
         } catch (error: any) {
             toast.error(t('toast.downloadStartFail') + (error?.message ? `: ${error.message}` : ''))
         } finally {
+            startingRef.current = false
             setIsStarting(false)
         }
     }
@@ -273,7 +370,12 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
 
     const selectFolder = async () => {
         const directory = await SelectFolder()
-        if (directory) setOutputDir(directory)
+        if (directory) setTaskOption('outputDir', directory)
+    }
+
+    const resetTaskOptions = () => {
+        setTaskOverrides({})
+        setSelectedSubtitleLangs(new Set())
     }
 
     return {
@@ -286,13 +388,17 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
         isGettingFormats, formatExpanded, setFormatExpanded,
         selectedPlaylistItems, setSelectedPlaylistItems,
         isGettingInfo, isStarting,
-        filenameTemplate, setFilenameTemplate,
+        canScanCollection, isScanningCollection, incrementalReview, scanCollection, queueNewVideos,
+        task, outputDir, setTaskOption, setDownloadOption,
+        canQuickDownload, resolveQuality, resetTaskOptions, buildRequestOptions,
+        hasTaskOverrides: Object.keys(taskOverrides).length > 0 || selectedSubtitleLangs.size > 0,
         selectedSubtitleLangs, setSelectedSubtitleLangs,
         subtitleSearch, setSubtitleSearch,
         videoOnlyFormats, audioOnlyFormats, combineVideoFormats, combineAudioFormats,
         collectionKind, hasSeparateTrackFormats, hasCustomFormatSelection,
         hasAvailableSubtitles, isWechatChannelsVideo,
-        getFormatOptionLabel, selectBestQuality, getInfo, getFormats, download, downloadAll, selectFolder,
+        getFormatOptionLabel, selectBestQuality, getInfo, getFormats,
+        download: () => startSingleDownload(false), quickDownload: () => startSingleDownload(true), downloadAll, selectFolder,
     }
 }
 

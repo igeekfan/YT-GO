@@ -1,7 +1,10 @@
 import {apiFetch, apiFetchBlob, apiURL, getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken, onUnauthorized, notifyUnauthorizedIfCurrent} from './api_client'
 import type {WebConfig} from './api_client'
 import {backendMode} from './backend_mode'
-import type {DownloadOptions, DownloadRequest, DownloadTask, FormatInfo, PlaylistInfo, Settings, VideoInfo} from '../types'
+import type {
+    DownloadOptions, DownloadRequest, DownloadTask, FormatInfo, IncrementalDownloadRequest,
+    IncrementalDownloadResult, IncrementalPlaylistScan, PlaylistInfo, Settings, VideoInfo,
+} from '../types'
 import type * as DesktopModels from '../../bindings/YT-GO/desktop/models'
 
 // Re-export for consumers that import from backend.ts
@@ -91,6 +94,26 @@ export function GetPlaylistInfo(url: string): Promise<PlaylistInfo> {
     ).then(info => ({...info, videos: (info.videos ?? []).map(normalizeVideoInfo)}))
 }
 
+export function ScanYouTubeCollection(url: string): Promise<IncrementalPlaylistScan> {
+    return getDesktop(
+        app => app.ScanYouTubeCollection(url),
+        () => apiFetch<DesktopModels.IncrementalPlaylistScan>('/api/video/playlist/scan', {
+            method: 'POST',
+            body: JSON.stringify({url}),
+        }),
+    ).then(scan => ({...scan, newVideos: scan.newVideos ?? []}))
+}
+
+export function QueueNewYouTubeVideos(request: IncrementalDownloadRequest): Promise<IncrementalDownloadResult> {
+    return getDesktop(
+        app => app.QueueNewYouTubeVideos(request),
+        () => apiFetch<IncrementalDownloadResult>('/api/video/playlist/queue', {
+            method: 'POST',
+            body: JSON.stringify(request),
+        }),
+    )
+}
+
 export function GetFormats(url: string): Promise<FormatInfo> {
     return getDesktop(
         app => app.GetFormats(url),
@@ -168,6 +191,26 @@ export function StartDownload(request: DownloadRequestPayload) {
                 method: 'POST',
                 body: JSON.stringify(request),
             })
+            return result.id
+        }
+    )
+}
+
+export function ReviewDownloadURLs(input: string) {
+    return getDesktop(
+        async app => (await app.ReviewDownloadURLs(input)) ?? [],
+        () => apiFetch<DesktopModels.DownloadURLReview[]>('/api/downloads/review', {
+            method: 'POST',
+            body: JSON.stringify({input}),
+        })
+    )
+}
+
+export function RetryDownload(id: string) {
+    return getDesktop(
+        app => app.RetryDownload(id),
+        async () => {
+            const result = await apiFetch<{id: string}>(`/api/downloads/${encodeURIComponent(id)}/retry`, {method: 'POST'})
             return result.id
         }
     )

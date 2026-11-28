@@ -1,5 +1,6 @@
-import {DownloadOptions, FormatInfo, VideoInfo} from '../types'
+import type {DownloadOptions, DownloadProfile, FormatInfo, Settings, VideoInfo} from '../types'
 import {formatFileSize} from './formatUtils'
+import {DEFAULT_FILENAME_TEMPLATE} from './downloadProfiles'
 
 export type FormatMode = 'single' | 'combine' | 'audio-only' | 'video-only'
 
@@ -12,16 +13,48 @@ export interface ResolveDownloadQualityInput {
     quality: string
 }
 
-export interface BuildDownloadOptionsInput {
+export type DownloadOptionKey = 'saveThumbnail' | 'saveDescription' | 'embedChapters' | 'writeSubtitles' | 'embedSubtitles' | 'sponsorBlock'
+export type DownloadOptionState = Pick<Settings, DownloadOptionKey>
+
+interface BuildDownloadOptionsInput {
     videoInfo: VideoInfo | null
     selectedSubtitleLangs: Set<string>
-    saveThumbnail: boolean
-    saveDescription: boolean
-    embedChapters: boolean
-    writeSubtitles: boolean
-    embedSubtitles: boolean
-    sponsorBlock: boolean
-    filenameTemplate: string
+    subtitleLangs: string
+    options: DownloadOptions
+}
+
+export function getDownloadDefaults(settings: Settings | null, profile: DownloadProfile | undefined) {
+    const options: DownloadOptionState = {
+        saveThumbnail: settings?.saveThumbnail ?? false,
+        saveDescription: settings?.saveDescription ?? false,
+        embedChapters: settings?.embedChapters ?? false,
+        sponsorBlock: settings?.sponsorBlock ?? false,
+        writeSubtitles: profile?.writeSubtitles ?? settings?.writeSubtitles ?? false,
+        embedSubtitles: profile?.embedSubtitles ?? settings?.embedSubtitles ?? false,
+    }
+    return {
+        quality: profile?.quality || settings?.quality || 'best',
+        outputDir: profile?.outputDir || settings?.outputDir || '',
+        filenameTemplate: profile ? profile.filenameTemplate || DEFAULT_FILENAME_TEMPLATE : settings?.filenameTemplate || '',
+        subtitleLangs: profile ? profile.subtitleLangs || 'all,-live_chat' : settings?.subtitleLangs || '',
+        videoContainer: profile ? profile.videoContainer || 'auto' : undefined,
+        audioFormat: profile ? profile.audioFormat || 'default' : undefined,
+        options,
+    }
+}
+
+export function isSingleDownloadLink(url: string): boolean {
+    const authority = /^https?:\/\/([^/?#\s]+)/i.exec(url)?.[1]
+    if (!authority || authority.includes('@') || /\s|\\/.test(url)) return false
+    try {
+        return Boolean(new URL(url).hostname)
+    } catch {
+        return false
+    }
+}
+
+export function isAudioDownload(quality: string): boolean {
+    return quality === 'audio' || quality.startsWith('fa:')
 }
 
 export function getSubtitleSelectionKey(sub: {code: string, auto?: boolean, selector?: string}): string {
@@ -125,27 +158,16 @@ export function resolveDownloadQuality({
 export function buildDownloadOptions({
     videoInfo,
     selectedSubtitleLangs,
-    saveThumbnail,
-    saveDescription,
-    embedChapters,
-    writeSubtitles,
-    embedSubtitles,
-    sponsorBlock,
-    filenameTemplate,
+    subtitleLangs,
+    options,
 }: BuildDownloadOptionsInput): DownloadOptions {
     const {manualLangs, autoLangs} = splitSelectedSubtitleLangs(videoInfo?.subtitles, selectedSubtitleLangs)
     const hasExplicitSubtitleSelection = manualLangs.length > 0 || autoLangs.length > 0
     return {
-        saveThumbnail,
-        saveDescription,
-        embedChapters,
-        writeSubtitles,
+        ...options,
         writeManualSubs: hasExplicitSubtitleSelection ? manualLangs.length > 0 : undefined,
         writeAutoSubs: hasExplicitSubtitleSelection ? autoLangs.length > 0 : undefined,
-        embedSubtitles,
-        sponsorBlock,
-        subtitleLangs: hasExplicitSubtitleSelection ? manualLangs.join(',') : '',
-        autoSubtitleLangs: hasExplicitSubtitleSelection ? autoLangs.join(',') : '',
-        filenameTemplate: filenameTemplate.trim(),
-    } as DownloadOptions
+        subtitleLangs: hasExplicitSubtitleSelection ? manualLangs.join(',') : subtitleLangs,
+        autoSubtitleLangs: hasExplicitSubtitleSelection ? autoLangs.join(',') : subtitleLangs,
+    }
 }

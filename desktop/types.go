@@ -1,5 +1,7 @@
 package desktop
 
+import "YT-GO/internal/core"
+
 const AppVersion = "1.0.0"
 
 type YtDlpStatus struct {
@@ -52,6 +54,9 @@ type DownloadOptions struct {
 	EmbedSubtitles    *bool  `json:"embedSubtitles,omitempty"`
 	SponsorBlock      *bool  `json:"sponsorBlock,omitempty"`
 	FilenameTemplate  string `json:"filenameTemplate,omitempty"`
+	VideoContainer    string `json:"videoContainer,omitempty"`
+	AudioFormat       string `json:"audioFormat,omitempty"`
+	SingleItem        bool   `json:"singleItem,omitempty"`
 }
 
 type DownloadTask struct {
@@ -71,6 +76,8 @@ type DownloadTask struct {
 	CreatedAt  string  `json:"createdAt"`
 }
 
+type DownloadURLReview core.DownloadURLReview
+
 type PlaylistInfo struct {
 	URL      string      `json:"url"`
 	Kind     string      `json:"kind"`
@@ -80,28 +87,55 @@ type PlaylistInfo struct {
 	Videos   []VideoInfo `json:"videos"`
 }
 
+type YouTubePlaylistVideo struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Thumbnail string `json:"thumbnail"`
+}
+
+type IncrementalPlaylistScan struct {
+	NewVideos   []YouTubePlaylistVideo `json:"newVideos"`
+	NewCount    int                    `json:"newCount"`
+	Skipped     int                    `json:"skipped"`
+	Unavailable int                    `json:"unavailable"`
+}
+
+type IncrementalDownloadRequest struct {
+	Videos    []YouTubePlaylistVideo `json:"videos"`
+	OutputDir string                 `json:"outputDir"`
+	Quality   string                 `json:"quality"`
+	Options   *DownloadOptions       `json:"options"`
+}
+
+type IncrementalDownloadResult struct {
+	Queued    int `json:"queued"`
+	Skipped   int `json:"skipped"`
+	Remaining int `json:"remaining"`
+}
+
 type Settings struct {
-	OutputDir         string `json:"outputDir"`
-	Quality           string `json:"quality"`
-	Language          string `json:"language"`
-	Theme             string `json:"theme"`
-	Proxy             string `json:"proxy"`
-	UpdateProxy       string `json:"updateProxy"`
-	RateLimit         string `json:"rateLimit"`
-	MaxConcurrent     int    `json:"maxConcurrent"`
-	Notifications     bool   `json:"notifications"`
-	SaveDescription   bool   `json:"saveDescription"`
-	SaveThumbnail     bool   `json:"saveThumbnail"`
-	WriteSubtitles    bool   `json:"writeSubtitles"`
-	SubtitleLangs     string `json:"subtitleLangs"`
-	EmbedSubtitles    bool   `json:"embedSubtitles"`
-	EmbedChapters     bool   `json:"embedChapters"`
-	SponsorBlock      bool   `json:"sponsorBlock"`
-	FilenameTemplate  string `json:"filenameTemplate"`
-	MergeOutputFormat string `json:"mergeOutputFormat"`
-	AudioFormat       string `json:"audioFormat"`
-	CookiesFrom       string `json:"cookiesFrom"`
-	CookiesFile       string `json:"cookiesFile"`
+	OutputDir         string                `json:"outputDir"`
+	Quality           string                `json:"quality"`
+	Language          string                `json:"language"`
+	Theme             string                `json:"theme"`
+	Proxy             string                `json:"proxy"`
+	UpdateProxy       string                `json:"updateProxy"`
+	RateLimit         string                `json:"rateLimit"`
+	MaxConcurrent     int                   `json:"maxConcurrent"`
+	Notifications     bool                  `json:"notifications"`
+	SaveDescription   bool                  `json:"saveDescription"`
+	SaveThumbnail     bool                  `json:"saveThumbnail"`
+	WriteSubtitles    bool                  `json:"writeSubtitles"`
+	SubtitleLangs     string                `json:"subtitleLangs"`
+	EmbedSubtitles    bool                  `json:"embedSubtitles"`
+	EmbedChapters     bool                  `json:"embedChapters"`
+	SponsorBlock      bool                  `json:"sponsorBlock"`
+	FilenameTemplate  string                `json:"filenameTemplate"`
+	MergeOutputFormat string                `json:"mergeOutputFormat"`
+	AudioFormat       string                `json:"audioFormat"`
+	CookiesFrom       string                `json:"cookiesFrom"`
+	CookiesFile       string                `json:"cookiesFile"`
+	DownloadProfiles  core.DownloadProfiles `json:"downloadProfiles"`
 }
 
 type Format struct {

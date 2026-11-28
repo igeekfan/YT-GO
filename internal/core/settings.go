@@ -28,6 +28,7 @@ func (s *Service) GetSettings() Settings {
 		FilenameTemplate:  "",
 		MergeOutputFormat: "",
 		AudioFormat:       "",
+		DownloadProfiles:  DownloadProfiles{Items: []DownloadProfile{}},
 	}
 	db := s.database()
 	if db == nil {
@@ -58,6 +59,11 @@ func (s *Service) NeedsCookieConfig() bool {
 }
 
 func (s *Service) SaveSettings(settings Settings) error {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+	if settings.DownloadProfiles.Items == nil && settings.DownloadProfiles.SelectedID == "" {
+		settings.DownloadProfiles = s.GetSettings().DownloadProfiles
+	}
 	_, err := s.applySettingsFromRegistry(settings)
 	return err
 }
@@ -100,6 +106,8 @@ func applySettingValues(settings Settings, values []SettingValueRecord) Settings
 }
 
 func (s *Service) ResetSettings() error {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
 	if s.database() == nil {
 		return fmt.Errorf("database not initialized")
 	}

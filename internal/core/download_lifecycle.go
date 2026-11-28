@@ -22,11 +22,12 @@ var (
 )
 
 type downloadJob struct {
-	taskID    string
-	request   DownloadRequest
-	ytdlpPath string
-	control   *downloadControl
-	ready     chan struct{}
+	taskID      string
+	request     DownloadRequest
+	ytdlpPath   string
+	control     *downloadControl
+	ready       chan struct{}
+	incremental bool
 }
 
 type downloadControl struct {
@@ -97,9 +98,10 @@ func (c *downloadControl) terminateProcessTree(pid int) error {
 }
 
 type downloadResult struct {
-	outputPath string
-	size       string
-	warning    string
+	outputPath      string
+	size            string
+	warning         string
+	youtubeVideoIDs []string
 }
 
 type downloadOutcome uint8
@@ -197,10 +199,14 @@ func (s *Service) markDownloadStarted(taskID string, control *downloadControl) b
 
 func (s *Service) finishDownload(taskID string, control *downloadControl, outcome downloadOutcome, result downloadResult, runErr error) {
 	control.finish.Do(func() {
+		if outcome == downloadCompleted && len(result.youtubeVideoIDs) != 0 && control.ctx.Err() != nil {
+			outcome = downloadCancelled
+		}
 		control.cancel()
 		control.eventMu.Lock()
 		defer control.eventMu.Unlock()
 		var snapshot *DownloadTask
+		var persistenceErr error
 		removed := false
 
 		s.mu.Lock()
@@ -216,7 +222,7 @@ func (s *Service) finishDownload(taskID string, control *downloadControl, outcom
 			case downloadFailed:
 				task.Status = "error"
 				if runErr != nil {
-					task.Error = runErr.Error()
+					task.Error = downloadErrorURLPattern.ReplaceAllStringFunc(runErr.Error(), downloadHistoryURL)
 				}
 				snapshot = cloneDownloadTask(task)
 				s.enqueueTaskSaveLocked(snapshot)
@@ -232,11 +238,23 @@ func (s *Service) finishDownload(taskID string, control *downloadControl, outcom
 					task.Size = result.size
 				}
 				snapshot = cloneDownloadTask(task)
-				s.enqueueTaskSaveLocked(snapshot)
+				if len(result.youtubeVideoIDs) == 0 {
+					s.enqueueTaskSaveLocked(snapshot)
+				} else {
+					persistenceErr = s.submitPersistence(persistenceOperation{
+						kind:            persistenceSaveTask,
+						task:            *snapshot,
+						youtubeVideoIDs: result.youtubeVideoIDs,
+						done:            make(chan error, 1),
+					})
+				}
 			}
 		}
 		s.mu.Unlock()
 
+		if persistenceErr != nil {
+			s.emitDownloadLog(taskID, s.i18n.T("incremental.ledgerSaveFailed"))
+		}
 		if removed {
 			s.emitDownloadRemove(taskID)
 		} else if snapshot != nil {

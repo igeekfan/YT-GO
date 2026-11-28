@@ -3,9 +3,9 @@ package core
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,22 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/lrstanley/go-ytdlp"
 )
-
-// isValidDownloadURL checks that the URL uses http or https protocol.
-func isValidDownloadURL(rawURL string) bool {
-	// Extract URL from possible text wrapping (e.g. pasted text with surrounding content)
-	trimmed := strings.TrimSpace(rawURL)
-	// Handle URL-encoded variants
-	if strings.HasPrefix(trimmed, "file://") || strings.HasPrefix(trimmed, "file:") {
-		return false
-	}
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return false
-	}
-	scheme := strings.ToLower(parsed.Scheme)
-	return scheme == "http" || scheme == "https"
-}
 
 func (s *Service) cleanupTransientDownloads() error {
 	db := s.database()
@@ -59,59 +43,68 @@ func (s *Service) loadFromDB() error {
 	return nil
 }
 
-func (s *Service) StartDownload(req DownloadRequest) (string, error) {
-	// Validate URL protocol: only allow http/https.
-	req.URL = extractURLFromText(req.URL)
-	if req.URL == "" {
-		return "", fmt.Errorf("URL is required")
-	}
-	if !isValidDownloadURL(req.URL) {
-		return "", fmt.Errorf("invalid URL: only http and https protocols are allowed")
-	}
-	// Override output dir with YTGO_DOWNLOAD_DIR if configured (web mode)
-	outputDir := req.OutputDir
-	if s.downloadDir != "" {
-		outputDir = s.downloadDir
-		req.OutputDir = outputDir
-	}
-	return s.enqueueDownload(req, "")
+type queuedDownload struct {
+	taskID string
+	ready  chan struct{}
 }
 
-func (s *Service) enqueueDownload(req DownloadRequest, ytdlpPath string) (string, error) {
-	req = cloneDownloadRequest(req)
-	taskID := uuid.New().String()
-	task := &DownloadTask{ID: taskID, URL: req.URL, OutputDir: req.OutputDir, Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339)}
-	if req.VideoInfo != nil {
-		task.Title = req.VideoInfo.Title
-		task.Thumbnail = req.VideoInfo.Thumbnail
-	}
-	control := newDownloadControl(context.Background())
-	job := downloadJob{taskID: taskID, request: req, ytdlpPath: ytdlpPath, control: control, ready: make(chan struct{})}
+const youtubeOutputPrefix = "[YT-GO-YOUTUBE]"
 
+func (s *Service) enqueueDownload(req DownloadRequest, ytdlpPath string) (string, error) {
 	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
 	if !s.accepting {
-		s.lifecycleMu.Unlock()
-		control.cancel()
 		return "", ErrServiceClosed
 	}
 	s.ensureRuntimeLocked()
 	s.mu.Lock()
+	entry, err := s.enqueueDownloadLocked(req, ytdlpPath, false)
+	s.mu.Unlock()
+	if err != nil {
+		return "", err
+	}
+	s.publishQueuedDownload(entry)
+	return entry.taskID, nil
+}
+
+func (s *Service) enqueueDownloadLocked(req DownloadRequest, ytdlpPath string, incremental bool) (queuedDownload, error) {
+	req = cloneDownloadRequest(req)
+	if req.mediaOptions == nil {
+		opts := resolveDownloadMediaOptions(s.GetSettings(), req)
+		req.mediaOptions = &opts
+	}
+	taskID := uuid.New().String()
+	task := &DownloadTask{
+		ID: taskID, URL: downloadHistoryURL(req.URL), OutputDir: req.OutputDir,
+		Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339),
+		mediaOptions: req.mediaOptions,
+	}
+	if task.URL != req.URL {
+		task.sourceURL = req.URL
+	}
+	if req.VideoInfo != nil {
+		task.Title = req.VideoInfo.Title
+		task.Thumbnail = downloadHistoryURL(req.VideoInfo.Thumbnail)
+	}
+	control := newDownloadControl(context.Background())
+	job := downloadJob{taskID: taskID, request: req, ytdlpPath: ytdlpPath, control: control, ready: make(chan struct{}), incremental: incremental}
 	select {
 	case s.jobs <- job:
 		s.downloads[taskID] = task
 		s.activeDownloads[taskID] = control
 		s.enqueueTaskSaveLocked(task)
+		return queuedDownload{taskID: taskID, ready: job.ready}, nil
 	default:
-		s.mu.Unlock()
-		s.lifecycleMu.Unlock()
 		control.cancel()
-		return "", ErrDownloadQueueFull
+		return queuedDownload{}, ErrDownloadQueueFull
 	}
-	s.mu.Unlock()
-	s.emitDownloadUpdate(task)
-	close(job.ready)
-	s.lifecycleMu.Unlock()
-	return taskID, nil
+}
+
+func (s *Service) publishQueuedDownload(entry queuedDownload) {
+	if task, err := s.GetDownload(entry.taskID); err == nil {
+		s.emitDownloadUpdate(task)
+	}
+	close(entry.ready)
 }
 
 func (s *Service) executeDownload(job downloadJob) {
@@ -174,6 +167,7 @@ func (s *Service) runYtDlpDownload(job downloadJob) (downloadResult, error) {
 	}
 
 	var lastOutputFile string
+	var youtubeFiles map[string]string
 	writer := &lineWriter{handler: func(line string) {
 		line = sanitizeYTLine(line)
 		if line == "" {
@@ -184,6 +178,23 @@ func (s *Service) runYtDlpDownload(job downloadJob) (downloadResult, error) {
 				return
 			}
 			s.handleStructuredProgressLog(taskID, progressUpdate)
+			return
+		}
+		if payload, ok := strings.CutPrefix(line, youtubeOutputPrefix); ok {
+			var output struct {
+				ID        string `json:"id"`
+				Extractor string `json:"extractor_key"`
+				Path      string `json:"filepath"`
+			}
+			if err := json.Unmarshal([]byte(payload), &output); err == nil && output.Path != "" {
+				lastOutputFile = output.Path
+				if strings.EqualFold(output.Extractor, "Youtube") && youtubeVideoIDPattern.MatchString(output.ID) {
+					if youtubeFiles == nil {
+						youtubeFiles = make(map[string]string)
+					}
+					youtubeFiles[output.ID] = output.Path
+				}
+			}
 			return
 		}
 		if m := finalPathRe.FindStringSubmatch(line); m != nil {
@@ -284,6 +295,24 @@ func (s *Service) runYtDlpDownload(job downloadJob) (downloadResult, error) {
 			lastOutputFile = filepath.Join(req.OutputDir, lastOutputFile)
 		}
 		result.outputPath = lastOutputFile
+	}
+	expectedID := youtubeVideoID(req.URL)
+	for videoID, outputFile := range youtubeFiles {
+		if job.incremental && videoID != expectedID {
+			continue
+		}
+		if !filepath.IsAbs(outputFile) {
+			outputFile = filepath.Join(req.OutputDir, outputFile)
+		}
+		if info, statErr := os.Stat(outputFile); statErr == nil && info.Mode().IsRegular() {
+			result.youtubeVideoIDs = append(result.youtubeVideoIDs, videoID)
+			if job.incremental {
+				result.outputPath = outputFile
+			}
+		}
+	}
+	if job.incremental && len(result.youtubeVideoIDs) == 0 {
+		return downloadResult{}, errors.New(s.i18n.T("incremental.outputMissing"))
 	}
 	return result, nil
 }
@@ -397,6 +426,8 @@ func resolveSubtitleDownloadConfig(settings Settings, opts *DownloadOptions) sub
 	}
 	if opts.WriteSubtitles != nil {
 		cfg.WriteSubtitles = *opts.WriteSubtitles
+		cfg.WriteManualSubs = cfg.WriteSubtitles
+		cfg.WriteAutoSubs = cfg.WriteSubtitles
 	}
 	if opts.WriteManualSubs != nil {
 		cfg.WriteManualSubs = *opts.WriteManualSubs

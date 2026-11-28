@@ -1,13 +1,18 @@
-import {lazy, Suspense} from 'react'
+import {lazy, Suspense, useId, useState} from 'react'
 import {backendMode, getWebConfig} from '../../lib/backend'
 import {MediaDownloadController} from '../../hooks/useMediaDownload'
 import {SettingsController} from '../../hooks/useSettingsController'
 import {YtDlpStatus} from '../../types'
 import {useI18n} from '../../i18n/context'
+import DownloadProfileSelect from './DownloadProfileSelect'
 import {Button} from '@/components/ui/button'
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
-import {Download, FolderOpen, RefreshCw, Search, X} from 'lucide-react'
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
+import {ChevronDown, Download, FolderOpen, RefreshCw, Search, X} from 'lucide-react'
+import BatchDownloadPanel from './BatchDownloadPanel'
+import {toast} from 'sonner'
 
 const MediaSummary = lazy(() => import('./MediaSummary'))
 const FormatSelector = lazy(() => import('./FormatSelector'))
@@ -36,7 +41,41 @@ export default function DownloadWorkspace({
     onOpenSettings,
 }: Props) {
     const {t} = useI18n()
+    const [inputMode, setInputMode] = useState('single')
+    const directoryId = useId()
+    const review = media.incrementalReview
+    const canQueueNewVideos = !!review && !review.result && review.scan.newVideos.length > 0
+    const additionalNew = review ? review.scan.newCount - review.scan.newVideos.length : 0
+    const stillWaiting = review?.result ? review.result.remaining + additionalNew : 0
     const hasResolvedMedia = !!(media.videoInfo || media.playlistInfo)
+    const hasFixedDir = getWebConfig()?.hasFixedDir ?? false
+    const canSubmit = (hasFixedDir || !!media.outputDir) && !media.isStarting && !settings.savingDownloadProfiles
+
+    const batchDirectoryField = !hasFixedDir && (
+        <div className="space-y-1.5">
+            <Label htmlFor={directoryId}>{t('outputDir.label')}</Label>
+            <div className="flex gap-2">
+                <Input
+                    id={directoryId}
+                    value={media.outputDir}
+                    onChange={event => media.setTaskOption('outputDir', event.target.value)}
+                    placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : t('outputDir.placeholder')}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={backendMode === 'desktop' ? media.selectFolder : onBrowseDirectory}>
+                    <FolderOpen className="mr-1 h-4 w-4" />{t('outputDir.browse')}
+                </Button>
+            </div>
+        </div>
+    )
+
+    const selectProfile = async (selectedId: string) => {
+        try {
+            await settings.saveDownloadProfiles({...settings.downloadProfiles, selectedId})
+            media.resetTaskOptions()
+        } catch (error) {
+            toast.error(t('settings.saveFailed'), {description: error instanceof Error ? error.message : String(error)})
+        }
+    }
 
     return (
         <>
@@ -46,81 +85,153 @@ export default function DownloadWorkspace({
                 </Suspense>
             )}
 
-            {ytdlp && (
-                <div className="flex gap-2.5 items-center animate-fade-in-up">
-                    <div className="relative flex-1">
-                        <Input
-                            type="text"
-                            value={media.url}
-                            onChange={event => media.handleURLChange(event.target.value)}
-                            onKeyDown={event => { if (event.key === 'Enter') void media.getInfo() }}
-                            placeholder={t('url.placeholder')}
-                            disabled={media.isGettingInfo}
-                            className="h-10 bg-card/60 pr-8 text-sm backdrop-blur-xs"
-                        />
-                        {media.url && (
-                            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground" onClick={media.clearCurrentInput} aria-label={t('action.clear')}>
-                                <X className="h-3 w-3" />
-                            </Button>
-                        )}
+            {settings.currentSettings && (
+                <div className="flex flex-wrap items-end gap-2.5">
+                    <div className="w-full max-w-xs">
+                        <DownloadProfileSelect profiles={settings.downloadProfiles}
+                            disabled={settings.savingDownloadProfiles || media.isStarting}
+                            onSelect={selectedId => void selectProfile(selectedId)} />
                     </div>
-                    <Button onClick={media.getInfo} disabled={media.isGettingInfo || !media.url.trim()} className="h-10 px-5 font-semibold shadow-xs hover:shadow-md transition-shadow">
-                        {media.isGettingInfo ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-                        {media.isGettingInfo ? t('url.gettingInfo') : t('url.getInfo')}
-                    </Button>
+                    <Button variant="ghost" onClick={onOpenSettings}>{t('profile.manage')}</Button>
                 </div>
             )}
 
-            {hasResolvedMedia && (
+            {ytdlp && (
+                <Tabs value={inputMode} onValueChange={setInputMode}>
+                    <TabsList aria-label={t('url.mode')}>
+                        <TabsTrigger value="single">{t('url.single')}</TabsTrigger>
+                        <TabsTrigger value="batch">{t('batch.tab')}</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="single">
+                        <div className="flex flex-wrap gap-2.5 items-center animate-fade-in-up">
+                            <div className="relative w-full sm:min-w-44 sm:flex-1">
+                                <Input
+                                    type="text"
+                                    inputMode="url"
+                                    autoCapitalize="none"
+                                    spellCheck={false}
+                                    aria-label={t('download.link')}
+                                    value={media.url}
+                                    onChange={event => media.handleURLChange(event.target.value)}
+                                    onKeyDown={event => {
+                                        if (event.key === 'Enter' && !event.nativeEvent.isComposing && !media.isStarting) void media.getInfo()
+                                    }}
+                                    placeholder={t('url.placeholder')}
+                                    disabled={media.isGettingInfo}
+                                    className="h-10 bg-card/60 pr-8 text-sm backdrop-blur-xs"
+                                />
+                                {media.url && (
+                                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground" onClick={media.clearCurrentInput} aria-label={t('action.clear')}>
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                )}
+                            </div>
+                            <Button onClick={media.getInfo} disabled={media.isGettingInfo || media.isStarting || !media.url.trim()} className="h-10 px-4 font-semibold shadow-xs hover:shadow-md transition-shadow">
+                                {media.isGettingInfo ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+                                {media.isGettingInfo ? t('url.gettingInfo') : t('url.getInfo')}
+                            </Button>
+                            <Button variant="outline" onClick={media.quickDownload}
+                                disabled={!canSubmit || !media.canQuickDownload || media.isGettingInfo || !!media.playlistInfo}>
+                                <Download className="mr-2 h-4 w-4" />{t('download.quick')}
+                            </Button>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="batch" forceMount className="data-[state=inactive]:hidden">
+                        <BatchDownloadPanel
+                            outputDir={media.outputDir}
+                            hasFixedDir={hasFixedDir}
+                            quality={media.task.quality}
+                            options={media.buildRequestOptions(undefined, null)}
+                            directoryField={batchDirectoryField}
+                        />
+                    </TabsContent>
+                </Tabs>
+            )}
+
+            {inputMode === 'single' && ytdlp && media.canScanCollection && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <Button variant="outline" onClick={media.scanCollection} disabled={media.isScanningCollection || media.isGettingInfo || media.isStarting}>
+                        <RefreshCw aria-hidden="true" className={`mr-1 h-4 w-4 ${media.isScanningCollection ? 'animate-spin' : ''}`} />
+                        {media.isScanningCollection ? t('incremental.scanning') : t('incremental.scan')}
+                    </Button>
+                    <div role="status" className="text-sm text-muted-foreground">
+                        {review && (
+                            <>
+                                {review.result
+                                    ? t('incremental.queuedSummary', {
+                                        queued: review.result.queued,
+                                        skipped: review.scan.skipped + review.result.skipped,
+                                        unavailable: review.scan.unavailable,
+                                    })
+                                    : t('incremental.scanSummary', {
+                                        count: review.scan.newCount,
+                                        skipped: review.scan.skipped,
+                                        unavailable: review.scan.unavailable,
+                                    })}
+                                {stillWaiting > 0 && (
+                                    <div>{t('incremental.queueMore', {count: stillWaiting})}</div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {inputMode === 'single' && hasResolvedMedia && (
                 <Suspense fallback={null}>
                     <MediaSummary media={media} />
                 </Suspense>
             )}
 
-            {hasResolvedMedia && (
+            {inputMode === 'single' && (hasResolvedMedia || media.canQuickDownload || canQueueNewVideos) && (
                 <div className="rounded-xl border bg-card/70 backdrop-blur-xs p-4 space-y-3.5 shadow-xs animate-fade-in-up delay-2">
-                    {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
-                        <div className="space-y-1.5">
-                            <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('outputDir.label')}</Label>
-                            <div className="flex gap-2">
-                                <Input
-                                    type="text"
-                                    value={settings.outputDir}
-                                    onChange={event => settings.setOutputDir(event.target.value)}
-                                    placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : t('outputDir.placeholder')}
-                                />
-                                <Button variant="outline" size="sm" onClick={backendMode === 'desktop' ? media.selectFolder : onBrowseDirectory}>
-                                    <FolderOpen className="h-4 w-4 mr-1" />{t('outputDir.browse')}
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
                     {media.videoInfo && (
                         <Suspense fallback={null}>
                             <FormatSelector media={media} />
-                            <DownloadOptionsPanel media={media} settings={settings} />
                         </Suspense>
                     )}
+                    <Collapsible key={hasResolvedMedia ? 'resolved' : 'quick'} defaultOpen={hasResolvedMedia || canQueueNewVideos || !canSubmit}>
+                        <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-left text-sm font-medium hover:bg-muted/40">
+                            <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 -rotate-90 group-data-[state=open]:rotate-0" />
+                            {t('download.taskOptions')}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-2">
+                            <Suspense fallback={null}>
+                                <DownloadOptionsPanel media={media} hasFixedDir={hasFixedDir} onBrowseDirectory={onBrowseDirectory} />
+                            </Suspense>
+                        </CollapsibleContent>
+                    </Collapsible>
 
-                    <div className="flex gap-2.5 flex-wrap items-center pt-1">
-                        {backendMode === 'web' && !getWebConfig()?.hasFixedDir && !settings.outputDir && (
-                            <div className="flex items-center gap-2 mr-auto text-yellow-500 text-sm">
-                                <span>{t('web.noDirHint')}</span>
-                                <Button variant="outline" size="sm" onClick={onOpenSettings}>{t('web.openSettings')}</Button>
-                            </div>
-                        )}
-                        <Button onClick={media.download} disabled={media.isStarting || !media.url.trim() || !settings.outputDir} className="ml-auto h-10 px-6 font-semibold shadow-xs hover:shadow-md glow-primary transition-all duration-200">
-                            {media.isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                            {media.isStarting ? t('download.downloading') : t('download.start')}
-                        </Button>
-                        {media.playlistInfo && media.playlistInfo.count > 0 && (
-                            <Button onClick={media.downloadAll} disabled={media.isStarting || !settings.outputDir || media.selectedPlaylistItems.size === 0}>
-                                {media.isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                                {media.isStarting ? t('playlist.startingAll') : `${t(`collection.${media.collectionKind}.downloadAll` as any)} (${media.selectedPlaylistItems.size})`}
-                            </Button>
-                        )}
-                    </div>
+                    {(hasResolvedMedia || canQueueNewVideos || (backendMode === 'web' && !hasFixedDir && !media.outputDir)) && (
+                        <div className="flex gap-2.5 flex-wrap items-center pt-1">
+                            {backendMode === 'web' && !hasFixedDir && !media.outputDir && (
+                                <div className="flex items-center gap-2 mr-auto text-yellow-500 text-sm">
+                                    <span>{t('web.noDirHint')}</span>
+                                    <Button variant="outline" size="sm" onClick={onOpenSettings}>{t('web.openSettings')}</Button>
+                                </div>
+                            )}
+                            {hasResolvedMedia && (
+                                <Button onClick={media.download} disabled={!canSubmit || !media.url.trim()} className="ml-auto h-10 px-6 font-semibold shadow-xs hover:shadow-md glow-primary transition-all duration-200">
+                                    {media.isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                                    {media.isStarting ? t('download.downloading') : t('download.start')}
+                                </Button>
+                            )}
+                            {media.playlistInfo && media.playlistInfo.count > 0 && (
+                                <Button onClick={media.downloadAll} disabled={!canSubmit || media.selectedPlaylistItems.size === 0}>
+                                    {media.isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                                    {media.isStarting ? t('playlist.startingAll') : `${t(`collection.${media.collectionKind}.downloadAll`)} (${media.selectedPlaylistItems.size})`}
+                                </Button>
+                            )}
+                            {canQueueNewVideos && (
+                                <Button onClick={media.queueNewVideos} disabled={!canSubmit}>
+                                    <Download aria-hidden="true" className="mr-1 h-4 w-4" />
+                                    {media.isStarting ? t('playlist.startingAll') : additionalNew > 0
+                                        ? t('incremental.queueFirst', {count: review.scan.newVideos.length})
+                                        : t('incremental.queue')}
+                                </Button>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
         </>

@@ -118,13 +118,13 @@ func (s *Service) runDouyinDownload(taskID string, req DownloadRequest, ctx cont
 		_ = os.Remove(tempPath)
 		return downloadResult{}, err
 	}
-	if shouldSaveThumbnail(settings, req.Options) {
+	if req.mediaOptions.SaveThumbnail {
 		if thumbURL := douyinCoverURL(itemInfo); thumbURL != "" {
 			thumbPath := filepath.Join(req.OutputDir, safeTitle+".jpg")
 			_ = downloadDouyinSidecar(client, thumbURL, thumbPath)
 		}
 	}
-	if shouldSaveDescription(settings, req.Options) {
+	if req.mediaOptions.SaveDescription {
 		descriptionPath := filepath.Join(req.OutputDir, safeTitle+".description")
 		_ = os.WriteFile(descriptionPath, []byte(title), 0o644)
 	}
@@ -157,22 +157,6 @@ func (s *Service) updateDouyinTaskProgress(taskID string, pct float64, written i
 	if updated != nil {
 		s.emitActiveDownloadUpdate(taskID, updated)
 	}
-}
-
-func shouldSaveThumbnail(settings Settings, options *DownloadOptions) bool {
-	result := settings.SaveThumbnail
-	if options != nil && options.SaveThumbnail != nil {
-		result = *options.SaveThumbnail
-	}
-	return result
-}
-
-func shouldSaveDescription(settings Settings, options *DownloadOptions) bool {
-	result := settings.SaveDescription
-	if options != nil && options.SaveDescription != nil {
-		result = *options.SaveDescription
-	}
-	return result
 }
 
 func downloadDouyinSidecar(client *http.Client, sourceURL string, filePath string) error {

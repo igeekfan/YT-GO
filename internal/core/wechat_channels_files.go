@@ -38,22 +38,14 @@ func resolveWechatChannelsFormatID(quality string) string {
 	}
 }
 
-func buildWechatChannelsOutputPath(req DownloadRequest, settings Settings, info VideoInfo, videoURL string) (string, error) {
-	outputDir := strings.TrimSpace(req.OutputDir)
+func buildWechatChannelsOutputPath(outputDir, template string, info VideoInfo, videoURL string) (string, error) {
+	outputDir = strings.TrimSpace(outputDir)
 	if outputDir == "" {
 		return "", fmt.Errorf("output directory is required")
 	}
 	ext := "mp4"
 	if fromURL := extensionFromURL(videoURL); fromURL != "" {
 		ext = fromURL
-	}
-
-	template := "%(title)s.%(ext)s"
-	if strings.TrimSpace(settings.FilenameTemplate) != "" {
-		template = strings.TrimSpace(settings.FilenameTemplate)
-	}
-	if req.Options != nil && strings.TrimSpace(req.Options.FilenameTemplate) != "" {
-		template = strings.TrimSpace(req.Options.FilenameTemplate)
 	}
 
 	filename := applyWechatFilenameTemplate(template, info, ext)

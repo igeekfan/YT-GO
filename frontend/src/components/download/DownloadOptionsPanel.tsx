@@ -1,49 +1,73 @@
-import {MediaDownloadController} from '../../hooks/useMediaDownload'
-import {DownloadOptionKey, SettingsController} from '../../hooks/useSettingsController'
-import {getSubtitleSelectionKey} from '../../lib/downloadComposer'
+import {useId} from 'react'
+import type {MediaDownloadController} from '../../hooks/useMediaDownload'
+import {getSubtitleSelectionKey, isAudioDownload, type DownloadOptionKey} from '../../lib/downloadComposer'
+import {DEFAULT_FILENAME_TEMPLATE} from '../../lib/downloadProfiles'
 import {useI18n} from '../../i18n/context'
+import {backendMode} from '../../lib/backend'
+import {OutputFormatSelect, PresetQualitySelect} from './DownloadOptionSelects'
 import {Badge} from '@/components/ui/badge'
+import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
-import {Info, Settings as SettingsIcon} from 'lucide-react'
+import {FolderOpen, Info} from 'lucide-react'
 
 interface Props {
     media: MediaDownloadController
-    settings: SettingsController
+    hasFixedDir: boolean
+    onBrowseDirectory: () => void
 }
 
-export default function DownloadOptionsPanel({media, settings}: Props) {
+export default function DownloadOptionsPanel({media, hasFixedDir, onBrowseDirectory}: Props) {
     const {t} = useI18n()
-    const {downloadOptions} = settings
+    const id = useId()
     const {
-        videoInfo, filenameTemplate, setFilenameTemplate,
+        videoInfo, task, setTaskOption,
         hasAvailableSubtitles, isWechatChannelsVideo,
         subtitleSearch, setSubtitleSearch,
         selectedSubtitleLangs, setSelectedSubtitleLangs,
     } = media
-    if (!videoInfo) return null
+    const audio = isAudioDownload(media.resolveQuality())
 
     const options: Array<{key: DownloadOptionKey; label: string}> = [
         {key: 'saveThumbnail', label: t('downloadOpt.saveThumbnail')},
         {key: 'saveDescription', label: t('downloadOpt.saveDescription')},
         ...(!isWechatChannelsVideo ? [{key: 'embedChapters' as const, label: t('downloadOpt.embedChapters')}] : []),
-        ...(hasAvailableSubtitles ? [
+        ...(!isWechatChannelsVideo ? [
             {key: 'writeSubtitles' as const, label: t('downloadOpt.writeSubtitles')},
-            ...(downloadOptions.writeSubtitles ? [{key: 'embedSubtitles' as const, label: t('downloadOpt.embedSubtitles')}] : []),
+            ...(task.options.writeSubtitles ? [{key: 'embedSubtitles' as const, label: t('downloadOpt.embedSubtitles')}] : []),
         ] : []),
         ...(!isWechatChannelsVideo ? [{key: 'sponsorBlock' as const, label: t('downloadOpt.sponsorBlock')}] : []),
     ]
 
     return (
-        <div className="rounded-lg border bg-muted/20 p-3.5 space-y-2.5">
-            <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                <SettingsIcon className="h-3 w-3" /> {t('downloadOpt.title')}
+        <div className="space-y-3 rounded-lg border bg-muted/20 p-3.5">
+            <div className="grid gap-2.5 sm:grid-cols-2">
+                {!media.hasCustomFormatSelection && (media.formatMode === 'single' || media.formatMode === 'combine') && (
+                    <PresetQualitySelect value={task.quality} onChange={value => setTaskOption('quality', value)} />
+                )}
+                {!isWechatChannelsVideo && (
+                    <OutputFormatSelect audio={audio} value={audio ? task.audioFormat : task.videoContainer}
+                        allowAppDefault onChange={value => setTaskOption(audio ? 'audioFormat' : 'videoContainer', value)} />
+                )}
             </div>
+            {!hasFixedDir && (
+                <div className="space-y-1">
+                    <Label htmlFor={`${id}-directory`} className="text-xs text-muted-foreground">{t('outputDir.label')}</Label>
+                    <div className="flex gap-2">
+                        <Input id={`${id}-directory`} value={task.outputDir} spellCheck={false}
+                            onChange={event => setTaskOption('outputDir', event.target.value)}
+                            placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : t('outputDir.placeholder')} />
+                        <Button type="button" variant="outline" onClick={backendMode === 'desktop' ? media.selectFolder : onBrowseDirectory}>
+                            <FolderOpen className="mr-1 h-4 w-4" />{t('outputDir.browse')}
+                        </Button>
+                    </div>
+                </div>
+            )}
             <div className="space-y-1">
                 <div className="flex items-center gap-1.5">
-                    <Label className="text-[11px] text-muted-foreground">{t('downloadOpt.filenameTemplate')}</Label>
+                    <Label htmlFor={`${id}-filename`} className="text-xs text-muted-foreground">{t('downloadOpt.filenameTemplate')}</Label>
                     <Tooltip>
                         <TooltipTrigger aria-label={t('downloadOpt.filenameTemplateHelp')}><Info className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
                         <TooltipContent className="max-w-xs text-xs space-y-1">
@@ -53,18 +77,18 @@ export default function DownloadOptionsPanel({media, settings}: Props) {
                     </Tooltip>
                 </div>
                 <Input
-                    type="text"
-                    value={filenameTemplate}
-                    onChange={event => setFilenameTemplate(event.target.value)}
-                    placeholder={settings.currentSettings?.filenameTemplate || '%(title)s.%(ext)s'}
-                    className="h-7 text-xs"
+                    id={`${id}-filename`}
+                    value={task.filenameTemplate}
+                    onChange={event => setTaskOption('filenameTemplate', event.target.value)}
+                    placeholder={DEFAULT_FILENAME_TEMPLATE}
+                    spellCheck={false}
                 />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5">
                 {options.map(option => (
                     <label key={option.key} className="flex items-center gap-1.5 cursor-pointer">
-                        <Checkbox checked={downloadOptions[option.key]}
-                            onCheckedChange={(checked: boolean) => settings.setDownloadOption(option.key, !!checked)} />
+                        <Checkbox checked={task.options[option.key]}
+                            onCheckedChange={checked => media.setDownloadOption(option.key, checked === true)} />
                         <span className="text-xs font-normal">{option.label}</span>
                         {option.key === 'sponsorBlock' && (
                             <Tooltip>
@@ -76,10 +100,23 @@ export default function DownloadOptionsPanel({media, settings}: Props) {
                 ))}
             </div>
 
-            {downloadOptions.writeSubtitles && hasAvailableSubtitles && (
+            {task.options.writeSubtitles && !isWechatChannelsVideo && (
+                <div className="space-y-1">
+                    <Label htmlFor={`${id}-languages`} className="text-xs text-muted-foreground">{t('settings.subtitleLangs')}</Label>
+                    <Input id={`${id}-languages`} value={task.subtitleLangs} spellCheck={false}
+                        placeholder={t('settings.subtitleLangsPlaceholder')}
+                        onChange={event => {
+                            setSelectedSubtitleLangs(new Set())
+                            setTaskOption('subtitleLangs', event.target.value)
+                        }} />
+                </div>
+            )}
+
+            {task.options.writeSubtitles && hasAvailableSubtitles && videoInfo && (
                 <div className="space-y-1.5">
-                    <Label className="text-[11px] text-muted-foreground">{t('downloadOpt.subtitleLangs')}</Label>
+                    <Label htmlFor={`${id}-subtitle-search`} className="text-xs text-muted-foreground">{t('downloadOpt.subtitleSearch')}</Label>
                     <Input
+                        id={`${id}-subtitle-search`}
                         type="text"
                         value={subtitleSearch}
                         onChange={event => setSubtitleSearch(event.target.value)}
@@ -113,6 +150,11 @@ export default function DownloadOptionsPanel({media, settings}: Props) {
                             ))}
                     </div>
                 </div>
+            )}
+            {media.hasTaskOverrides && (
+                <Button type="button" variant="ghost" size="sm" onClick={media.resetTaskOptions}>
+                    {t('download.resetTaskOptions')}
+                </Button>
             )}
         </div>
     )
