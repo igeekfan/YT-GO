@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -77,7 +78,31 @@ func (s *Service) StartDownload(req DownloadRequest) (string, error) {
 	return s.enqueueDownload(req, "")
 }
 
+type queuedDownload struct {
+	taskID string
+	ready  chan struct{}
+}
+
+const youtubeOutputPrefix = "[YT-GO-YOUTUBE]"
+
 func (s *Service) enqueueDownload(req DownloadRequest, ytdlpPath string) (string, error) {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if !s.accepting {
+		return "", ErrServiceClosed
+	}
+	s.ensureRuntimeLocked()
+	s.mu.Lock()
+	entry, err := s.enqueueDownloadLocked(req, ytdlpPath, false)
+	s.mu.Unlock()
+	if err != nil {
+		return "", err
+	}
+	s.publishQueuedDownload(entry)
+	return entry.taskID, nil
+}
+
+func (s *Service) enqueueDownloadLocked(req DownloadRequest, ytdlpPath string, incremental bool) (queuedDownload, error) {
 	req = cloneDownloadRequest(req)
 	taskID := uuid.New().String()
 	task := &DownloadTask{ID: taskID, URL: req.URL, OutputDir: req.OutputDir, Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339)}
@@ -86,32 +111,24 @@ func (s *Service) enqueueDownload(req DownloadRequest, ytdlpPath string) (string
 		task.Thumbnail = req.VideoInfo.Thumbnail
 	}
 	control := newDownloadControl(context.Background())
-	job := downloadJob{taskID: taskID, request: req, ytdlpPath: ytdlpPath, control: control, ready: make(chan struct{})}
-
-	s.lifecycleMu.Lock()
-	if !s.accepting {
-		s.lifecycleMu.Unlock()
-		control.cancel()
-		return "", ErrServiceClosed
-	}
-	s.ensureRuntimeLocked()
-	s.mu.Lock()
+	job := downloadJob{taskID: taskID, request: req, ytdlpPath: ytdlpPath, control: control, ready: make(chan struct{}), incremental: incremental}
 	select {
 	case s.jobs <- job:
 		s.downloads[taskID] = task
 		s.activeDownloads[taskID] = control
 		s.enqueueTaskSaveLocked(task)
+		return queuedDownload{taskID: taskID, ready: job.ready}, nil
 	default:
-		s.mu.Unlock()
-		s.lifecycleMu.Unlock()
 		control.cancel()
-		return "", ErrDownloadQueueFull
+		return queuedDownload{}, ErrDownloadQueueFull
 	}
-	s.mu.Unlock()
-	s.emitDownloadUpdate(task)
-	close(job.ready)
-	s.lifecycleMu.Unlock()
-	return taskID, nil
+}
+
+func (s *Service) publishQueuedDownload(entry queuedDownload) {
+	if task, err := s.GetDownload(entry.taskID); err == nil {
+		s.emitDownloadUpdate(task)
+	}
+	close(entry.ready)
 }
 
 func (s *Service) executeDownload(job downloadJob) {
@@ -174,6 +191,7 @@ func (s *Service) runYtDlpDownload(job downloadJob) (downloadResult, error) {
 	}
 
 	var lastOutputFile string
+	var youtubeFiles map[string]string
 	writer := &lineWriter{handler: func(line string) {
 		line = sanitizeYTLine(line)
 		if line == "" {
@@ -184,6 +202,23 @@ func (s *Service) runYtDlpDownload(job downloadJob) (downloadResult, error) {
 				return
 			}
 			s.handleStructuredProgressLog(taskID, progressUpdate)
+			return
+		}
+		if payload, ok := strings.CutPrefix(line, youtubeOutputPrefix); ok {
+			var output struct {
+				ID        string `json:"id"`
+				Extractor string `json:"extractor_key"`
+				Path      string `json:"filepath"`
+			}
+			if err := json.Unmarshal([]byte(payload), &output); err == nil && output.Path != "" {
+				lastOutputFile = output.Path
+				if strings.EqualFold(output.Extractor, "Youtube") && youtubeVideoIDPattern.MatchString(output.ID) {
+					if youtubeFiles == nil {
+						youtubeFiles = make(map[string]string)
+					}
+					youtubeFiles[output.ID] = output.Path
+				}
+			}
 			return
 		}
 		if m := finalPathRe.FindStringSubmatch(line); m != nil {
@@ -284,6 +319,24 @@ func (s *Service) runYtDlpDownload(job downloadJob) (downloadResult, error) {
 			lastOutputFile = filepath.Join(req.OutputDir, lastOutputFile)
 		}
 		result.outputPath = lastOutputFile
+	}
+	expectedID := youtubeVideoID(req.URL)
+	for videoID, outputFile := range youtubeFiles {
+		if job.incremental && videoID != expectedID {
+			continue
+		}
+		if !filepath.IsAbs(outputFile) {
+			outputFile = filepath.Join(req.OutputDir, outputFile)
+		}
+		if info, statErr := os.Stat(outputFile); statErr == nil && info.Mode().IsRegular() {
+			result.youtubeVideoIDs = append(result.youtubeVideoIDs, videoID)
+			if job.incremental {
+				result.outputPath = outputFile
+			}
+		}
+	}
+	if job.incremental && len(result.youtubeVideoIDs) == 0 {
+		return downloadResult{}, errors.New(s.i18n.T("incremental.outputMissing"))
 	}
 	return result, nil
 }

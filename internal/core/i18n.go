@@ -70,6 +70,17 @@ var translations = map[Lang]map[string]string{
 		// jsruntime.go — ensureYouTubeJSRuntime
 		"runtime.youtube.need_js": "当前链接属于 YouTube，yt-dlp 需要可用的 JS runtime 才能完成签名/JS challenge 求解。%s%s请升级到 Deno >= %d.0.0（推荐）或 Node.js >= %d.0.0，并在安装后完全重启应用再重试。",
 		"runtime.missing_generic": "当前缺少可用的 JS runtime。",
+
+		"playlist.ytdlpNotFound":            "找不到 yt-dlp。",
+		"playlist.probeFailed":              "无法获取播放列表",
+		"incremental.unsupportedCollection": "请输入支持的 YouTube 播放列表或频道链接。",
+		"incremental.invalidCollection":     "无法读取此 YouTube 播放列表或频道。",
+		"incremental.ledgerUnavailable":     "无法读取已下载的 YouTube 视频记录",
+		"incremental.outputDirRequired":     "请选择下载目录。",
+		"incremental.invalidVideo":          "扫描结果包含无效的 YouTube 视频 ID。",
+		"incremental.outputMissing":         "下载结束时未找到已完成的文件。",
+		"incremental.ledgerSaveFailed":      "下载已完成，但无法保存此 YouTube 视频的下载记录。",
+
 		// douyin.go — errors
 		"douyin.platform":               "抖音",
 		"douyin.video_title":            "抖音视频_%s",
@@ -134,6 +145,17 @@ var translations = map[Lang]map[string]string{
 		// jsruntime.go — ensureYouTubeJSRuntime
 		"runtime.youtube.need_js": "The URL belongs to YouTube, which requires a usable JS runtime for signature/JS challenge solving. %s%sPlease upgrade to Deno >= %d.0.0 (recommended) or Node.js >= %d.0.0, and fully restart the app after installation before retrying.",
 		"runtime.missing_generic": "No usable JS runtime available.",
+
+		"playlist.ytdlpNotFound":            "yt-dlp was not found.",
+		"playlist.probeFailed":              "Could not load the playlist",
+		"incremental.unsupportedCollection": "Enter a supported YouTube playlist or channel URL.",
+		"incremental.invalidCollection":     "Could not read this YouTube playlist or channel.",
+		"incremental.ledgerUnavailable":     "Could not read the record of downloaded YouTube videos",
+		"incremental.outputDirRequired":     "Choose a download folder.",
+		"incremental.invalidVideo":          "The scan contains an invalid YouTube video ID.",
+		"incremental.outputMissing":         "The download ended without a completed file.",
+		"incremental.ledgerSaveFailed":      "The download finished, but its YouTube download record could not be saved.",
+
 		// douyin.go — errors
 		"douyin.platform":               "Douyin",
 		"douyin.video_title":            "Douyin Video_%s",

@@ -1,7 +1,10 @@
 import {apiFetch, apiFetchBlob, apiURL, getWebConfig, setWebConfig, fetchWebConfig, setAuthToken, getAuthToken, clearAuthToken, onUnauthorized, notifyUnauthorizedIfCurrent} from './api_client'
 import type {WebConfig} from './api_client'
 import {backendMode} from './backend_mode'
-import type {DownloadOptions, DownloadRequest, DownloadTask, FormatInfo, PlaylistInfo, Settings, VideoInfo} from '../types'
+import type {
+    DownloadOptions, DownloadRequest, DownloadTask, FormatInfo, IncrementalDownloadRequest,
+    IncrementalDownloadResult, IncrementalPlaylistScan, PlaylistInfo, Settings, VideoInfo,
+} from '../types'
 import type * as DesktopModels from '../../bindings/YT-GO/desktop/models'
 
 // Re-export for consumers that import from backend.ts
@@ -89,6 +92,26 @@ export function GetPlaylistInfo(url: string): Promise<PlaylistInfo> {
         app => app.GetPlaylistInfo(url),
         () => apiFetch<DesktopModels.PlaylistInfo>('/api/video/playlist', {method: 'POST', body: JSON.stringify({url})})
     ).then(info => ({...info, videos: (info.videos ?? []).map(normalizeVideoInfo)}))
+}
+
+export function ScanYouTubeCollection(url: string): Promise<IncrementalPlaylistScan> {
+    return getDesktop(
+        app => app.ScanYouTubeCollection(url),
+        () => apiFetch<DesktopModels.IncrementalPlaylistScan>('/api/video/playlist/scan', {
+            method: 'POST',
+            body: JSON.stringify({url}),
+        }),
+    ).then(scan => ({...scan, newVideos: scan.newVideos ?? []}))
+}
+
+export function QueueNewYouTubeVideos(request: IncrementalDownloadRequest): Promise<IncrementalDownloadResult> {
+    return getDesktop(
+        app => app.QueueNewYouTubeVideos(request),
+        () => apiFetch<IncrementalDownloadResult>('/api/video/playlist/queue', {
+            method: 'POST',
+            body: JSON.stringify(request),
+        }),
+    )
 }
 
 export function GetFormats(url: string): Promise<FormatInfo> {

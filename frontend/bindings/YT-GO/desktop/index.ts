@@ -16,11 +16,15 @@ export type {
     DownloadTask,
     Format,
     FormatInfo,
+    IncrementalDownloadRequest,
+    IncrementalDownloadResult,
+    IncrementalPlaylistScan,
     PlaylistInfo,
     Settings,
     SubtitleLang,
     UpdateInfo,
     VideoInfo,
+    YouTubePlaylistVideo,
     YtDlpStatus,
     YtDlpVersionCheck
 } from "./models.js";

@@ -30,20 +30,8 @@ func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		requestedOutputDir := req.OutputDir
-		if s.fixedDir != "" {
-			requestedOutputDir = s.fixedDir
-		}
-		outputDir, err := s.downloads.ensureDir(requestedOutputDir)
+		outputDir, err := s.validateDownloadDestination(req.OutputDir, req.Options, settings)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		effectiveTemplate := settings.FilenameTemplate
-		if req.Options != nil && strings.TrimSpace(req.Options.FilenameTemplate) != "" {
-			effectiveTemplate = req.Options.FilenameTemplate
-		}
-		if err := validateFilenameTemplate(effectiveTemplate); err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
@@ -61,6 +49,24 @@ func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost, http.MethodDelete)
 	}
+}
+
+func (s *Server) validateDownloadDestination(outputDir string, options *core.DownloadOptions, settings core.Settings) (string, error) {
+	if s.fixedDir != "" {
+		outputDir = s.fixedDir
+	}
+	outputDir, err := s.downloads.ensureDir(outputDir)
+	if err != nil {
+		return "", err
+	}
+	effectiveTemplate := settings.FilenameTemplate
+	if options != nil && strings.TrimSpace(options.FilenameTemplate) != "" {
+		effectiveTemplate = options.FilenameTemplate
+	}
+	if err := validateFilenameTemplate(effectiveTemplate); err != nil {
+		return "", err
+	}
+	return outputDir, nil
 }
 
 func (s *Server) handleDownloadAction(w http.ResponseWriter, r *http.Request) {

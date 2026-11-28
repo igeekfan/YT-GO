@@ -34,7 +34,11 @@ func (s *Service) buildDownloadCommand(ctx context.Context, req DownloadRequest,
 	}
 	builder.Newline()
 	builder.Progress().ProgressDelta(0.5).ProgressTemplate(structuredProgressPrefix + "%()j")
-	builder.Print("after_move:[YT-GO-OUTPUT]%(filepath)s")
+	if isYouTubeURL(req.URL) {
+		builder.Print("after_move:" + youtubeOutputPrefix + "%(.{id,extractor_key,filepath})j")
+	} else {
+		builder.Print("after_move:[YT-GO-OUTPUT]%(filepath)s")
+	}
 	builder.Output(filepath.Join(req.OutputDir, outputTemplate))
 	builder.NoPlaylist()
 

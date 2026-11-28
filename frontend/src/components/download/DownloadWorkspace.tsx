@@ -37,6 +37,11 @@ export default function DownloadWorkspace({
 }: Props) {
     const {t} = useI18n()
     const hasResolvedMedia = !!(media.videoInfo || media.playlistInfo)
+    const review = media.incrementalReview
+    const canQueueNewVideos = !!review && !review.result && review.scan.newVideos.length > 0
+    const additionalNew = review ? review.scan.newCount - review.scan.newVideos.length : 0
+    const stillWaiting = review?.result ? review.result.remaining + additionalNew : 0
+    const hasFixedDir = backendMode === 'web' && getWebConfig()?.hasFixedDir
 
     return (
         <>
@@ -71,15 +76,44 @@ export default function DownloadWorkspace({
                 </div>
             )}
 
+            {ytdlp && media.canScanCollection && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <Button variant="outline" onClick={media.scanCollection} disabled={media.isScanningCollection || media.isGettingInfo || media.isStarting}>
+                        <RefreshCw aria-hidden="true" className={`mr-1 h-4 w-4 ${media.isScanningCollection ? 'animate-spin' : ''}`} />
+                        {media.isScanningCollection ? t('incremental.scanning') : t('incremental.scan')}
+                    </Button>
+                    <div role="status" className="text-sm text-muted-foreground">
+                        {review && (
+                            <>
+                                {review.result
+                                    ? t('incremental.queuedSummary', {
+                                        queued: review.result.queued,
+                                        skipped: review.scan.skipped + review.result.skipped,
+                                        unavailable: review.scan.unavailable,
+                                    })
+                                    : t('incremental.scanSummary', {
+                                        count: review.scan.newCount,
+                                        skipped: review.scan.skipped,
+                                        unavailable: review.scan.unavailable,
+                                    })}
+                                {stillWaiting > 0 && (
+                                    <div>{t('incremental.queueMore', {count: stillWaiting})}</div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {hasResolvedMedia && (
                 <Suspense fallback={null}>
                     <MediaSummary media={media} />
                 </Suspense>
             )}
 
-            {hasResolvedMedia && (
+            {(hasResolvedMedia || canQueueNewVideos) && (
                 <div className="rounded-xl border bg-card/70 backdrop-blur-xs p-4 space-y-3.5 shadow-xs animate-fade-in-up delay-2">
-                    {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
+                    {!hasFixedDir && (
                         <div className="space-y-1.5">
                             <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('outputDir.label')}</Label>
                             <div className="flex gap-2">
@@ -104,20 +138,30 @@ export default function DownloadWorkspace({
                     )}
 
                     <div className="flex gap-2.5 flex-wrap items-center pt-1">
-                        {backendMode === 'web' && !getWebConfig()?.hasFixedDir && !settings.outputDir && (
+                        {backendMode === 'web' && !hasFixedDir && !settings.outputDir && (
                             <div className="flex items-center gap-2 mr-auto text-yellow-500 text-sm">
                                 <span>{t('web.noDirHint')}</span>
                                 <Button variant="outline" size="sm" onClick={onOpenSettings}>{t('web.openSettings')}</Button>
                             </div>
                         )}
-                        <Button onClick={media.download} disabled={media.isStarting || !media.url.trim() || !settings.outputDir} className="ml-auto h-10 px-6 font-semibold shadow-xs hover:shadow-md glow-primary transition-all duration-200">
-                            {media.isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                            {media.isStarting ? t('download.downloading') : t('download.start')}
-                        </Button>
+                        {hasResolvedMedia && (
+                            <Button onClick={media.download} disabled={media.isStarting || !media.url.trim() || !settings.outputDir} className="ml-auto h-10 px-6 font-semibold shadow-xs hover:shadow-md glow-primary transition-all duration-200">
+                                {media.isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                                {media.isStarting ? t('download.downloading') : t('download.start')}
+                            </Button>
+                        )}
                         {media.playlistInfo && media.playlistInfo.count > 0 && (
                             <Button onClick={media.downloadAll} disabled={media.isStarting || !settings.outputDir || media.selectedPlaylistItems.size === 0}>
                                 {media.isStarting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                                 {media.isStarting ? t('playlist.startingAll') : `${t(`collection.${media.collectionKind}.downloadAll` as any)} (${media.selectedPlaylistItems.size})`}
+                            </Button>
+                        )}
+                        {canQueueNewVideos && (
+                            <Button onClick={media.queueNewVideos} disabled={media.isStarting || (!hasFixedDir && !settings.outputDir.trim())}>
+                                <Download aria-hidden="true" className="mr-1 h-4 w-4" />
+                                {media.isStarting ? t('playlist.startingAll') : additionalNew > 0
+                                    ? t('incremental.queueFirst', {count: review.scan.newVideos.length})
+                                    : t('incremental.queue')}
                             </Button>
                         )}
                     </div>

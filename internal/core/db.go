@@ -60,6 +60,9 @@ func openDB() (*gorm.DB, error) {
 	if err := db.Where("id = ?", metadata.ID).FirstOrCreate(&metadata).Error; err != nil {
 		return nil, err
 	}
+	if err := migrateYouTubeDownloads(db); err != nil {
+		return nil, err
+	}
 	return db, nil
 }
 

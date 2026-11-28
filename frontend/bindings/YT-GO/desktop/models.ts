@@ -94,6 +94,26 @@ export interface FormatInfo {
     "formats": Format[] | null;
 }
 
+export interface IncrementalDownloadRequest {
+    "videos": YouTubePlaylistVideo[] | null;
+    "outputDir": string;
+    "quality": string;
+    "options": DownloadOptions | null;
+}
+
+export interface IncrementalDownloadResult {
+    "queued": number;
+    "skipped": number;
+    "remaining": number;
+}
+
+export interface IncrementalPlaylistScan {
+    "newVideos": YouTubePlaylistVideo[] | null;
+    "newCount": number;
+    "skipped": number;
+    "unavailable": number;
+}
+
 export interface PlaylistInfo {
     "url": string;
     "kind": string;
@@ -158,6 +178,12 @@ export interface VideoInfo {
     "uploader": string;
     "platform": string;
     "subtitles": SubtitleLang[] | null;
+}
+
+export interface YouTubePlaylistVideo {
+    "id": string;
+    "title": string;
+    "thumbnail": string;
 }
 
 export interface YtDlpStatus {

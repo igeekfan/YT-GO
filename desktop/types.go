@@ -80,6 +80,32 @@ type PlaylistInfo struct {
 	Videos   []VideoInfo `json:"videos"`
 }
 
+type YouTubePlaylistVideo struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Thumbnail string `json:"thumbnail"`
+}
+
+type IncrementalPlaylistScan struct {
+	NewVideos   []YouTubePlaylistVideo `json:"newVideos"`
+	NewCount    int                    `json:"newCount"`
+	Skipped     int                    `json:"skipped"`
+	Unavailable int                    `json:"unavailable"`
+}
+
+type IncrementalDownloadRequest struct {
+	Videos    []YouTubePlaylistVideo `json:"videos"`
+	OutputDir string                 `json:"outputDir"`
+	Quality   string                 `json:"quality"`
+	Options   *DownloadOptions       `json:"options"`
+}
+
+type IncrementalDownloadResult struct {
+	Queued    int `json:"queued"`
+	Skipped   int `json:"skipped"`
+	Remaining int `json:"remaining"`
+}
+
 type Settings struct {
 	OutputDir         string `json:"outputDir"`
 	Quality           string `json:"quality"`

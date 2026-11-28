@@ -137,6 +137,27 @@ func (a *App) GetPlaylistInfo(url string) (PlaylistInfo, error) {
 	info, err := a.service.GetPlaylistInfo(url)
 	return fromCorePlaylistInfo(info), err
 }
+func (a *App) ScanYouTubeCollection(url string) (IncrementalPlaylistScan, error) {
+	scan, err := a.service.ScanYouTubeCollection(url)
+	if err != nil {
+		return IncrementalPlaylistScan{}, err
+	}
+	videos := make([]YouTubePlaylistVideo, 0, len(scan.NewVideos))
+	for _, video := range scan.NewVideos {
+		videos = append(videos, YouTubePlaylistVideo(video))
+	}
+	return IncrementalPlaylistScan{NewVideos: videos, NewCount: scan.NewCount, Skipped: scan.Skipped, Unavailable: scan.Unavailable}, nil
+}
+func (a *App) QueueNewYouTubeVideos(req IncrementalDownloadRequest) (IncrementalDownloadResult, error) {
+	videos := make([]core.YouTubePlaylistVideo, 0, len(req.Videos))
+	for _, video := range req.Videos {
+		videos = append(videos, core.YouTubePlaylistVideo(video))
+	}
+	result, err := a.service.QueueNewYouTubeVideos(core.IncrementalDownloadRequest{
+		Videos: videos, OutputDir: req.OutputDir, Quality: req.Quality, Options: toCoreDownloadOptions(req.Options),
+	})
+	return IncrementalDownloadResult(result), err
+}
 func (a *App) GetFormats(url string) (FormatInfo, error) {
 	info, err := a.service.GetFormats(url)
 	return fromCoreFormatInfo(info), err

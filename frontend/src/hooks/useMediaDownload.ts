@@ -1,5 +1,8 @@
 import {Dispatch, SetStateAction, useCallback, useRef, useState} from 'react'
-import {GetFormats, GetPlaylistInfo, GetVideoInfo, SelectFolder, StartDownload} from '../lib/backend'
+import {
+    getWebConfig, GetFormats, GetPlaylistInfo, GetVideoInfo,
+    QueueNewYouTubeVideos, ScanYouTubeCollection, SelectFolder, StartDownload,
+} from '../lib/backend'
 import {useI18n} from '../i18n/context'
 import {
     buildDownloadOptions,
@@ -9,7 +12,8 @@ import {
     resolveDownloadQuality,
     sortFormats,
 } from '../lib/downloadComposer'
-import {FormatInfo, PlaylistInfo, VideoInfo} from '../types'
+import {getYouTubeCollectionKind} from '../lib/youtubeCollection'
+import {FormatInfo, IncrementalDownloadResult, IncrementalPlaylistScan, PlaylistInfo, VideoInfo} from '../types'
 import {DownloadOptionState} from './useSettingsController'
 import {toast} from 'sonner'
 
@@ -18,6 +22,11 @@ interface MediaDownloadOptions {
     outputDir: string
     setOutputDir: Dispatch<SetStateAction<string>>
     downloadOptions: DownloadOptionState
+}
+
+interface IncrementalReview {
+    scan: IncrementalPlaylistScan
+    result?: IncrementalDownloadResult
 }
 
 function shouldTryPlaylistFallback(error: unknown): boolean {
@@ -50,6 +59,8 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
     const [selectedPlaylistItems, setSelectedPlaylistItems] = useState<Set<number>>(new Set())
     const [isGettingInfo, setIsGettingInfo] = useState(false)
     const [isStarting, setIsStarting] = useState(false)
+    const [isScanningCollection, setIsScanningCollection] = useState(false)
+    const [incrementalReview, setIncrementalReview] = useState<IncrementalReview | null>(null)
     const [filenameTemplate, setFilenameTemplate] = useState('')
     const [selectedSubtitleLangs, setSelectedSubtitleLangs] = useState<Set<string>>(new Set())
     const [subtitleSearch, setSubtitleSearch] = useState('')
@@ -59,6 +70,8 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
         setResolvedUrl('')
         setIsGettingInfo(false)
         setIsGettingFormats(false)
+        setIsScanningCollection(false)
+        setIncrementalReview(null)
         setVideoInfo(null)
         setPlaylistInfo(null)
         setFormatInfo(null)
@@ -96,6 +109,8 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
     const hasAvailableSubtitles = (videoInfo?.subtitles?.length || 0) > 0
     const isWechatChannelsVideo = videoInfo?.platform === 'WeChat Channels'
     const collectionKind = playlistInfo?.kind === 'channel' ? 'channel' : 'playlist'
+    const youtubeCollectionKind = getYouTubeCollectionKind(url)
+    const canScanCollection = youtubeCollectionKind !== null
 
     const getFormatOptionLabel = (format: FormatInfo['formats'][number]) => {
         if (format.formatId === 'wechat:origin') return t('format.wechatOriginal')
@@ -127,9 +142,25 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
         const requestedUrl = url.trim()
         if (!requestedUrl) return
         const requestId = ++infoRequestRef.current
+        const isCollection = youtubeCollectionKind === 'playlist' || youtubeCollectionKind === 'channel'
         resetResolvedMedia()
         setIsGettingInfo(true)
+
+        const loadPlaylist = async () => {
+            const playlist = await GetPlaylistInfo(requestedUrl)
+            if (requestId !== infoRequestRef.current) return true
+            if (!playlist?.count) return false
+            setPlaylistInfo(playlist)
+            setResolvedUrl(requestedUrl)
+            setSelectedPlaylistItems(new Set(playlist.videos.map((_, index) => index)))
+            return true
+        }
+
         try {
+            if (isCollection) {
+                if (!await loadPlaylist()) toast.error(t('playlist.getFail'))
+                return
+            }
             const info = await GetVideoInfo(requestedUrl)
             if (requestId !== infoRequestRef.current) return
             setVideoInfo(info); setFormatExpanded(true)
@@ -144,18 +175,12 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
             }
         } catch (error: any) {
             if (requestId !== infoRequestRef.current) return
-            if (!shouldTryPlaylistFallback(error)) {
+            if (isCollection || !shouldTryPlaylistFallback(error)) {
                 toast.error(t('toast.getInfoFail') + (error?.message ? `: ${error.message}` : ''))
                 return
             }
             try {
-                const playlist = await GetPlaylistInfo(requestedUrl)
-                if (requestId !== infoRequestRef.current) return
-                if (playlist && playlist.count > 0) {
-                    setPlaylistInfo(playlist)
-                    setResolvedUrl(requestedUrl)
-                    setSelectedPlaylistItems(new Set(playlist.videos.map((_, index) => index)))
-                } else {
+                if (!await loadPlaylist()) {
                     toast.error(t('toast.getInfoFail') + (error?.message ? `: ${error.message}` : ''))
                 }
             } catch {
@@ -187,8 +212,8 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
         }
     }
 
-    const buildRequestOptions = () => buildDownloadOptions({
-        videoInfo,
+    const buildRequestOptions = (info = videoInfo) => buildDownloadOptions({
+        videoInfo: info,
         selectedSubtitleLangs,
         saveThumbnail: downloadOptions.saveThumbnail,
         saveDescription: downloadOptions.saveDescription,
@@ -207,6 +232,46 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
         formatInfo,
         quality,
     })
+
+    const scanCollection = async () => {
+        if (!canScanCollection || isScanningCollection || isGettingInfo || isStarting) return
+        const requestId = infoRequestRef.current
+        setIsScanningCollection(true)
+        setIncrementalReview(null)
+        try {
+            const scan = await ScanYouTubeCollection(url.trim())
+            if (requestId === infoRequestRef.current) setIncrementalReview({scan})
+        } catch (error: unknown) {
+            if (requestId === infoRequestRef.current) {
+                toast.error(t('incremental.scanFailed') + (error instanceof Error ? `: ${error.message}` : ''))
+            }
+        } finally {
+            if (requestId === infoRequestRef.current) setIsScanningCollection(false)
+        }
+    }
+
+    const queueNewVideos = async () => {
+        if (!incrementalReview || incrementalReview.result || incrementalReview.scan.newVideos.length === 0 || isStarting) return
+        if (!outputDir.trim() && !getWebConfig()?.hasFixedDir) {
+            toast.error(t('download.noDir'))
+            return
+        }
+        const {scan} = incrementalReview
+        const requestId = infoRequestRef.current
+        setIsStarting(true)
+        try {
+            const result = await QueueNewYouTubeVideos({
+                videos: scan.newVideos, outputDir, quality, options: buildRequestOptions(null),
+            })
+            if (requestId === infoRequestRef.current) setIncrementalReview({scan, result})
+        } catch (error: unknown) {
+            if (requestId === infoRequestRef.current) {
+                toast.error(t('toast.downloadStartFail') + (error instanceof Error ? `: ${error.message}` : ''))
+            }
+        } finally {
+            setIsStarting(false)
+        }
+    }
 
     const download = async () => {
         if (!url.trim()) return
@@ -286,6 +351,7 @@ export function useMediaDownload({quality, outputDir, setOutputDir, downloadOpti
         isGettingFormats, formatExpanded, setFormatExpanded,
         selectedPlaylistItems, setSelectedPlaylistItems,
         isGettingInfo, isStarting,
+        canScanCollection, isScanningCollection, incrementalReview, scanCollection, queueNewVideos,
         filenameTemplate, setFilenameTemplate,
         selectedSubtitleLangs, setSelectedSubtitleLangs,
         subtitleSearch, setSubtitleSearch,
