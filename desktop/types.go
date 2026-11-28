@@ -1,5 +1,7 @@
 package desktop
 
+import "YT-GO/internal/core"
+
 const AppVersion = "1.0.0"
 
 type YtDlpStatus struct {
@@ -70,6 +72,8 @@ type DownloadTask struct {
 	Error      string  `json:"error"`
 	CreatedAt  string  `json:"createdAt"`
 }
+
+type DownloadURLReview core.DownloadURLReview
 
 type PlaylistInfo struct {
 	URL      string      `json:"url"`

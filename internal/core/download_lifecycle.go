@@ -216,7 +216,7 @@ func (s *Service) finishDownload(taskID string, control *downloadControl, outcom
 			case downloadFailed:
 				task.Status = "error"
 				if runErr != nil {
-					task.Error = runErr.Error()
+					task.Error = downloadErrorURLPattern.ReplaceAllStringFunc(runErr.Error(), downloadHistoryURL)
 				}
 				snapshot = cloneDownloadTask(task)
 				s.enqueueTaskSaveLocked(snapshot)

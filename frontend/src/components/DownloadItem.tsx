@@ -17,13 +17,14 @@ interface Props {
     onRemoved: (id: string) => void
     onRetry: (task: DownloadTask) => void
     onRedownload: (task: DownloadTask) => void
+    retryDisabled: boolean
 }
 
 const STATUS_VARIANT: Record<string, 'secondary' | 'default' | 'destructive' | 'outline'> = {
     pending: 'outline', downloading: 'default', completed: 'secondary', error: 'destructive', cancelled: 'outline',
 }
 
-function DownloadItem({task, onRemoved, onRetry, onRedownload}: Props) {
+function DownloadItem({task, onRemoved, onRetry, onRedownload, retryDisabled}: Props) {
     const {t} = useI18n()
     const [showLogs, setShowLogs] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
@@ -77,7 +78,7 @@ function DownloadItem({task, onRemoved, onRetry, onRedownload}: Props) {
     return (
         <div className="rounded-xl border p-3 space-y-2 bg-card/50 backdrop-blur-xs shadow-xs hover:shadow-md transition-shadow duration-200">
             {/* Top row: thumbnail + info + actions */}
-            <div className="flex items-start gap-3">
+            <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap">
                 {/* Thumbnail */}
                 {task.thumbnail ? (
                     <img src={task.thumbnail} alt="" className="w-20 h-[45px] object-cover rounded-lg shrink-0 shadow-xs"
@@ -114,7 +115,7 @@ function DownloadItem({task, onRemoved, onRetry, onRedownload}: Props) {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1 shrink-0 flex-wrap">
+                <div className="flex w-full flex-wrap items-center gap-1 sm:w-auto sm:shrink-0">
                     <Badge variant={STATUS_VARIANT[task.status] || 'outline'} className="text-[10px] h-5 px-1.5">
                         {t(`status.${task.status}` as any)}
                     </Badge>
@@ -135,7 +136,7 @@ function DownloadItem({task, onRemoved, onRetry, onRedownload}: Props) {
                     )}
                     {(task.status === 'error' || task.status === 'cancelled') && (
                         <>
-                            <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={() => onRetry(task)}>
+                            <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={() => onRetry(task)} disabled={retryDisabled}>
                                 <RotateCcw className="h-3 w-3 mr-0.5" />{t('action.retry')}
                             </Button>
                             <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={handleRemove}>
@@ -159,7 +160,7 @@ function DownloadItem({task, onRemoved, onRetry, onRedownload}: Props) {
                                     <FileDown className="h-3 w-3" />{t('action.download')}
                                 </Button>
                             )}
-                            <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={() => onRedownload(task)}>
+                            <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={() => onRedownload(task)} disabled={retryDisabled}>
                                 <RotateCcw className="h-3 w-3 mr-0.5" />{t('action.redownload')}
                             </Button>
                             <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5" onClick={handleRemove}>

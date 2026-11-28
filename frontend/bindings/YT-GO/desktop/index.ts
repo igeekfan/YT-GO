@@ -14,6 +14,7 @@ export type {
     DownloadOptions,
     DownloadRequest,
     DownloadTask,
+    DownloadURLReview,
     Format,
     FormatInfo,
     PlaylistInfo,

@@ -25,6 +25,8 @@ type DownloadRecord struct {
 	OutputDir  string `gorm:"not null"`
 	Error      string
 	CreatedAt  string `gorm:"not null"`
+
+	MediaOptions *downloadMediaOptions `gorm:"serializer:json" json:"-"`
 }
 
 // SettingValueRecord stores one Registry-managed setting as JSON.
@@ -79,6 +81,8 @@ func taskToRecord(t *DownloadTask) DownloadRecord {
 		OutputDir:  t.OutputDir,
 		Error:      t.Error,
 		CreatedAt:  t.CreatedAt,
+
+		MediaOptions: t.mediaOptions,
 	}
 }
 
@@ -98,5 +102,7 @@ func recordToTask(r DownloadRecord) *DownloadTask {
 		OutputDir:  r.OutputDir,
 		Error:      r.Error,
 		CreatedAt:  r.CreatedAt,
+
+		mediaOptions: r.MediaOptions,
 	}
 }

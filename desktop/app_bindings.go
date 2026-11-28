@@ -70,7 +70,13 @@ func toCoreDownloadRequest(in DownloadRequest) core.DownloadRequest {
 	return core.DownloadRequest{URL: in.URL, OutputDir: in.OutputDir, Quality: in.Quality, VideoInfo: toCoreVideoInfo(in.VideoInfo), Options: toCoreDownloadOptions(in.Options)}
 }
 
-func fromCoreDownloadTask(in core.DownloadTask) DownloadTask { return DownloadTask(in) }
+func fromCoreDownloadTask(in core.DownloadTask) DownloadTask {
+	return DownloadTask{
+		ID: in.ID, URL: in.URL, Title: in.Title, Thumbnail: in.Thumbnail, Quality: in.Quality,
+		Status: in.Status, Progress: in.Progress, Speed: in.Speed, ETA: in.ETA, Size: in.Size,
+		OutputPath: in.OutputPath, OutputDir: in.OutputDir, Error: in.Error, CreatedAt: in.CreatedAt,
+	}
+}
 
 func fromCoreDownloadTasks(in []*core.DownloadTask) []*DownloadTask {
 	out := make([]*DownloadTask, 0, len(in))
@@ -144,6 +150,20 @@ func (a *App) GetFormats(url string) (FormatInfo, error) {
 func (a *App) StartDownload(req DownloadRequest) (string, error) {
 	return a.service.StartDownload(toCoreDownloadRequest(req))
 }
+
+func (a *App) ReviewDownloadURLs(input string) []DownloadURLReview {
+	review := core.ReviewDownloadURLs(input, nil)
+	result := make([]DownloadURLReview, 0, len(review))
+	for _, entry := range review {
+		result = append(result, DownloadURLReview(entry))
+	}
+	return result
+}
+
+func (a *App) RetryDownload(taskID string) (string, error) {
+	return a.service.RetryDownload(taskID, nil)
+}
+
 func (a *App) CancelDownload(taskID string) error { return a.service.CancelDownload(taskID) }
 func (a *App) RemoveDownload(taskID string) error { return a.service.RemoveDownload(taskID) }
 func (a *App) GetDownloads() []*DownloadTask      { return fromCoreDownloadTasks(a.service.GetDownloads()) }

@@ -44,6 +44,11 @@ func langFromLocale(locale string) Lang {
 // translations holds all backend user-facing strings keyed by language.
 var translations = map[Lang]map[string]string{
 	LangZhCN: {
+		"download.url_required":      "请输入下载链接。",
+		"download.url_invalid":       "请输入包含主机名的 HTTP 或 HTTPS 下载链接。",
+		"download.retry_active":      "此任务正在排队或下载。",
+		"download.retry_credentials": "请重新粘贴包含访问凭据的原始链接。",
+
 		// errhint.go — cookie source description
 		"hint.cookies.browser":     "当前使用浏览器 Cookies: %s。",
 		"hint.cookies.file":        "当前使用 cookies 文件: %s。",
@@ -108,6 +113,11 @@ var translations = map[Lang]map[string]string{
 		"update.windows_executable_name": "应用内更新需要程序文件名为 YT-GO.exe。",
 	},
 	LangEnUS: {
+		"download.url_required":      "Enter a download URL.",
+		"download.url_invalid":       "Enter an HTTP or HTTPS download URL with a host.",
+		"download.retry_active":      "This task is already queued or downloading.",
+		"download.retry_credentials": "Paste the original URL with its access credentials again.",
+
 		// errhint.go — cookie source description
 		"hint.cookies.browser":     "Currently using browser cookies: %s.",
 		"hint.cookies.file":        "Currently using cookies file: %s.",

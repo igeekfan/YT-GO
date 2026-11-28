@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,22 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/lrstanley/go-ytdlp"
 )
-
-// isValidDownloadURL checks that the URL uses http or https protocol.
-func isValidDownloadURL(rawURL string) bool {
-	// Extract URL from possible text wrapping (e.g. pasted text with surrounding content)
-	trimmed := strings.TrimSpace(rawURL)
-	// Handle URL-encoded variants
-	if strings.HasPrefix(trimmed, "file://") || strings.HasPrefix(trimmed, "file:") {
-		return false
-	}
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return false
-	}
-	scheme := strings.ToLower(parsed.Scheme)
-	return scheme == "http" || scheme == "https"
-}
 
 func (s *Service) cleanupTransientDownloads() error {
 	db := s.database()
@@ -59,31 +42,24 @@ func (s *Service) loadFromDB() error {
 	return nil
 }
 
-func (s *Service) StartDownload(req DownloadRequest) (string, error) {
-	// Validate URL protocol: only allow http/https.
-	req.URL = extractURLFromText(req.URL)
-	if req.URL == "" {
-		return "", fmt.Errorf("URL is required")
-	}
-	if !isValidDownloadURL(req.URL) {
-		return "", fmt.Errorf("invalid URL: only http and https protocols are allowed")
-	}
-	// Override output dir with YTGO_DOWNLOAD_DIR if configured (web mode)
-	outputDir := req.OutputDir
-	if s.downloadDir != "" {
-		outputDir = s.downloadDir
-		req.OutputDir = outputDir
-	}
-	return s.enqueueDownload(req, "")
-}
-
 func (s *Service) enqueueDownload(req DownloadRequest, ytdlpPath string) (string, error) {
 	req = cloneDownloadRequest(req)
+	if req.mediaOptions == nil {
+		opts := resolveDownloadMediaOptions(s.GetSettings(), req)
+		req.mediaOptions = &opts
+	}
 	taskID := uuid.New().String()
-	task := &DownloadTask{ID: taskID, URL: req.URL, OutputDir: req.OutputDir, Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339)}
+	task := &DownloadTask{
+		ID: taskID, URL: downloadHistoryURL(req.URL), OutputDir: req.OutputDir,
+		Quality: req.Quality, Status: "pending", CreatedAt: time.Now().Format(time.RFC3339),
+		mediaOptions: req.mediaOptions,
+	}
+	if task.URL != req.URL {
+		task.sourceURL = req.URL
+	}
 	if req.VideoInfo != nil {
 		task.Title = req.VideoInfo.Title
-		task.Thumbnail = req.VideoInfo.Thumbnail
+		task.Thumbnail = downloadHistoryURL(req.VideoInfo.Thumbnail)
 	}
 	control := newDownloadControl(context.Background())
 	job := downloadJob{taskID: taskID, request: req, ytdlpPath: ytdlpPath, control: control, ready: make(chan struct{})}

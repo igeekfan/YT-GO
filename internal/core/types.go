@@ -36,6 +36,8 @@ type DownloadRequest struct {
 	Quality   string           `json:"quality"`
 	VideoInfo *VideoInfo       `json:"videoInfo"`
 	Options   *DownloadOptions `json:"options"`
+
+	mediaOptions *downloadMediaOptions
 }
 
 type DownloadOptions struct {
@@ -67,6 +69,9 @@ type DownloadTask struct {
 	OutputDir  string  `json:"outputDir"`
 	Error      string  `json:"error"`
 	CreatedAt  string  `json:"createdAt"`
+
+	mediaOptions *downloadMediaOptions
+	sourceURL    string
 }
 
 type PlaylistInfo struct {

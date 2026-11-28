@@ -14,6 +14,7 @@ import (
 
 func (s *Service) buildDownloadCommand(ctx context.Context, req DownloadRequest, ytdlpPath string) (*exec.Cmd, error) {
 	settings := s.GetSettings()
+	options := req.mediaOptions
 
 	builder := s.newYtdlpCommand().SetExecutable(ytdlpPath)
 	builder.SetSeparateProcessGroup(true)
@@ -25,69 +26,36 @@ func (s *Service) buildDownloadCommand(ctx context.Context, req DownloadRequest,
 		builder.WindowsFilenames()
 	}
 
-	outputTemplate := "%(title)s.%(ext)s"
-	if settings.FilenameTemplate != "" {
-		outputTemplate = settings.FilenameTemplate
-	}
-	if req.Options != nil && strings.TrimSpace(req.Options.FilenameTemplate) != "" {
-		outputTemplate = strings.TrimSpace(req.Options.FilenameTemplate)
-	}
 	builder.Newline()
 	builder.Progress().ProgressDelta(0.5).ProgressTemplate(structuredProgressPrefix + "%()j")
 	builder.Print("after_move:[YT-GO-OUTPUT]%(filepath)s")
-	builder.Output(filepath.Join(req.OutputDir, outputTemplate))
+	builder.Output(filepath.Join(req.OutputDir, options.FilenameTemplate))
 	builder.NoPlaylist()
 
-	if settings.RateLimit != "" {
-		builder.LimitRate(settings.RateLimit)
+	if options.RateLimit != "" {
+		builder.LimitRate(options.RateLimit)
 	}
 	if settings.Proxy != "" {
 		builder.Proxy(settings.Proxy)
 	}
-	if settings.MergeOutputFormat != "" && shouldApplyMergeOutputFormat(req.Quality) {
-		builder.MergeOutputFormat(settings.MergeOutputFormat)
+	if options.MergeOutputFormat != "" {
+		builder.MergeOutputFormat(options.MergeOutputFormat)
 	}
-	if requiresAudioExtraction(req.Quality) {
-		audioFmt := settings.AudioFormat
-		if audioFmt == "" && req.Quality == "audio" {
-			audioFmt = "mp3"
-		}
-		if audioFmt != "" {
-			builder.AudioFormat(audioFmt)
-		}
+	if options.AudioFormat != "" {
+		builder.AudioFormat(options.AudioFormat)
 	}
 
-	optSaveDescription := settings.SaveDescription
-	optSaveThumbnail := settings.SaveThumbnail
-	subtitleCfg := resolveSubtitleDownloadConfig(settings, req.Options)
-	optEmbedChapters := settings.EmbedChapters
-	optSponsorBlock := settings.SponsorBlock
-	if req.Options != nil {
-		if req.Options.SaveDescription != nil {
-			optSaveDescription = *req.Options.SaveDescription
-		}
-		if req.Options.SaveThumbnail != nil {
-			optSaveThumbnail = *req.Options.SaveThumbnail
-		}
-		if req.Options.EmbedChapters != nil {
-			optEmbedChapters = *req.Options.EmbedChapters
-		}
-		if req.Options.SponsorBlock != nil {
-			optSponsorBlock = *req.Options.SponsorBlock
-		}
-	}
-
-	if optSaveDescription {
+	if options.SaveDescription {
 		builder.WriteDescription()
 	}
-	if optSaveThumbnail {
+	if options.SaveThumbnail {
 		builder.WriteThumbnail()
 	}
-	applySubtitleDownloadConfig(builder, subtitleCfg, req.URL)
-	if optEmbedChapters {
+	applySubtitleDownloadConfig(builder, options.Subtitles, req.URL)
+	if options.EmbedChapters {
 		builder.EmbedChapters()
 	}
-	if optSponsorBlock {
+	if options.SponsorBlock {
 		builder.SponsorblockMark("all")
 	}
 

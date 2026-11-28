@@ -2,11 +2,12 @@
 import {DownloadTask} from '../types'
 import {useI18n} from '../i18n/context'
 import DownloadItem from './DownloadItem'
-import {ClearCompleted, StartDownload} from '../lib/backend'
+import {ClearCompleted, RetryDownload} from '../lib/backend'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {Search, Trash2, RefreshCw} from 'lucide-react'
+import {toast} from 'sonner'
 
 interface Props {
     downloads: DownloadTask[]
@@ -19,18 +20,34 @@ function DownloadList({downloads, onUpdate}: Props) {
     const {t} = useI18n()
     const [searchQuery, setSearchQuery] = useState('')
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+    const [isRetrying, setIsRetrying] = useState(false)
 
     const hasCompleted = downloads.some(d => d.status === 'completed' || d.status === 'error' || d.status === 'cancelled')
     const retryable = downloads.filter(d => d.status === 'error' || d.status === 'cancelled')
 
-    const handleRetryTask = async (task: DownloadTask) => {
-        await StartDownload({
-            url: task.url, outputDir: task.outputDir, quality: task.quality || 'best',
-            videoInfo: task.title || task.thumbnail ? { url: task.url, title: task.title, thumbnail: task.thumbnail } : undefined,
-        })
+    const retryTasks = async (tasks: DownloadTask[]) => {
+        if (isRetrying) return
+        setIsRetrying(true)
+        let queued = 0
+        const failures: string[] = []
+        try {
+            for (const task of tasks) {
+                try {
+                    await RetryDownload(task.id)
+                    queued++
+                } catch (error) {
+                    failures.push(error instanceof Error ? error.message : String(error))
+                }
+            }
+        } finally {
+            setIsRetrying(false)
+        }
+        if (queued === 1) toast.success(t('toast.downloadQueued'))
+        if (queued > 1) toast.success(t('toast.downloadQueuedCount', {count: queued}))
+        if (failures.length > 0) toast.error(`${t('toast.downloadRetryFail', {count: failures.length})} · ${failures[0]}`)
     }
 
-    const handleRetryAll = async () => { for (const task of retryable) { await handleRetryTask(task) } }
+    const handleRetryTask = (task: DownloadTask) => { void retryTasks([task]) }
 
     const handleClear = async () => {
         await ClearCompleted()
@@ -61,7 +78,7 @@ function DownloadList({downloads, onUpdate}: Props) {
                 <h2 className="text-sm font-semibold">{t('downloads.title')}</h2>
                 <div className="flex items-center gap-1">
                     {retryable.length > 0 && (
-                        <Button variant="ghost" size="sm" onClick={handleRetryAll} className="text-xs h-7 px-2">
+                        <Button variant="ghost" size="sm" onClick={() => retryTasks(retryable)} disabled={isRetrying} className="text-xs h-7 px-2">
                             <RefreshCw className="h-3 w-3 mr-1" />{t('downloads.retryFailed')}
                         </Button>
                     )}
@@ -96,7 +113,7 @@ function DownloadList({downloads, onUpdate}: Props) {
                 <div className="space-y-1.5 px-3 pb-3">
                     {sorted.map(task => (
                         <DownloadItem key={task.id} task={task} onCancelled={handleCancelled} onRemoved={handleRemoved}
-                            onRetry={handleRetryTask} onRedownload={handleRetryTask} />
+                            onRetry={handleRetryTask} onRedownload={handleRetryTask} retryDisabled={isRetrying} />
                     ))}
                 </div>
             )}

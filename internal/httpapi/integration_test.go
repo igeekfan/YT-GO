@@ -139,7 +139,11 @@ func newServerWithDownloadRecords(t *testing.T, root string, records []core.Down
 	t.Helper()
 	configBase := setTestUserConfigDir(t)
 	t.Setenv("YTGO_DOWNLOAD_DIR", "")
-	t.Setenv("YTGO_YTDLP_PATH", "")
+	fixture, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("YTGO_YTDLP_PATH", fixture)
 	appDir := filepath.Join(configBase, "YT-GO")
 	if runtime.GOOS == "darwin" {
 		appDir = filepath.Join(configBase, "Library", "Application Support", "YT-GO")

@@ -34,7 +34,7 @@ func (s *Service) runWechatChannelsDownload(taskID string, req DownloadRequest, 
 	s.emitDownloadLog(taskID, fmt.Sprintf("[YT-GO] WeChat Channels format: %s", formatID))
 
 	settings := s.GetSettings()
-	outputPath, err := buildWechatChannelsOutputPath(req, settings, resolved.Info, videoURL)
+	outputPath, err := buildWechatChannelsOutputPath(req.OutputDir, req.mediaOptions.FilenameTemplate, resolved.Info, videoURL)
 	if err != nil {
 		return downloadResult{}, err
 	}
@@ -53,7 +53,7 @@ func (s *Service) runWechatChannelsDownload(taskID string, req DownloadRequest, 
 		return downloadResult{}, err
 	}
 
-	s.saveWechatChannelsSidecars(ctx, taskID, outputPath, resolved.Info, settings, req.Options)
+	s.saveWechatChannelsSidecars(ctx, taskID, outputPath, resolved.Info, settings, *req.mediaOptions)
 	s.emitDownloadLog(taskID, "[YT-GO] WeChat Channels download completed")
 	return downloadResult{outputPath: outputPath}, nil
 }
@@ -116,8 +116,8 @@ func (s *Service) downloadWechatChannelsFile(ctx context.Context, taskID, videoU
 	return nil
 }
 
-func (s *Service) saveWechatChannelsSidecars(ctx context.Context, taskID, outputPath string, info VideoInfo, settings Settings, options *DownloadOptions) {
-	if shouldSaveThumbnail(settings, options) && strings.TrimSpace(info.Thumbnail) != "" {
+func (s *Service) saveWechatChannelsSidecars(ctx context.Context, taskID, outputPath string, info VideoInfo, settings Settings, options downloadMediaOptions) {
+	if options.SaveThumbnail && strings.TrimSpace(info.Thumbnail) != "" {
 		thumbnailPath, err := s.downloadWechatChannelsThumbnail(ctx, info.Thumbnail, outputPath, settings)
 		if err != nil {
 			s.emitDownloadLog(taskID, fmt.Sprintf(s.i18n.T("wechat.thumbnail_failed"), err.Error()))
@@ -125,7 +125,7 @@ func (s *Service) saveWechatChannelsSidecars(ctx context.Context, taskID, output
 			s.emitDownloadLog(taskID, fmt.Sprintf(s.i18n.T("wechat.thumbnail_saved"), thumbnailPath))
 		}
 	}
-	if shouldSaveDescription(settings, options) {
+	if options.SaveDescription {
 		descriptionPath := strings.TrimSuffix(outputPath, filepath.Ext(outputPath)) + ".description"
 		if err := os.WriteFile(descriptionPath, []byte(info.Title), 0o644); err != nil {
 			s.emitDownloadLog(taskID, fmt.Sprintf(s.i18n.T("wechat.description_failed"), err.Error()))

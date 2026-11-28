@@ -74,6 +74,14 @@ export interface DownloadTask {
     "createdAt": string;
 }
 
+export interface DownloadURLReview {
+    "line": number;
+    "url": string;
+    "key": string;
+    "status": string;
+    "error": string;
+}
+
 export interface Format {
     "formatId": string;
     "ext": string;

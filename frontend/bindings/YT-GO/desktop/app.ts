@@ -113,6 +113,14 @@ export function ResetSettings(): $CancellablePromise<void> {
     return $Call.ByID(3616125275);
 }
 
+export function RetryDownload(taskID: string): $CancellablePromise<string> {
+    return $Call.ByID(2942088203, taskID);
+}
+
+export function ReviewDownloadURLs(input: string): $CancellablePromise<$models.DownloadURLReview[] | null> {
+    return $Call.ByID(2436529045, input);
+}
+
 export function SaveSettings(s: $models.Settings): $CancellablePromise<void> {
     return $Call.ByID(1843965199, s);
 }

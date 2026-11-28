@@ -144,6 +144,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/video/formats", s.handleFormats)
 	s.mux.HandleFunc("/api/video/playlist", s.handlePlaylist)
 	s.mux.HandleFunc("/api/downloads", s.handleDownloads)
+	s.mux.HandleFunc("/api/downloads/review", s.handleDownloadReview)
 	s.mux.HandleFunc("/api/downloads/", s.handleDownloadAction)
 }
 

@@ -1,4 +1,4 @@
-import {lazy, Suspense} from 'react'
+import {lazy, Suspense, useId, useState} from 'react'
 import {backendMode, getWebConfig} from '../../lib/backend'
 import {MediaDownloadController} from '../../hooks/useMediaDownload'
 import {SettingsController} from '../../hooks/useSettingsController'
@@ -7,7 +7,9 @@ import {useI18n} from '../../i18n/context'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
 import {Download, FolderOpen, RefreshCw, Search, X} from 'lucide-react'
+import BatchDownloadPanel from './BatchDownloadPanel'
 
 const MediaSummary = lazy(() => import('./MediaSummary'))
 const FormatSelector = lazy(() => import('./FormatSelector'))
@@ -36,7 +38,27 @@ export default function DownloadWorkspace({
     onOpenSettings,
 }: Props) {
     const {t} = useI18n()
+    const [inputMode, setInputMode] = useState('single')
+    const directoryId = useId()
     const hasResolvedMedia = !!(media.videoInfo || media.playlistInfo)
+    const hasFixedDir = backendMode === 'web' && getWebConfig()?.hasFixedDir === true
+    const directoryField = !hasFixedDir && (
+        <div className="space-y-1.5">
+            <Label htmlFor={directoryId} className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('outputDir.label')}</Label>
+            <div className="flex gap-2">
+                <Input
+                    id={directoryId}
+                    type="text"
+                    value={settings.outputDir}
+                    onChange={event => settings.setOutputDir(event.target.value)}
+                    placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : t('outputDir.placeholder')}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={backendMode === 'desktop' ? media.selectFolder : onBrowseDirectory}>
+                    <FolderOpen className="h-4 w-4 mr-1" />{t('outputDir.browse')}
+                </Button>
+            </div>
+        </div>
+    )
 
     return (
         <>
@@ -47,54 +69,55 @@ export default function DownloadWorkspace({
             )}
 
             {ytdlp && (
-                <div className="flex gap-2.5 items-center animate-fade-in-up">
-                    <div className="relative flex-1">
-                        <Input
-                            type="text"
-                            value={media.url}
-                            onChange={event => media.handleURLChange(event.target.value)}
-                            onKeyDown={event => { if (event.key === 'Enter') void media.getInfo() }}
-                            placeholder={t('url.placeholder')}
-                            disabled={media.isGettingInfo}
-                            className="h-10 bg-card/60 pr-8 text-sm backdrop-blur-xs"
-                        />
-                        {media.url && (
-                            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground" onClick={media.clearCurrentInput} aria-label={t('action.clear')}>
-                                <X className="h-3 w-3" />
+                <Tabs value={inputMode} onValueChange={setInputMode}>
+                    <TabsList aria-label={t('url.mode')}>
+                        <TabsTrigger value="single">{t('url.single')}</TabsTrigger>
+                        <TabsTrigger value="batch">{t('batch.tab')}</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="single">
+                        <div className="flex gap-2.5 items-center animate-fade-in-up">
+                            <div className="relative flex-1">
+                                <Input
+                                    type="text"
+                                    value={media.url}
+                                    onChange={event => media.handleURLChange(event.target.value)}
+                                    onKeyDown={event => { if (event.key === 'Enter') void media.getInfo() }}
+                                    placeholder={t('url.placeholder')}
+                                    disabled={media.isGettingInfo}
+                                    className="h-10 bg-card/60 pr-8 text-sm backdrop-blur-xs"
+                                />
+                                {media.url && (
+                                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground" onClick={media.clearCurrentInput} aria-label={t('action.clear')}>
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                )}
+                            </div>
+                            <Button onClick={media.getInfo} disabled={media.isGettingInfo || !media.url.trim()} className="h-10 px-5 font-semibold shadow-xs hover:shadow-md transition-shadow">
+                                {media.isGettingInfo ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+                                {media.isGettingInfo ? t('url.gettingInfo') : t('url.getInfo')}
                             </Button>
-                        )}
-                    </div>
-                    <Button onClick={media.getInfo} disabled={media.isGettingInfo || !media.url.trim()} className="h-10 px-5 font-semibold shadow-xs hover:shadow-md transition-shadow">
-                        {media.isGettingInfo ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-                        {media.isGettingInfo ? t('url.gettingInfo') : t('url.getInfo')}
-                    </Button>
-                </div>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="batch" forceMount className="data-[state=inactive]:hidden">
+                        <BatchDownloadPanel
+                            outputDir={settings.outputDir}
+                            hasFixedDir={hasFixedDir}
+                            quality={settings.quality}
+                            directoryField={inputMode === 'batch' && directoryField}
+                        />
+                    </TabsContent>
+                </Tabs>
             )}
 
-            {hasResolvedMedia && (
+            {inputMode === 'single' && hasResolvedMedia && (
                 <Suspense fallback={null}>
                     <MediaSummary media={media} />
                 </Suspense>
             )}
 
-            {hasResolvedMedia && (
+            {inputMode === 'single' && hasResolvedMedia && (
                 <div className="rounded-xl border bg-card/70 backdrop-blur-xs p-4 space-y-3.5 shadow-xs animate-fade-in-up delay-2">
-                    {!(backendMode === 'web' && getWebConfig()?.hasFixedDir) && (
-                        <div className="space-y-1.5">
-                            <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('outputDir.label')}</Label>
-                            <div className="flex gap-2">
-                                <Input
-                                    type="text"
-                                    value={settings.outputDir}
-                                    onChange={event => settings.setOutputDir(event.target.value)}
-                                    placeholder={backendMode === 'web' ? t('outputDir.serverPathPlaceholder') : t('outputDir.placeholder')}
-                                />
-                                <Button variant="outline" size="sm" onClick={backendMode === 'desktop' ? media.selectFolder : onBrowseDirectory}>
-                                    <FolderOpen className="h-4 w-4 mr-1" />{t('outputDir.browse')}
-                                </Button>
-                            </div>
-                        </div>
-                    )}
+                    {directoryField}
 
                     {media.videoInfo && (
                         <Suspense fallback={null}>
@@ -104,7 +127,7 @@ export default function DownloadWorkspace({
                     )}
 
                     <div className="flex gap-2.5 flex-wrap items-center pt-1">
-                        {backendMode === 'web' && !getWebConfig()?.hasFixedDir && !settings.outputDir && (
+                        {backendMode === 'web' && !hasFixedDir && !settings.outputDir && (
                             <div className="flex items-center gap-2 mr-auto text-yellow-500 text-sm">
                                 <span>{t('web.noDirHint')}</span>
                                 <Button variant="outline" size="sm" onClick={onOpenSettings}>{t('web.openSettings')}</Button>

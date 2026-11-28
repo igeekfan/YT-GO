@@ -220,16 +220,14 @@ func TestWechatChannelsSidecarsAreWritten(t *testing.T) {
 
 	dir := t.TempDir()
 	outputPath := filepath.Join(dir, "video.mp4")
-	saveThumbnail := true
-	saveDescription := true
 	service := NewService("test")
 	service.outboundPolicy = passthroughNetworkPolicy{}
 	service.saveWechatChannelsSidecars(context.Background(), "task", outputPath, VideoInfo{
 		Title:     "video description",
 		Thumbnail: server.URL + "/cover",
-	}, Settings{}, &DownloadOptions{
-		SaveThumbnail:   &saveThumbnail,
-		SaveDescription: &saveDescription,
+	}, Settings{}, downloadMediaOptions{
+		SaveThumbnail:   true,
+		SaveDescription: true,
 	})
 
 	thumbnail, err := os.ReadFile(filepath.Join(dir, "video.png"))

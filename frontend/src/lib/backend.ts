@@ -173,6 +173,26 @@ export function StartDownload(request: DownloadRequestPayload) {
     )
 }
 
+export function ReviewDownloadURLs(input: string) {
+    return getDesktop(
+        async app => (await app.ReviewDownloadURLs(input)) ?? [],
+        () => apiFetch<DesktopModels.DownloadURLReview[]>('/api/downloads/review', {
+            method: 'POST',
+            body: JSON.stringify({input}),
+        })
+    )
+}
+
+export function RetryDownload(id: string) {
+    return getDesktop(
+        app => app.RetryDownload(id),
+        async () => {
+            const result = await apiFetch<{id: string}>(`/api/downloads/${encodeURIComponent(id)}/retry`, {method: 'POST'})
+            return result.id
+        }
+    )
+}
+
 export function GetDownloads() {
     return getDesktop(
         async app => (await app.GetDownloads() ?? []).filter(task => task !== null),
