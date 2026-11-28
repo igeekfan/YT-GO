@@ -20,6 +20,12 @@ func (s *Server) handleDownloads(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
+		if req.Options != nil && req.Options.SingleItem {
+			if err := s.service.ValidateSingleDownloadURL(req.URL); err != nil {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+		}
 		settings, err := s.validateStoredWebSettings(r.Context())
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)

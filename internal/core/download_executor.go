@@ -37,6 +37,9 @@ func (s *Service) buildDownloadCommand(ctx context.Context, req DownloadRequest,
 	builder.Print("after_move:[YT-GO-OUTPUT]%(filepath)s")
 	builder.Output(filepath.Join(req.OutputDir, outputTemplate))
 	builder.NoPlaylist()
+	if req.Options != nil && req.Options.SingleItem {
+		builder.PlaylistItems("1")
+	}
 
 	if settings.RateLimit != "" {
 		builder.LimitRate(settings.RateLimit)
@@ -44,11 +47,24 @@ func (s *Service) buildDownloadCommand(ctx context.Context, req DownloadRequest,
 	if settings.Proxy != "" {
 		builder.Proxy(settings.Proxy)
 	}
-	if settings.MergeOutputFormat != "" && shouldApplyMergeOutputFormat(req.Quality) {
+	videoContainer := ""
+	if req.Options != nil {
+		videoContainer = req.Options.VideoContainer
+	}
+	if videoContainer != "" && videoContainer != "auto" && !requiresAudioExtraction(req.Quality) {
+		builder.RecodeVideo(videoContainer)
+	}
+	if videoContainer == "" && settings.MergeOutputFormat != "" && shouldApplyMergeOutputFormat(req.Quality) {
 		builder.MergeOutputFormat(settings.MergeOutputFormat)
 	}
 	if requiresAudioExtraction(req.Quality) {
 		audioFmt := settings.AudioFormat
+		if req.Options != nil && req.Options.AudioFormat != "" {
+			audioFmt = req.Options.AudioFormat
+			if audioFmt == "default" {
+				audioFmt = ""
+			}
+		}
 		if audioFmt == "" && req.Quality == "audio" {
 			audioFmt = "mp3"
 		}

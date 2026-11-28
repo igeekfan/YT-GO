@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"YT-GO/internal/core"
 	"YT-GO/internal/netpolicy"
 )
 
@@ -289,27 +290,7 @@ func pathWithinRoot(root, candidate string) bool {
 }
 
 func validateFilenameTemplate(value string) error {
-	if value == "" {
-		return nil
-	}
-	if value != strings.TrimSpace(value) {
-		return fmt.Errorf("filename template must not have leading or trailing whitespace")
-	}
-	if len(value) > 512 {
-		return fmt.Errorf("filename template is too long")
-	}
-	if value == "." || value == ".." || filepath.IsAbs(value) || filepath.VolumeName(value) != "" {
-		return fmt.Errorf("filename template must be a file name, not a path")
-	}
-	if strings.ContainsAny(value, `/\\`) {
-		return fmt.Errorf("filename template must not contain path separators")
-	}
-	for _, char := range value {
-		if char == 0 || char < 0x20 || char == 0x7f {
-			return fmt.Errorf("filename template contains control characters")
-		}
-	}
-	return nil
+	return core.ValidateDownloadFilenameTemplate(value)
 }
 
 func ValidateListenAddress(address, authToken string) error {

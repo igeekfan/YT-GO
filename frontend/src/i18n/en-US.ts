@@ -51,6 +51,23 @@ const enUS: typeof import('./zh-CN').default = {
     'download.start': 'Download',
     'download.downloading': 'Downloading...',
     'download.noDir': 'Please select a save directory',
+    'download.link': 'Video link',
+    'download.quick': 'Quick Download',
+    'download.invalidLink': 'Enter one valid HTTP or HTTPS link.',
+    'download.taskOptions': 'Options for this download',
+    'download.resetTaskOptions': 'Reset task options',
+    'format.usePreset': 'Use preset quality',
+
+    'profile.title': 'Download Profiles',
+    'profile.active': 'Download profile',
+    'profile.defaults': 'App defaults',
+    'profile.manage': 'Manage profiles',
+    'profile.new': 'New profile',
+    'profile.edit': 'Edit profile',
+    'profile.delete': 'Delete profile',
+    'profile.name': 'Profile name',
+    'profile.nameRequired': 'Enter a profile name.',
+    'profile.directoryHint': 'Leave blank to use the default download directory.',
 
     'downloads.title': 'Downloads',
     'downloads.empty': 'No downloads yet',
@@ -229,7 +246,7 @@ const enUS: typeof import('./zh-CN').default = {
     'settings.appUpdateError': 'Failed to start the update',
 
     'downloadOpt.filenameTemplate': 'Filename (This Download Only)',
-    'downloadOpt.filenameTemplateHelp': 'Uses yt-dlp template syntax; leave empty to use the global template from Settings. Common placeholders:',
+    'downloadOpt.filenameTemplateHelp': 'Uses yt-dlp template syntax. Leave blank to use the active profile or app template.',
 
     'format.label': 'Format',
     'format.detect': 'Detect',

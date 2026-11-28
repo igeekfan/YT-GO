@@ -50,6 +50,9 @@ type DownloadOptions struct {
 	EmbedSubtitles    *bool  `json:"embedSubtitles"`
 	SponsorBlock      *bool  `json:"sponsorBlock"`
 	FilenameTemplate  string `json:"filenameTemplate"`
+	VideoContainer    string `json:"videoContainer,omitempty"`
+	AudioFormat       string `json:"audioFormat,omitempty"`
+	SingleItem        bool   `json:"singleItem,omitempty"`
 }
 
 type DownloadTask struct {
@@ -79,27 +82,28 @@ type PlaylistInfo struct {
 }
 
 type Settings struct {
-	OutputDir         string `json:"outputDir"`
-	Quality           string `json:"quality"`
-	Language          string `json:"language"`
-	Theme             string `json:"theme"`
-	Proxy             string `json:"proxy"`
-	UpdateProxy       string `json:"updateProxy"`
-	RateLimit         string `json:"rateLimit"`
-	MaxConcurrent     int    `json:"maxConcurrent"`
-	Notifications     bool   `json:"notifications"`
-	SaveDescription   bool   `json:"saveDescription"`
-	SaveThumbnail     bool   `json:"saveThumbnail"`
-	WriteSubtitles    bool   `json:"writeSubtitles"`
-	SubtitleLangs     string `json:"subtitleLangs"`
-	EmbedSubtitles    bool   `json:"embedSubtitles"`
-	EmbedChapters     bool   `json:"embedChapters"`
-	SponsorBlock      bool   `json:"sponsorBlock"`
-	FilenameTemplate  string `json:"filenameTemplate"`
-	MergeOutputFormat string `json:"mergeOutputFormat"`
-	AudioFormat       string `json:"audioFormat"`
-	CookiesFrom       string `json:"cookiesFrom"`
-	CookiesFile       string `json:"cookiesFile"`
+	OutputDir         string           `json:"outputDir"`
+	Quality           string           `json:"quality"`
+	Language          string           `json:"language"`
+	Theme             string           `json:"theme"`
+	Proxy             string           `json:"proxy"`
+	UpdateProxy       string           `json:"updateProxy"`
+	RateLimit         string           `json:"rateLimit"`
+	MaxConcurrent     int              `json:"maxConcurrent"`
+	Notifications     bool             `json:"notifications"`
+	SaveDescription   bool             `json:"saveDescription"`
+	SaveThumbnail     bool             `json:"saveThumbnail"`
+	WriteSubtitles    bool             `json:"writeSubtitles"`
+	SubtitleLangs     string           `json:"subtitleLangs"`
+	EmbedSubtitles    bool             `json:"embedSubtitles"`
+	EmbedChapters     bool             `json:"embedChapters"`
+	SponsorBlock      bool             `json:"sponsorBlock"`
+	FilenameTemplate  string           `json:"filenameTemplate"`
+	MergeOutputFormat string           `json:"mergeOutputFormat"`
+	AudioFormat       string           `json:"audioFormat"`
+	CookiesFrom       string           `json:"cookiesFrom"`
+	CookiesFile       string           `json:"cookiesFile"`
+	DownloadProfiles  DownloadProfiles `json:"downloadProfiles"`
 }
 
 type Format struct {

@@ -7,8 +7,8 @@ import (
 
 func TestSettingDefinitionsAreIndependent(t *testing.T) {
 	definitions := SettingDefinitions()
-	if len(definitions) != 21 {
-		t.Fatalf("definitions=%d, want 21", len(definitions))
+	if len(definitions) != 22 {
+		t.Fatalf("definitions=%d, want 22", len(definitions))
 	}
 	definitions[0].Key = "changed"
 	if SettingDefinitions()[0].Key == "changed" {

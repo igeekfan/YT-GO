@@ -52,6 +52,24 @@ const zhCN = {
     'download.downloading': '下载中...',
     'download.noDir': '请选择保存目录',
 
+    'download.link': '视频链接',
+    'download.quick': '快速下载',
+    'download.invalidLink': '请输入一个有效的 HTTP 或 HTTPS 链接。',
+    'download.taskOptions': '本次下载选项',
+    'download.resetTaskOptions': '重置本次下载选项',
+    'format.usePreset': '使用预设画质',
+
+    'profile.title': '下载方案',
+    'profile.active': '下载方案',
+    'profile.defaults': '应用默认设置',
+    'profile.manage': '管理下载方案',
+    'profile.new': '新建方案',
+    'profile.edit': '编辑方案',
+    'profile.delete': '删除方案',
+    'profile.name': '方案名称',
+    'profile.nameRequired': '请输入方案名称。',
+    'profile.directoryHint': '留空则使用默认下载目录。',
+
     'downloads.title': '下载列表',
     'downloads.empty': '暂无下载任务',
     'downloads.clearCompleted': '清除已完成',
@@ -262,7 +280,7 @@ const zhCN = {
     'downloadOpt.subtitleAuto': '自动生成',
     'downloadOpt.noSubtitles': '该视频无可用字幕',
     'downloadOpt.filenameTemplate': '文件名（仅此次）',
-    'downloadOpt.filenameTemplateHelp': '使用 yt-dlp 模板语法；留空则用设置中的全局模板。常用占位符：',
+    'downloadOpt.filenameTemplateHelp': '使用 yt-dlp 模板语法。留空则使用当前方案或应用默认模板。',
 
     'notification.downloadComplete': '下载完成',
 

@@ -56,6 +56,11 @@ export default function FormatSelector({media}: {media: MediaDownloadController}
 
                         {formatMode === 'single' && (
                             <div className="max-h-52 overflow-y-auto rounded-lg border">
+                                <label className={`flex items-start gap-2 px-2.5 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b ${!selectedFormat ? 'bg-primary/5' : ''}`}>
+                                    <input type="radio" name="format-single" checked={!selectedFormat} onChange={() => setSelectedFormat('')}
+                                        className="mt-0.5 accent-primary" />
+                                    <span>{t('format.usePreset')}</span>
+                                </label>
                                 {sortFormats(formatInfo.formats.filter(format => format.hasVideo || format.hasAudio)).map(format => (
                                     <label key={format.formatId} className={`flex items-start gap-2 px-2.5 py-2 text-xs cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${selectedFormat === format.formatId ? 'bg-primary/5' : ''}`}>
                                         <input type="radio" name="format-single" checked={selectedFormat === format.formatId}

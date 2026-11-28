@@ -3,6 +3,7 @@ import type * as desktop from '../bindings/YT-GO/desktop/models'
 export type {
     DownloadOptions, DownloadRequest, DownloadTask, Format, SubtitleLang, YtDlpStatus,
 } from '../bindings/YT-GO/desktop/models'
+export type {DownloadProfile, DownloadProfiles} from '../bindings/YT-GO/internal/core/models'
 
 export type VideoInfo = Omit<desktop.VideoInfo, 'subtitles'> & {subtitles: desktop.SubtitleLang[]}
 export type PlaylistInfo = Omit<desktop.PlaylistInfo, 'videos'> & {videos: desktop.VideoInfo[]}

@@ -60,6 +60,16 @@ func (s *Service) loadFromDB() error {
 }
 
 func (s *Service) StartDownload(req DownloadRequest) (string, error) {
+	if req.Options != nil {
+		if req.Options.SingleItem {
+			if err := s.ValidateSingleDownloadURL(req.URL); err != nil {
+				return "", err
+			}
+		}
+		if err := validateDownloadFormats(s.i18n, req.Options.VideoContainer, req.Options.AudioFormat); err != nil {
+			return "", err
+		}
+	}
 	// Validate URL protocol: only allow http/https.
 	req.URL = extractURLFromText(req.URL)
 	if req.URL == "" {
@@ -397,6 +407,8 @@ func resolveSubtitleDownloadConfig(settings Settings, opts *DownloadOptions) sub
 	}
 	if opts.WriteSubtitles != nil {
 		cfg.WriteSubtitles = *opts.WriteSubtitles
+		cfg.WriteManualSubs = cfg.WriteSubtitles
+		cfg.WriteAutoSubs = cfg.WriteSubtitles
 	}
 	if opts.WriteManualSubs != nil {
 		cfg.WriteManualSubs = *opts.WriteManualSubs

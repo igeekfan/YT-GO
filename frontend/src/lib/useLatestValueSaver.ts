@@ -4,12 +4,13 @@ interface LatestValueSaverOptions<TInput, TResult = TInput> {
     save: (value: TInput) => Promise<TResult>
     onSaved: (value: TResult) => void
     onError: (error: unknown) => void
+    mergePending?: (current: TInput, next: TInput) => TInput
     delay?: number
 }
 
 // Debounces bursts and serializes writes. If changes arrive while a request is
 // in flight, only the newest pending snapshot is persisted next.
-export function useLatestValueSaver<TInput, TResult = TInput>({save, onSaved, onError, delay = 250}: LatestValueSaverOptions<TInput, TResult>) {
+export function useLatestValueSaver<TInput, TResult = TInput>({save, onSaved, onError, mergePending, delay = 250}: LatestValueSaverOptions<TInput, TResult>) {
     const saveRef = useRef(save)
     const onSavedRef = useRef(onSaved)
     const onErrorRef = useRef(onError)
@@ -57,10 +58,10 @@ export function useLatestValueSaver<TInput, TResult = TInput>({save, onSaved, on
     }, [])
 
     const schedule = useCallback((value: TInput) => {
-        pendingRef.current = value
+        pendingRef.current = pendingRef.current !== null && mergePending ? mergePending(pendingRef.current, value) : value
         if (timerRef.current !== null) clearTimeout(timerRef.current)
         timerRef.current = setTimeout(() => { void flush() }, delay)
-    }, [delay, flush])
+    }, [delay, flush, mergePending])
 
     useEffect(() => () => {
         if (timerRef.current !== null) clearTimeout(timerRef.current)

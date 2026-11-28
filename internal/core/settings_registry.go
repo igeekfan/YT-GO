@@ -40,6 +40,7 @@ var settingDefinitions = []SettingDefinition{
 	{Key: "audioFormat", Type: "string", Resettable: true},
 	{Key: "cookiesFrom", Type: "string", Sensitive: true, Resettable: true},
 	{Key: "cookiesFile", Type: "string", Sensitive: true, Resettable: true},
+	{Key: "downloadProfiles", Type: "object", Resettable: true},
 }
 
 // SettingDefinitions returns a copy so callers cannot mutate the registry.
@@ -100,15 +101,8 @@ func MergeSettingsPatch(current Settings, patch SettingsPatch) (Settings, error)
 
 // ValidateSettings applies storage-level validation shared by desktop and web callers.
 func ValidateSettings(settings Settings) error {
-	if settings.OutputDir != "" {
-		cleaned := filepath.Clean(settings.OutputDir)
-		lower := strings.ToLower(cleaned)
-		sensitivePaths := []string{"/", "/etc", "/proc", "/sys", "/dev", "/boot", "/usr", "/bin", "/sbin", "/var", "c:\\", "c:/", "c:\\windows", "c:\\program files"}
-		for _, path := range sensitivePaths {
-			if lower == path || lower == path+"/" || lower == path+"\\" {
-				return fmt.Errorf("output directory cannot be a system path: %s", cleaned)
-			}
-		}
+	if err := validateSettingsOutputDir(settings.OutputDir); err != nil {
+		return err
 	}
 	if settings.Proxy != "" {
 		if err := validateProxyValue(settings.Proxy, false); err != nil {
@@ -122,6 +116,21 @@ func ValidateSettings(settings Settings) error {
 	}
 	if settings.MaxConcurrent < 1 || settings.MaxConcurrent > 10 {
 		return fmt.Errorf("max concurrent downloads must be between 1 and 10, got: %d", settings.MaxConcurrent)
+	}
+	return validateDownloadProfiles(settings.DownloadProfiles, settings.Language)
+}
+
+func validateSettingsOutputDir(outputDir string) error {
+	if outputDir == "" {
+		return nil
+	}
+	cleaned := filepath.Clean(outputDir)
+	lower := strings.ToLower(cleaned)
+	sensitivePaths := []string{"/", "/etc", "/proc", "/sys", "/dev", "/boot", "/usr", "/bin", "/sbin", "/var", "c:\\", "c:/", "c:\\windows", "c:\\program files"}
+	for _, path := range sensitivePaths {
+		if lower == path || lower == path+"/" || lower == path+"\\" {
+			return fmt.Errorf("output directory cannot be a system path: %s", cleaned)
+		}
 	}
 	return nil
 }
@@ -147,6 +156,8 @@ func validateProxyValue(raw string, allowDirect bool) error {
 
 // ApplySettingsPatch validates and persists only the requested settings.
 func (s *Service) ApplySettingsPatch(patch SettingsPatch) (Settings, error) {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
 	settings, err := MergeSettingsPatch(s.GetSettings(), patch)
 	if err != nil {
 		return Settings{}, err
@@ -156,6 +167,9 @@ func (s *Service) ApplySettingsPatch(patch SettingsPatch) (Settings, error) {
 
 // applySettingsFromRegistry persists a complete Settings value through the registry path.
 func (s *Service) applySettingsFromRegistry(settings Settings) (Settings, error) {
+	if settings.DownloadProfiles.Items == nil {
+		settings.DownloadProfiles.Items = []DownloadProfile{}
+	}
 	if err := ValidateSettings(settings); err != nil {
 		return Settings{}, err
 	}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"YT-GO/internal/core"
 )
@@ -19,6 +20,7 @@ type Server struct {
 	fixedDir   string
 	corsOrigin string // allowed CORS origin, empty means same-origin only
 	authToken  string // bearer token for web auth, empty means no auth
+	settingsMu sync.Mutex
 }
 
 type serverOptions struct {
