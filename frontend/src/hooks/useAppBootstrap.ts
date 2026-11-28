@@ -6,7 +6,6 @@ import {
     GetSettings,
     InstallYtDlp,
     IsFirstRun,
-    NeedsCookieConfig,
     UpdateYtDlp,
 } from '../lib/backend'
 import {AuthStatus} from '../lib/auth'
@@ -45,7 +44,7 @@ export function useAppBootstrap(authStatus: AuthStatus, applySettings: (settings
                 try {
                     const firstRun = await IsFirstRun()
                     if (!active) return
-                    if (firstRun || await NeedsCookieConfig()) setShowSetupWizard(true)
+                    if (firstRun) setShowSetupWizard(true)
                 } catch {
                     if (active) setShowSetupWizard(true)
                 }
